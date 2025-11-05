@@ -65,12 +65,15 @@ Then, visit our Download Center to download the latest qbcompiler wheel file. Af
 Runtime tutorial should work with environment equipped with Mobilint NPU. 
 
 ## Compilation
-
-<center><img src="assets/Compiler.avif" width="75%"></center>
+<div align="center">
+<img src="assets/Compiler.avif" width="75%">
+</div>
 
 ## Runtime
 
-<center><img src="assets/Runtime.avif" width="75%"></center>
+<div align="center">
+<img src="assets/Runtime.avif" width="75%">
+</div>
 
 Runtime tutorial includes 
 
