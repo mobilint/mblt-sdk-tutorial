@@ -3,12 +3,10 @@
 <div align="center">
 <p>
 <a href="https://www.mobilint.com/" target="_blank">
-<img src="assets/Mobilint_Logo.png" alt="Mobilint Logo" width="60%">
+<img src="./assets/Mobilint_Logo.png" alt="Mobilint Logo" width="60%">
 </a>
 </p>
 </div>
-
-## Overview
 
 This repository provides examples and explanations to help users easily get started with the Mobilint SDK, which includes the compiler (qubee) and the runtime software (maccel) library.
 
@@ -29,7 +27,7 @@ The Mobilint qb compiler converts models from popular deep learning frameworks i
 Using a pre-trained model and a calibration dataset, the compiler parses, quantizes, and optimizes the model for execution on the Mobilint NPU.
 
 <div align="center">
-<img src="assets/Compiler.avif" width="75%">
+<img src="./assets/Compiler.avif" width="75%", alt="Compiler Diagram">
 </div>
 
 The qb compiler runs in a Linux environment with Docker installed.
@@ -44,10 +42,10 @@ In that case, you also need:
 - [NVIDIA Driver 535.183.01 or later](https://www.nvidia.com/en-us/drivers/)
 - [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/index.html#)
 
-After preparing the environment, download the latest qbcompiler image from[qbcompiler Docker Hub](https://hub.docker.com/r/mobilint/qbcompiler). Since version v0.11.\*.\*, two types of images are provided: 
+After preparing the environment, download the latest qbcompiler image from [qbcompiler Docker Hub](https://hub.docker.com/r/mobilint/qbcompiler). Since version v0.11.\*.\*, two types of images are provided: 
 
-- `{version}-cpu` for CPU compilation
-- `{version}-cuda` for GPU compilation
+- `{version}-cpu*` for CPU compilation
+- `{version}-cuda*` for GPU compilation
 
 Choose the image that matches your setup.
 For example, for version 0.11:
@@ -79,8 +77,8 @@ Example:
 docker run -it --ipc=host \
   -v {path_to_local_workspace}:{path_to_container_workspace} \
   --name {your_container_name} \
-  --gpus=all \
-  --device /dev/aries0:/dev/aries0 \
+  --gpus=all \ # Enable the access to the GPU on docker container
+  --device /dev/aries0:/dev/aries0 \ # Enable the access to the Mobilint NPU on docker container
   mobilint/qbcompiler:0.11-cuda12.8.1-ubuntu22.04
 ```
 
@@ -110,7 +108,7 @@ The runtime library enables execution of Mobilint-compiled models on the NPU.
 Using this library, you can integrate your compiled models into real-world applications.
 
 <div align="center">
-<img src="assets/Runtime.avif" width="75%">
+<img src="./assets/Runtime.avif" width="75%", alt="Runtime Diagram">
 </div>
 
 > Note: The environments for the compiler and runtime do not need to be the same. The runtime only requires a system equipped with a Mobilint NPU.
@@ -137,4 +135,4 @@ Please refer to the [runtime tutorial](runtime/README.md) for more information.
 
 ## Support & Issues
 
-If you encounter any issues while following this tutorial, please contact our [technical support team](mailto:tech-support@mobilint.com).
+If you encounter any issues while following this tutorial, please contact our [technical support email](mailto:tech-support@mobilint.com).
