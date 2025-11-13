@@ -490,7 +490,7 @@ processor = AutoProcessor.from_pretrained(".", use_fast=True)
 # Create pipeline
 pipe = pipeline(
     "image-text-to-text",
-    model=".",  # Current directory containing MXQ files
+    model=".",  # Current directory containing config files
     processor=processor,
 )
 
