@@ -4,7 +4,7 @@ Language Model Calibration Data Generation for Quantization
 This module generates calibration data for quantizing the Qwen2-VL language model (decoder).
 Each sample contains only the inputs_embeds tensor needed for calibration.
 
-Images are loaded from the converted_pngs/ folder (all 100 images), and diverse prompts
+Images are loaded from the images/ folder (all 100 images), and diverse prompts
 are automatically generated and cycled through to ensure calibration diversity.
 
 Output Structure:
@@ -88,7 +88,7 @@ def prepare_inputs(
 def create_diverse_samples() -> List[Dict]:
     """
     Create diverse calibration samples covering various scenarios.
-    Uses ALL local images from converted_pngs/ folder with diverse prompts.
+    Uses ALL local images from images/ folder with diverse prompts.
 
     Prompts are cycled through different types to ensure calibration diversity:
     - Short answers
@@ -106,10 +106,10 @@ def create_diverse_samples() -> List[Dict]:
     import glob
 
     # Base path for local images
-    base_path = "./converted_pngs"
+    base_path = "./images"
 
     # Get all PNG images in the folder
-    image_files = sorted(glob.glob(f"{base_path}/*.png"))
+    image_files = sorted(glob.glob(f"{base_path}/*.jpg"))
 
     if not image_files:
         raise FileNotFoundError(f"No PNG images found in {base_path}")

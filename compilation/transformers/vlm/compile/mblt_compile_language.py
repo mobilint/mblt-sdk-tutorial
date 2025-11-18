@@ -190,7 +190,7 @@ def compile_language_model(
     model,
     processor,
     messages: List[Dict],
-    output_path: str = "qwen2vl_language.mblt",
+    output_path: str = "mblt/Qwen2-VL-2B-Instruct_text_model.mblt",
     target_device: str = "aries2",
     num_blocks: Optional[int] = None,
     ignore_weight: bool = False,
@@ -386,7 +386,7 @@ if __name__ == "__main__":
 
     # Configuration
     model_name = "Qwen/Qwen2-VL-2B-Instruct"
-    output_path = "./qwen2vl_language.mblt"
+    output_path = "mblt/Qwen2-VL-2B-Instruct_text_model.mblt"
 
     # Load model and processor
     model, processor = load_model_and_processor(model_name)

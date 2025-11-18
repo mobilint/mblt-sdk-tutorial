@@ -11,14 +11,15 @@ In this tutorial, we will use the [Qwen2-VL-2B-Instruct](https://huggingface.co/
 
 ## Overview
 
-The VLM compilation and deployment process consists of four main stages:
+The VLM compilation process consists of three main stages:
 
 1. **Calibration Data Generation**: Create calibration datasets for quantization
 2. **MBLT Compilation**: Compile the model to MBLT (Mobilint Binary Layout) format
 3. **MXQ Compilation**: Apply advanced quantization and compile to MXQ format for deployment
-4. **Inference**: Run the compiled model on Aries 2 hardware using the Mobilint runtime
 
 The compilation process is performed separately for the **language model** (decoder) and **vision encoder** components.
+
+After compilation, you will have all necessary files in the `mxq/` directory ready for deployment on Aries 2 hardware.
 
 ## Prerequisites
 
@@ -26,31 +27,8 @@ Before starting, ensure you have:
 
 - Python 3.8 or higher
 - qubee SDK installed (version >= 0.12 required)
-- CUDA-capable GPU for calibration and compilation
-- HuggingFace account with access to the Qwen2-VL model
-- Sufficient disk space (~10GB for model + calibration data)
-
-### Model Preparation
-
-First, prepare the model by signing up on [HuggingFace](https://huggingface.co/) and signing the agreement on the [Qwen2-VL-2B-Instruct model page](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct).
-
-Then, obtain an access token from the [HuggingFace token management page](https://huggingface.co/settings/tokens). A read-only token is sufficient for downloading the model.
-
-Set up authentication via the HuggingFace CLI:
-
-```bash
-pip install huggingface_hub[cli]
-huggingface-cli login
-# Enter your access token when prompted
-```
-
-Download the model:
-
-```bash
-apt-get install git-lfs  # Install git-lfs if not installed
-git lfs install          # Initialize git-lfs
-git clone https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct
-```
+- (optional) CUDA-capable GPU for calibration and compilation
+- Sufficient disk space (~20GB for model + calibration data)
 
 ### Install Required Dependencies
 
@@ -60,23 +38,25 @@ Install the required Python packages for compilation:
 pip install transformers==4.50.3 torch torchvision qwen-vl-utils datasets
 ```
 
-For inference, you'll also need:
+### Download Calibration Images
+
+The calibration process uses images from the COCO dataset. A download script is provided to automatically fetch 100 images:
 
 ```bash
-pip install mblt-model-zoo
+cd calibration
+python download_images.py
 ```
 
-### Prepare Calibration Images
+**What it does:**
+- Downloads 100 images from the COCO 2017 validation set using HuggingFace datasets
+- Automatically resizes images to 224x224 resolution
+- Saves images to the `images/` directory as JPEG files
+- If COCO download fails, generates synthetic sample images as fallback
 
-The calibration scripts expect images in a `converted_pngs/` directory. Create this directory and add your calibration images (PNG format):
+**Output:**
+- `images/image_0000.jpg` through `images/image_0099.jpg`
 
-```bash
-mkdir -p converted_pngs
-# Add your PNG images to this directory
-# The scripts will use all images in this folder for calibration
-```
-
-The calibration scripts will automatically cycle through diverse prompts (detailed descriptions, visual reasoning, counting, spatial understanding, etc.) to ensure calibration diversity across all your images.
+The calibration scripts will automatically use all images in the `images/` directory and cycle through diverse prompts (detailed descriptions, visual reasoning, counting, spatial understanding, etc.) to ensure calibration diversity.
 
 ## Stage 1: Calibration Data Generation
 
@@ -102,7 +82,7 @@ python generate_language_calibration_data.py \
 - `--max-new-tokens`: Maximum tokens to generate per sample (captures longer sequences)
 
 **What it does:**
-- Loads all images from `converted_pngs/` folder
+- Loads all images from `images/` folder (100 JPEG images downloaded earlier)
 - Cycles through 20 diverse prompt types (object identification, detailed description, visual reasoning, spatial understanding, etc.)
 - Captures `inputs_embeds` tensors after vision features are merged into text embeddings
 - Saves calibration data as `.npy` files with metadata
@@ -138,7 +118,7 @@ python generate_vision_calibration_data.py \
 **Note:** Image size is fixed at 224x224 for vision encoder calibration.
 
 **What it does:**
-- Loads all images from `converted_pngs/` folder
+- Loads all images from `images/` folder (100 JPEG images downloaded earlier)
 - Cycles through diverse prompts (same as language calibration)
 - Captures vision encoder inputs (pixel values)
 - Reshapes to format compatible with Aries 2 architecture: `[896, 56, 6]`
@@ -255,7 +235,7 @@ python mxq_compile_language.py
 - Equivalent transformations: QK, UD (with learning), SPIN R1, SPIN R2
 
 **Output files:**
-- `qwen2vl_language.mxq`: Quantized model ready for Aries 2 deployment
+- `./mxq/Qwen2-VL-2B-Instruct_text_model.mxq`: Quantized model ready for Aries 2 deployment
 - `/tmp/qubee/spinWeight/qwen2vl_language/R1/global_rotation.pth`: Global rotation matrix (needed for vision encoder)
 
 ### Step 3.2: Compile Vision Encoder to MXQ
@@ -290,21 +270,82 @@ python mxq_compile_vision.py
 The vision encoder's output must be properly aligned with the language model's input space. The rotation matrix generated during language model quantization ensures that the vision features and text embeddings live in the same quantized space, maintaining accuracy when vision and language components are combined during inference.
 
 **Output files:**
-- `qwen2vl_vision.mxq`: Quantized model ready for Aries 2 deployment
+- `./mxq/Qwen2-VL-2B-Instruct_vision_transformer.mxq`: Quantized model ready for Aries 2 deployment
 
-## Complete Compilation and Inference Pipeline
+### Step 3.3: Prepare Inference Configuration Files
 
-Here's the complete sequence of commands to compile and run the full VLM:
+After compiling both models to MXQ format, you need to prepare the configuration files for inference. This step downloads the necessary model configuration files and prepares them for use with the compiled MXQ models.
+
+**Important:** This step must be done after completing both MXQ compilations (Steps 3.1 and 3.2) because it requires the rotation matrix from the language model compilation.
+
+#### Get Model Configuration
+
+First, download and prepare the model configuration file:
+
+```bash
+python get_config.py
+```
+
+**What it does:**
+- Downloads `config.json` from the HuggingFace model repository
+- Creates a `./mxq/` directory for inference files
+- Modifies the config to point to the compiled MXQ model files:
+  - Sets `mxq_path` to `"Qwen2-VL-2B-Instruct_text_model.mxq"`
+  - Sets `vision_config.mxq_path` to `"Qwen2-VL-2B-Instruct_vision_transformer.mxq"`
+- Updates model architecture settings:
+  - Changes `architectures` to `["MobilintQwen2VLForConditionalGeneration"]`
+  - Changes `model_type` to `'mobilint-qwen2_vl'`
+  - Sets `max_position_embeddings` to 32768
+  - Sets `sliding_window` to 32768
+  - Enables `tie_word_embeddings`
+- Saves the modified config to `./mxq/config.json`
+
+#### Get Model Embeddings
+
+Next, download and prepare the embedding weights with proper rotation:
+
+```bash
+python get_safetensors.py
+```
+
+**What it does:**
+- Downloads `model-00001-of-00002.safetensors` from HuggingFace (contains embedding weights)
+- Extracts the `model.embed_tokens.weight` tensor
+- Applies the rotation matrix from the language model MXQ compilation:
+  - Loads rotation matrix from: `/tmp/qubee/spinWeight/qwen2vl_language/R1/global_rotation.pth`
+  - Multiplies the embedding tensor with the rotation matrix to align with quantized space
+- Saves the rotated embedding tensor to `./mxq/model.safetensors`
+
+**Why embedding rotation is needed:**
+The embedding layer needs to be rotated with the same rotation matrix used during language model quantization. This ensures that the input embeddings are in the same quantized space as the rest of the language model, maintaining accuracy and consistency throughout the inference pipeline.
+
+**Output files:**
+- `./mxq/config.json`: Modified model configuration pointing to MXQ files
+- `./mxq/model.safetensors`: Rotated embedding weights aligned with quantized model
+
+**Important:** After running these scripts, you will have all 4 files needed for inference in the `./mxq/` directory:
+1. `Qwen2-VL-2B-Instruct_text_model.mxq` (compiled language model)
+2. `Qwen2-VL-2B-Instruct_vision_transformer.mxq` (compiled vision encoder)
+3. `config.json` (model configuration)
+4. `model.safetensors` (rotated embeddings)
+
+No additional file copying is required!
+
+## Complete Compilation Pipeline
+
+Here's the complete sequence of commands to compile the full VLM:
 
 ```bash
 # Stage 1: Calibration Data Generation
 cd /workspace/mblt-sdk-tutorial/compilation/vlm/calibration
 
+# Download calibration images from COCO dataset
+python download_images.py
+
 # Generate language calibration data
 python generate_language_calibration_data.py \
     --model-name Qwen/Qwen2-VL-2B-Instruct \
     --output-dir ./calibration_data/language \
-    --image-size 224 224 \
     --num-samples 100 \
     --max-new-tokens 500
 
@@ -323,61 +364,70 @@ python mblt_compile_language.py
 # Compile vision encoder to MBLT
 python mblt_compile_vision.py
 
-# Stage 3: MXQ Compilation
+# Stage 3: MXQ Compilation and Inference Preparation
 # IMPORTANT: Compile language model FIRST (generates rotation matrix)
 python mxq_compile_language.py
 
 # Then compile vision encoder (uses rotation matrix from language model)
 python mxq_compile_vision.py
 
-# Stage 4: Run Inference
-cd ../inference
-python run_qwen2_vl_local.py
+# Prepare inference configuration files (config.json and model.safetensors)
+python get_config.py
+python get_safetensors.py
+
+# All required files are now in the mxq/ directory:
+# - Qwen2-VL-2B-Instruct_text_model.mxq
+# - Qwen2-VL-2B-Instruct_vision_transformer.mxq
+# - config.json
+# - model.safetensors
 ```
 
 ## Understanding the Compilation Flow
 
 ### Language Model Pipeline
 ```
-Original Model (HF)
-    
-[Calibration]  calibration_data/language/*.npy
-    
-[MBLT Compile]  qwen2vl_language.mblt
-    
-[MXQ Compile]  qwen2vl_language.mxq
-     global_rotation.pth (needed for vision encoder)
+[Download Images] -> images/*.jpg (100 COCO images)
+    |
+Original Model (HF) + Calibration Images
+    |
+[Calibration] -> calibration_data/language/*.npy
+    |
+[MBLT Compile] -> Qwen2-VL-2B-Instruct_text_model.mblt
+    |
+[MXQ Compile] -> Qwen2-VL-2B-Instruct_text_model.mxq
+    |
+    +-> global_rotation.pth (needed for vision encoder)
 ```
 
 ### Vision Encoder Pipeline
 ```
-Original Model (HF)
-    
-[Calibration]  calibration_data/vision/*.npy
-    
-[MBLT Compile]  qwen2vl_vision.mblt
-    
-[MXQ Compile]  qwen2vl_vision.mxq
-    
-     Requires: global_rotation.pth (from language model)
+[Download Images] -> images/*.jpg (100 COCO images)
+    |
+Original Model (HF) + Calibration Images
+    |
+[Calibration] -> calibration_data/vision/*.npy
+    |
+[MBLT Compile] -> Qwen2-VL-2B-Instruct_vision_transformer.mblt
+    |
+[MXQ Compile] -> Qwen2-VL-2B-Instruct_vision_transformer.mxq
+    |            (Requires: global_rotation.pth from language model)
 ```
 
-### Combined Inference Flow
+### Configuration Files Preparation
 ```
-Image Input
-    
-[Vision Encoder MXQ]  Vision features
-    
-[Merge with text embeddings]
-    
-[Language Model MXQ]  Generated text output
+[get_config.py] -> config.json
+                   (Modified with MXQ paths)
+
+[get_safetensors.py] -> model.safetensors
+                        (Embedding weights with rotation applied)
 ```
 
 ### Key Dependencies
 1. Vision encoder MXQ compilation **requires** the rotation matrix from language model MXQ compilation
 2. Always run `mxq_compile_language.py` **before** `mxq_compile_vision.py`
 3. Both MBLT files can be compiled independently, but MXQ files must follow the order above
-4. Inference requires both compiled MXQ models and the model configuration files
+4. `get_safetensors.py` requires the rotation matrix from language model MXQ compilation
+5. All 4 output files (2 MXQ models, config.json, model.safetensors) must be in the same directory for deployment
 
 ## Output Summary
 
@@ -387,22 +437,20 @@ After completing all stages, you will have:
 - `calibration_data/language/`: Language model calibration samples with metadata
 - `calibration_data/vision/`: Vision encoder calibration samples with metadata
 
-### MBLT Models (Hardware-Agnostic)
-- `qwen2vl_language.mblt`: Language model in MBLT format
-- `qwen2vl_vision.mblt`: Vision encoder in MBLT format
+### MBLT Models (Hardware-Agnostic) - in `compile/mblt/`
+- `Qwen2-VL-2B-Instruct_text_model.mblt`: Language model in MBLT format
+- `Qwen2-VL-2B-Instruct_vision_transformer.mblt`: Vision encoder in MBLT format
 
-### MXQ Models (Aries 2-Optimized)
-- `qwen2vl_language.mxq`: Quantized language model ready for deployment
-- `qwen2vl_vision.mxq`: Quantized vision encoder ready for deployment
+### MXQ Models and Deployment Files - in `compile/mxq/`
+All files needed for deployment are in this single directory:
+- `Qwen2-VL-2B-Instruct_text_model.mxq`: Quantized language model
+- `Qwen2-VL-2B-Instruct_vision_transformer.mxq`: Quantized vision encoder
+- `config.json`: Model configuration with MXQ paths
+- `model.safetensors`: Rotated embedding weights
 
-### Validation Files
+### Validation Files - in `compile/`
 - `*.infer`: Inference values for validation
 - `*.json`: Comparison results with original models
-
-### Inference Files
-- `inference/run_qwen2_vl_local.py`: Example inference script
-- `inference/*.json`: Model configuration files for inference
-- `inference/*.mxq`: Compiled models (copy from compile/ directory)
 
 ## Troubleshooting
 
@@ -428,154 +476,38 @@ Ensure the calibration data paths in the MXQ compile scripts match your actual c
 - Verify your access token is valid: `huggingface-cli whoami`
 - Check your internet connection and HuggingFace status
 
-### No Images in converted_pngs/
+### No Images Found
 ```
-FileNotFoundError: No PNG images found in converted_pngs
+FileNotFoundError: No images found in images/ directory
 ```
-**Solution:** Create the directory and add PNG images:
+**Solution:** Run the image download script:
 ```bash
-mkdir -p converted_pngs
-# Copy your calibration images (PNG format) to this directory
+cd calibration
+python download_images.py
 ```
+This will download 100 images from COCO dataset to the `images/` directory.
 
-## Stage 4: Running Inference
+## Deployment
 
-Once you have compiled the model to MXQ format, you can run inference using the Mobilint runtime.
+After completing all compilation stages, the `./mxq/` directory contains all 4 files needed for deployment:
 
-### Prerequisites
+1. **Qwen2-VL-2B-Instruct_text_model.mxq** - Compiled language model
+2. **Qwen2-VL-2B-Instruct_vision_transformer.mxq** - Compiled vision encoder
+3. **config.json** - Model configuration with MXQ paths
+4. **model.safetensors** - Rotated embedding weights
 
-Before running inference, ensure you have:
-- Completed all compilation stages (calibration, MBLT, and MXQ)
-- The compiled MXQ files: `qwen2vl_language.mxq` and `qwen2vl_vision.mxq`
-- Model configuration files (tokenizer, processor config, etc.)
-- `mblt-model-zoo` package installed
+These files are ready for deployment on Aries 2 hardware using the Mobilint runtime.
 
-### Setting Up the Inference Directory
+## Next Steps: Running Inference
 
-The `inference/` directory should contain:
-- **Compiled models**: `qwen2vl_language.mxq` and `qwen2vl_vision.mxq`
-- **Configuration files**: All the JSON and model configuration files from the original HuggingFace model
-  - `config.json` - Model architecture configuration
-  - `tokenizer.json` - Tokenizer vocabulary
-  - `tokenizer_config.json` - Tokenizer settings
-  - `preprocessor_config.json` - Vision preprocessor config
-  - `video_preprocessor_config.json` - Video processing config
-  - `generation_config.json` - Text generation parameters
-  - `chat_template.json` - Chat format template
-  - `vocab.json` - Vocabulary mapping
-  - `model.safetensors` - Original model weights (for reference)
-- **Inference script**: `run_qwen2_vl_local.py`
+To run inference with your compiled models, see the [Runtime Inference Tutorial](../../../runtime/transformers/vlm/README.md).
 
-### Running Inference
-
-Navigate to the inference directory and run the script:
-
-```bash
-cd inference
-python run_qwen2_vl_local.py
-```
-
-### Understanding the Inference Code
-
-The inference script (`run_qwen2_vl_local.py`) demonstrates how to:
-
-```python
-from transformers import TextStreamer
-from mblt_model_zoo.transformers import pipeline, AutoProcessor
-from PIL import Image
-
-# Load processor
-processor = AutoProcessor.from_pretrained(".", use_fast=True)
-
-# Create pipeline
-pipe = pipeline(
-    "image-text-to-text",
-    model=".",  # Current directory containing config files
-    processor=processor,
-)
-
-# Prepare messages with image
-messages = [
-    {
-        "role": "user",
-        "content": [
-            {"type": "image", "image": "path/to/image.jpg"},
-            {"type": "text", "text": "Your question here"},
-        ],
-    }
-]
-
-# Run inference with streaming
-pipe(
-    text=messages,
-    generate_kwargs={
-        "max_length": 512,
-        "streamer": TextStreamer(tokenizer=pipe.tokenizer, skip_prompt=False),
-    },
-)
-
-# Clean up
-pipe.model.dispose()
-```
-
-### Key Features
-
-- **Automatic Model Loading**: The pipeline automatically detects and loads the MXQ models
-- **Image Input**: Supports both local file paths and URLs for images
-- **Streaming Output**: Uses `TextStreamer` to display generated text in real-time
-- **Multi-turn Conversations**: Can handle multi-turn dialogues by extending the messages list
-- **Flexible Generation**: Configurable generation parameters like `max_length`
-
-### Customizing Your Inference
-
-You can modify the script to:
-
-1. **Use local images**:
-```python
-{"type": "image", "image": "/path/to/your/image.jpg"}
-```
-
-2. **Change the prompt**:
-```python
-{"type": "text", "text": "What objects are in this image?"}
-```
-
-3. **Adjust generation parameters**:
-```python
-generate_kwargs={
-    "max_length": 1024,  # Longer responses
-    "temperature": 0.7,   # Creativity control
-    "top_p": 0.9,        # Nucleus sampling
-}
-```
-
-4. **Multi-turn conversation**:
-```python
-messages = [
-    {
-        "role": "user",
-        "content": [
-            {"type": "image", "image": "image.jpg"},
-            {"type": "text", "text": "What's in this image?"},
-        ],
-    },
-    {
-        "role": "assistant",
-        "content": [{"type": "text", "text": "I see a dog and a person."}],
-    },
-    {
-        "role": "user",
-        "content": [{"type": "text", "text": "What color is the dog?"}],
-    },
-]
-```
-
-### Performance Notes
-
-- The compiled MXQ models run on Aries 2 hardware for optimal performance
-- The pipeline automatically manages the interaction between vision and language components
-- Memory is efficiently managed through the stateful KV cache system
-- Use `pipe.model.dispose()` to properly clean up resources after inference
+The runtime tutorial demonstrates how to:
+- Load compiled MXQ models using mblt-model-zoo
+- Run image-text-to-text inference
+- Customize prompts and generation parameters
+- Handle multi-turn conversations
+- Process multiple images
 
 ## References
 
