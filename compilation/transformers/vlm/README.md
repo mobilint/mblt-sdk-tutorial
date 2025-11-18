@@ -513,8 +513,6 @@ The runtime tutorial demonstrates how to:
 
 - [Qwen2-VL Model Card](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct)
 - [Mobilint Documentation](https://docs.mobilint.com)
-- [qubee SDK Documentation](https://docs.mobilint.com/qubee)
-- [Aries 2 Architecture Guide](https://docs.mobilint.com/aries2)
 
 ## Support
 
