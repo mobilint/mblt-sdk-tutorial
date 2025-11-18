@@ -86,7 +86,7 @@ def prepare_inputs(
 def create_diverse_samples() -> List[Dict]:
     """
     Create diverse calibration samples covering various scenarios.
-    Uses ALL local images from converted_pngs/ folder with diverse prompts.
+    Uses ALL local images from images/ folder with diverse prompts.
 
     Prompts are cycled through different types to ensure calibration diversity:
     - Short answers
@@ -104,10 +104,10 @@ def create_diverse_samples() -> List[Dict]:
     import glob
 
     # Base path for local images
-    base_path = "./converted_pngs"
+    base_path = "./images"
 
     # Get all PNG images in the folder
-    image_files = sorted(glob.glob(f"{base_path}/*.png"))
+    image_files = sorted(glob.glob(f"{base_path}/*.jpg"))
 
     if not image_files:
         raise FileNotFoundError(f"No PNG images found in {base_path}")

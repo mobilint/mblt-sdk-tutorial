@@ -1,8 +1,8 @@
 from qubee import mxq_compile
 from qubee import get_advanced_quantization_config, get_equivalent_transformation_config, get_bit_config, get_calibration_config, get_quantization_config, get_llm_config
 
-mblt_path = 'qwen2vl_language.mblt'
-save_path = 'qwen2vl_language.mxq'
+mblt_path = 'mblt/Qwen2-VL-2B-Instruct_text_model.mblt'
+save_path = 'mxq/Qwen2-VL-2B-Instruct_text_model.mxq'
 calib_data_path = '../calibration/calibration_data/language/npy_files.txt'
 device='cuda'
 

@@ -42,7 +42,7 @@ def compile_vision_encoder(
     processor,
     messages: List[Dict],
     image_size: Tuple[int, int] = (224, 224),
-    output_path: str = "qwen2vl_vision.mblt",
+    output_path: str = "mblt/Qwen2-VL-2B-Instruct_vision_transformer.mblt",
     target_device: str = "aries2",
     ignore_weight: bool = False,
     debug: bool = True,
@@ -208,7 +208,7 @@ if __name__ == "__main__":
 
     # Configuration
     model_name = "Qwen/Qwen2-VL-2B-Instruct"
-    output_path = "./qwen2vl_vision.mblt"
+    output_path = "mblt/Qwen2-VL-2B-Instruct_vision_transformer.mblt"
 
     # Load model and processor
     model, processor = load_model_and_processor(model_name)
