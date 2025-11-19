@@ -38,6 +38,8 @@ Install the required Python packages for compilation:
 pip install transformers==4.50.3 torch torchvision qwen-vl-utils datasets
 ```
 
+Note that you will need transformers==4.54.0 when you test runtime code in runtime/transformers/vlm.
+
 ### Download Calibration Images
 
 The calibration process uses images from the COCO dataset. A download script is provided to automatically fetch 100 images:
