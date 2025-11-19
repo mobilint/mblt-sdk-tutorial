@@ -22,7 +22,7 @@ Before running inference, ensure you have:
   ```
 - **Required dependencies**:
   ```bash
-  pip install transformers torch pillow
+  pip install transformers==4.54.0 torch pillow
   ```
 
 ## Required Files
