@@ -1,83 +1,127 @@
-# Large Language Model
+# Large Language Model Compilation Guide
 
-This tutorial provides detailed instructions for compiling large language models using the Mobilint QB compiler.
+This tutorial provides detailed instructions for compiling large language models using the Mobilint QB compiler. The compilation process converts a standard transformer model into an optimized `.mxq` format that can run efficiently on Mobilint NPU hardware.
 
-In this tutorial, we will use the [Llama-3.2-1B-Instruct](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct) model, a large language model developed by Meta.
+In this tutorial, we will use the **Llama-3.2-1B-Instruct** model, a 1B parameter language model developed by Meta.
 
-## Model Preparation
+## Prerequisites
 
-First, we need to prepare the model.
+Before starting, ensure you have the following installed:
+- Transformers library
+- qubee compiler library
+- maccel runtime library
+- GPU with CUDA support (recommended for calibration)
+- HuggingFace account with access to Llama models (if using gated models)
+
+## Overview
+
+The compilation process consists of three main steps:
+1. **Model Preparation**: Download the model and extract embedding weights
+2. **Calibration Dataset Generation**: Create calibration data from Wikitext dataset
+3. **Model Compilation**: Convert the model to `.mxq` format using calibration data
+
+---
+
+## Step 1: Model Preparation
+
 
 Before using the model, sign up for an account on [HuggingFace](https://huggingface.co/) and sign the agreement to use the model on the [model page](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct).
 
-In addition, visit the [access token management page](https://huggingface.co/settings/tokens) and get an access token. A read-only token is sufficient for downloading the model, so create one if it doesn't exist.
-
-Go back to the terminal and set the access token via the HuggingFace CLI:
+First, we need to download the model from HuggingFace and extract its embedding layer weights. The embedding layer is used separately during runtime while the rest of the model runs on the NPU.
 
 ```bash
-pip install huggingface_hub[cli]
-hf auth login {your_access_token}
+python download_model.py \
+  --repo_id meta-llama/Llama-3.2-1B-Instruct \
+  --embedding ./embedding.pt
 ```
 
-Then, download the model using the following commands:
+**What this does:**
+- Downloads the specified model from HuggingFace Hub
+- Extracts the input embedding layer weights
+- Saves the embedding weight to `embedding.pt`
+
+**Parameters:**
+- `--repo_id`: HuggingFace model identifier
+- `--embedding`: Output path for embedding weights file
+
+---
+
+## Step 2: Calibration Dataset Preparation
+
+Calibration data is essential for quantization during compilation. We generate this data from Wikipedia articles, converting text into embedding vectors that represent typical model inputs.
 
 ```bash
-apt-get install git-lfs # Install git-lfs if not installed
-git lfs install # Initialize git-lfs
-git clone https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct
+python generate_calib.py \
+  --model_tag meta-llama/Llama-3.2-1B-Instruct \
+  --embedding_path ./embedding.pt \
+  --tokenizer_path meta-llama/Llama-3.2-1B-Instruct \
+  --output_dir ./calib \
+  --min_seqlen 512 \
+  --max_seqlen 2048 \
+  --max_calib 128
 ```
 
-## Calibration Dataset Preparation
+**What this does:**
+- Loads Wikitext dataset for specified language(s)
+- Tokenizes text samples using the model's tokenizer
+- Converts tokens to embeddings using the extracted embedding layer
+- Saves calibration samples as `.npy` files
 
-Before downloading the dataset and creating a calibration dataset, we need to extract the embedding weights from the model. Since the calibration dataset must be in a format that the quantized model can handle, and the embedding weights will not be included in the quantized model, we need to extract them from the original model first.
+**Parameters:**
+- `--model_tag`: Model identifier (used for output directory naming)
+- `--embedding_path`: Path to the embedding weights from Step 1
+- `--tokenizer_path`: HuggingFace tokenizer identifier
+- `--output_dir`: Base directory for calibration data
+- `--min_seqlen`: Minimum sequence length (samples shorter than this are skipped)
+- `--max_seqlen`: Maximum sequence length (samples are truncated to this length)
+- `--max_calib`: Number of calibration samples to generate per language
+
+**Output Location:**
+The calibration files will be saved in: `./calib/datas/meta-llama-Llama-3.2-1B-Instruct/en/`
+
+**Multi-language Support:**
+To use multiple languages, modify the `LANGUAGES` list in `generate_calib.py`:
+```python
+LANGUAGES = ["en", "de", "fr", "es", "it", "ja", "ko", "zh"]
+```
+If using multiple languages, merge the language directories into a single directory before compilation.
+
+---
+
+## Step 3: Model Compilation
+
+After preparing the model and calibration dataset, compile the model to `.mxq` format. This process performs quantization and optimization for NPU execution.
 
 ```bash
-python3 get_embedding_weight.py # Extract the embedding weights from the model
+python generate_mxq.py \
+  --model_path meta-llama/Llama-3.2-1B-Instruct \
+  --calib_data_path ./calib/datas/meta-llama-Llama-3.2-1B-Instruct/en \
+  --save_path ./Llama-3.2-1B-Instruct.mxq
 ```
 
-After execution, the embedding weights are saved as `Llama-3.2-1B-Instruct_embedding_weight.pt` in the current directory.
+**What this does:**
+- Loads the original model from HuggingFace
+- Uses calibration data to determine optimal quantization parameters
+- Compiles the model layers for NPU execution
+- Saves the compiled model as `.mxq` format
 
-LLMs like Llama-3.2-1B-Instruct are trained on a massive amount of text data, so it is difficult to specify a specific dataset for calibration. In this tutorial, we will use the [Wikipedia](https://huggingface.co/datasets/wikimedia/wikipedia) dataset for calibration.
+**Parameters:**
+- `--model_path`: HuggingFace model identifier
+- `--calib_data_path`: Path to calibration data directory from Step 2
+- `--save_path`: Output path for compiled `.mxq` model
 
-To enable dataset downloading, we need to install the `datasets` library:
 
-```bash
-pip install datasets # Install datasets library if not installed
-```
+**Expected Output:**
+The compiled model will be saved as `./Llama-3.2-1B-Instruct.mxq`
 
-Then, create a calibration dataset using the following command:
+---
 
-```bash
-python3 prepare_calib.py --lang {language} --min_seqlen {sequence_length_minimum} --max_seqlen {sequence_length_maximum} --max_calib {maximum_number_of_calibration}
-```
+## Next Steps
 
-The script `prepare_calib.py` downloads the Wikipedia dataset, tokenizes the text, and embeds the text into a tensor. The tensor is saved as `npy` files in the `calib_dir` directory.
+After successful compilation, proceed to `mblt-sdk-tutorial/runtime/transformers/llm/README.md` for instructions on running inference with the compiled model.
 
-The example command is as follows:
+## File Summary
 
-```bash
-python3 prepare_calib.py --lang en --min_seqlen 512 --max_seqlen 2048 --max_calib 128
-```
-
-The calibration dataset is saved as `Llama-3.2-1B-Instruct-Wikipedia-en` in the current directory.
-
-> Note: After execution, the downloaded dataset may continue to occupy disk space. You can remove it by running the following command:
-> ```bash
-> hf cache delete
-> ```
-
-## Model Compilation
-
-After the calibration dataset and the model are prepared, we can compile the model.
-
-```bash
-python3 model_compile.py --model_path {path_to_model} --calib_data_path {path_to_calibration_dataset} --save_path {path_to_save_model}
-```
-
-The example command is as follows:
-
-```bash
-python3 model_compile.py --model_path ./Llama-3.2-1B-Instruct --calib_data_path ./Llama-3.2-1B-Instruct-Wikipedia-en --save_path ./Llama-3.2-1B-Instruct.mxq
-```
-
-The compiled model is saved as `Llama-3.2-1B-Instruct.mxq` in the current directory.
+- `embedding.pt` - Extracted embedding layer weights
+- `Llama-3.2-1B-Instruct.mxq` - Compiled model for NPU execution
+- `calib/datas/meta-llama-Llama-3.2-1B-Instruct/en/` - Calibration dataset (128 samples)
