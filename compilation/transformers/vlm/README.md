@@ -218,7 +218,7 @@ python mxq_compile_language.py
 ```
 
 **What it does:**
-- Loads the MBLT file: `qwen2vl_language.mblt`
+- Loads the MBLT file: `./mblt/Qwen2-VL-2B-Instruct_text_model.mblt`
 - Loads calibration data from: `../calibration/calibration_data/language/npy_files.txt`
 - Applies advanced quantization with equivalent transformations.
 - Configures 16-bit activations for input embeddings: `inputs_embeds/reshape`
@@ -249,7 +249,7 @@ python mxq_compile_vision.py
 ```
 
 **What it does:**
-- Loads the MBLT file: `qwen2vl_vision.mblt`
+- Loads the MBLT file: `./mblt/Qwen2-VL-2B-Instruct_vision_transformer.mblt`
 - Loads calibration data from: `/workspace/data_prep/calibration_data/vision/npy_files.txt`
 - **Loads rotation matrix** from: `/tmp/qubee/spinWeight/qwen2vl_language/R1/global_rotation.pth`
   - This matrix was generated during language model MXQ compilation
