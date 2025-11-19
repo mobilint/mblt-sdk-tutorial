@@ -197,23 +197,6 @@ messages = [
 ]
 ```
 
-### Processing Multiple Images
-
-You can include multiple images in a single query:
-
-```python
-messages = [
-    {
-        "role": "user",
-        "content": [
-            {"type": "image", "image": "image1.jpg"},
-            {"type": "image", "image": "image2.jpg"},
-            {"type": "text", "text": "What are the differences between these two images?"},
-        ],
-    }
-]
-```
-
 ## Performance Notes
 
 - **Hardware Acceleration**: The compiled MXQ models run on Aries 2 hardware for optimal performance
