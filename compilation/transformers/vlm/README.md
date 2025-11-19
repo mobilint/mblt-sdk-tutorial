@@ -169,9 +169,9 @@ python mblt_compile_language.py
 - RoPE embeddings pre-computed for max sequence length (16384)
 
 **Output files:**
-- `qwen2vl_language.mblt`: Compiled model in MBLT format
-- `qwen2vl_language.infer`: Inference values for validation
-- `qwen2vl_language.json`: Comparison results with original model
+- `./mblt/Qwen2-VL-2B-Instruct_text_model.mblt`: Compiled model in MBLT format
+- `./mblt/Qwen2-VL-2B-Instruct_text_model.infer`: Inference values for validation
+- `./mblt/Qwen2-VL-2B-Instruct_text_model.json`: Comparison results with original model
 
 ### Step 2.2: Compile Vision Encoder to MBLT
 
@@ -201,9 +201,9 @@ python mblt_compile_vision.py
 - RoPE embeddings pre-computed based on image grid dimensions
 
 **Output files:**
-- `qwen2vl_vision.mblt`: Compiled model in MBLT format
-- `qwen2vl_vision.infer`: Inference values for validation
-- `qwen2vl_vision.json`: Comparison results with original model
+- `./mblt/Qwen2-VL-2B-Instruct_vision_transformer.mblt`: Compiled model in MBLT format
+- `./mblt/Qwen2-VL-2B-Instruct_vision_transformer.infer`: Inference values for validation
+- `./mblt/Qwen2-VL-2B-Instruct_vision_transformer.json`: Comparison results with original model
 
 ## Stage 3: MXQ Compilation (Advanced Quantization)
 
