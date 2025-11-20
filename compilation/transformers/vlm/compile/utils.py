@@ -5,12 +5,12 @@ This module provides common functionality used across vision and language
 model compilation pipelines.
 """
 
-import torch
-from typing import Dict, List, Tuple, Optional
-from qwen_vl_utils import process_vision_info
+from typing import Dict, List, Optional, Tuple
 
+import torch
 from qubee.model_dict.common import WeightDict
-from qubee.model_dict.serialize import SerializeMeta, ChainedByteObj
+from qubee.model_dict.serialize import ChainedByteObj, SerializeMeta
+from qwen_vl_utils import process_vision_info
 
 
 def load_model_and_processor(model_name: str):
@@ -23,7 +23,7 @@ def load_model_and_processor(model_name: str):
     Returns:
         Tuple of (model, processor)
     """
-    from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
+    from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
 
     print(f"Loading model and processor from {model_name}...")
     model = Qwen2VLForConditionalGeneration.from_pretrained(
@@ -120,6 +120,7 @@ def serialize_to_mblt(
 
     # Get file size from the written file (more reliable than len(barr))
     import os
+
     file_size = os.path.getsize(output_path)
     file_size_mb = file_size / (1024 * 1024)
 
@@ -155,7 +156,9 @@ def validate_compiled_model(
 
     # Run inference and compare with original model
     parser.run_inference_and_compare_output_value(
-        device=model_device.type if hasattr(model_device, 'type') else str(model_device),
+        device=(
+            model_device.type if hasattr(model_device, "type") else str(model_device)
+        ),
         save_all_inference_outputs=True,
         inference_all_outputs_write_path=inference_values_path,
         compare_result_output_path=comparison_path,

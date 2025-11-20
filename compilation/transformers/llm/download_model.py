@@ -1,6 +1,7 @@
-from transformers import AutoModelForCausalLM
-import torch
 import argparse
+
+import torch
+from transformers import AutoModelForCausalLM
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--repo_id", type=str, default="meta-llama/Llama-3.2-1B-Instruct")

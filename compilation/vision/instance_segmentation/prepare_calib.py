@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+
 import cv2
 import numpy as np
 from qubee.calibration import make_calib_man

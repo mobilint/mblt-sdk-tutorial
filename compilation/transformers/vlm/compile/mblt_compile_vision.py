@@ -13,27 +13,25 @@ Key Transformations:
 - Merged patchify operation (reduces memory transfers)
 """
 
-import torch
-from typing import Dict, Tuple, List
+from typing import Dict, List, Tuple
 
-from qubee.model_dict.common import WeightDict, DataFormat, LayerType
+import torch
+from qubee.model_dict.common import DataFormat, LayerType, WeightDict
+from qubee.model_dict.parser.backend.fx_hf_extensions.transformers.models.qwen2vl import (
+    VisionModelForQwen2VL,
+    repreprocess_pixel_values,
+)
 from qubee.model_dict.parser.backend.hf.util import (
     DefaultInputsCaptureContainer,
     InputCaptureCtxManager,
 )
 from qubee.model_dict.parser.backend.torch.util import wrap_tensor
 from qubee.model_dict.parser.parser import ModelParser
-
-from qubee.model_dict.parser.backend.fx_hf_extensions.transformers.models.qwen2vl import (
-    repreprocess_pixel_values,
-    VisionModelForQwen2VL,
-)
-
 from utils import (
     prepare_inputs,
+    print_compilation_summary,
     serialize_to_mblt,
     validate_compiled_model,
-    print_compilation_summary,
 )
 
 
@@ -204,7 +202,7 @@ def compile_vision_encoder(
 
 if __name__ == "__main__":
     """Example usage of vision encoder compilation"""
-    from utils import load_model_and_processor, create_sample_messages
+    from utils import create_sample_messages, load_model_and_processor
 
     # Configuration
     model_name = "Qwen/Qwen2-VL-2B-Instruct"

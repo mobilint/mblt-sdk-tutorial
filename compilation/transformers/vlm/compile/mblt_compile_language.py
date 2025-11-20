@@ -13,10 +13,13 @@ Key Transformations:
 - Dynamic shape handling (variable sequence lengths)
 """
 
-import torch
-from typing import Dict, Tuple, List, Optional
+from typing import Dict, List, Optional, Tuple
 
+import torch
 from qubee.model_dict.common import LayerType
+from qubee.model_dict.parser.backend.fx_hf_extensions.transformers.models.qwen2vl import (
+    LanguageModelForQwen2VL,
+)
 from qubee.model_dict.parser.backend.hf.util import (
     DefaultInputsCaptureContainer,
     InputCaptureCtxManager,
@@ -27,16 +30,11 @@ from qubee.model_dict.parser.parser import ModelParser
 from qubee.model_dict.parser.transform_operator.util import (
     check_sequential_pattern_strict_bwd,
 )
-
-from qubee.model_dict.parser.backend.fx_hf_extensions.transformers.models.qwen2vl import (
-    LanguageModelForQwen2VL,
-)
-
 from utils import (
     prepare_inputs,
+    print_compilation_summary,
     serialize_to_mblt,
     validate_compiled_model,
-    print_compilation_summary,
 )
 
 
@@ -116,7 +114,9 @@ def configure_attention_dynamic_shapes(md, except_target_name: str):
                         mm0_right_inact = sg.activations[mm0.options.inputs[1]]  # K^T
 
                         # Set dynamic flags for attention score matrix (Q @ K^T output)
-                        mc_inact.get_act_src_shape()[2].set_dynamic(is_dynamic)  # query_len
+                        mc_inact.get_act_src_shape()[2].set_dynamic(
+                            is_dynamic
+                        )  # query_len
                         mc_inact.get_act_src_shape()[3].set_dynamic(True)  # key_len
                         mc_inact.shape = mc_inact.get_act_src_shape()[1:]
 
@@ -286,7 +286,9 @@ def compile_language_model(
         print(f"   ⚠ Limiting to {num_blocks} transformer blocks (for testing)")
         language_model.model.layers = language_model.model.layers[:num_blocks]
     else:
-        print(f"   ✓ Compiling all {len(language_model.model.layers)} transformer blocks")
+        print(
+            f"   ✓ Compiling all {len(language_model.model.layers)} transformer blocks"
+        )
 
     # Pre-compute and cache RoPE embeddings for max sequence length
     language_model.model.rotary_emb.set_rope(feed_dict["position_ids"])
@@ -340,7 +342,9 @@ def compile_language_model(
     # Special case: This attention operation should NOT be dynamic
     except_target_name = "fx_patched_fn0_26/slice/matmul/mul/softmax/matmul_0"
 
-    attention_ops_configured = configure_attention_dynamic_shapes(md, except_target_name)
+    attention_ops_configured = configure_attention_dynamic_shapes(
+        md, except_target_name
+    )
 
     print(f"   ✓ Configured {attention_ops_configured} attention operators")
     print(f"   ✓ Set dynamic shapes for Q, K, V matrices")
@@ -382,7 +386,7 @@ def compile_language_model(
 
 if __name__ == "__main__":
     """Example usage of language model compilation"""
-    from utils import load_model_and_processor, create_sample_messages
+    from utils import create_sample_messages, load_model_and_processor
 
     # Configuration
     model_name = "Qwen/Qwen2-VL-2B-Instruct"

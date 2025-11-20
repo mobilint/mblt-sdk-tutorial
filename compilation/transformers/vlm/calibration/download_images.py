@@ -4,11 +4,12 @@ Download 100 images from COCO validation set and resize to 224x224.
 Uses the Hugging Face datasets library to access COCO images.
 """
 
-import os
 from pathlib import Path
+
+from datasets import load_dataset
 from PIL import Image
 from tqdm import tqdm
-from datasets import load_dataset
+
 
 def download_coco_samples(output_dir="images", num_images=100, target_size=(224, 224)):
     """
@@ -34,17 +35,19 @@ def download_coco_samples(output_dir="images", num_images=100, target_size=(224,
         failed = 0
 
         # Iterate through the dataset
-        for idx, example in enumerate(tqdm(dataset, desc="Downloading images", total=num_images)):
+        for idx, example in enumerate(
+            tqdm(dataset, desc="Downloading images", total=num_images)
+        ):
             if downloaded >= num_images:
                 break
 
             try:
                 # Get the image from the dataset
-                img = example['image']
+                img = example["image"]
 
                 # Convert to RGB if necessary
-                if img.mode != 'RGB':
-                    img = img.convert('RGB')
+                if img.mode != "RGB":
+                    img = img.convert("RGB")
 
                 # Resize to target size
                 img = img.resize(target_size, Image.Resampling.LANCZOS)
@@ -72,6 +75,7 @@ def download_coco_samples(output_dir="images", num_images=100, target_size=(224,
         print("\nTrying alternative approach with sample images...")
         return download_sample_images(output_dir, num_images, target_size)
 
+
 def download_sample_images(output_dir="images", num_images=100, target_size=(224, 224)):
     """
     Generate sample images if dataset download fails.
@@ -90,12 +94,16 @@ def download_sample_images(output_dir="images", num_images=100, target_size=(224
 
     for i in tqdm(range(num_images), desc="Generating images"):
         # Create a random image with some structure
-        img_array = np.random.randint(0, 256, (target_size[1], target_size[0], 3), dtype=np.uint8)
+        img_array = np.random.randint(
+            0, 256, (target_size[1], target_size[0], 3), dtype=np.uint8
+        )
 
         # Add some patterns to make it look less random
         for channel in range(3):
             gradient = np.linspace(0, 255, target_size[0], dtype=np.uint8)
-            img_array[:, :, channel] = (img_array[:, :, channel] * 0.7 + gradient * 0.3).astype(np.uint8)
+            img_array[:, :, channel] = (
+                img_array[:, :, channel] * 0.7 + gradient * 0.3
+            ).astype(np.uint8)
 
         img = Image.fromarray(img_array)
         output_file = output_path / f"image_{i:04d}.jpg"
@@ -105,10 +113,7 @@ def download_sample_images(output_dir="images", num_images=100, target_size=(224
     print(f"Images saved to: {output_path.absolute()}")
     return num_images
 
+
 if __name__ == "__main__":
     # Download 100 images at 224x224 resolution
-    download_coco_samples(
-        output_dir="images",
-        num_images=100,
-        target_size=(224, 224)
-    )
+    download_coco_samples(output_dir="images", num_images=100, target_size=(224, 224))

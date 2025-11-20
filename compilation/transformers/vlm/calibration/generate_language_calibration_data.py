@@ -21,14 +21,12 @@ calibration_data/language/
 └── npy_files.txt            # List of all .npy file paths (one per line)
 """
 
-import os
-import sys
 import json
-import torch
-import numpy as np
-from typing import List, Dict, Tuple
-from pathlib import Path
+import os
+from typing import Dict, List, Tuple
 
+import numpy as np
+import torch
 from qubee.model_dict.parser.backend.hf.util import (
     DefaultInputsCaptureContainer,
     InputCaptureCtxManager,
@@ -37,7 +35,7 @@ from qubee.model_dict.parser.backend.hf.util import (
 
 def load_model_and_processor(model_name: str):
     """Load Qwen2-VL model and processor from HuggingFace."""
-    from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
+    from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
 
     print(f"Loading model and processor from {model_name}...")
     model = Qwen2VLForConditionalGeneration.from_pretrained(
@@ -118,24 +116,69 @@ def create_diverse_samples() -> List[Dict]:
     # These are cycled through to ensure calibration diversity
     prompt_templates = [
         ("short_answer", "What is the main subject of this image?"),
-        ("detailed_description", "Describe this image in detail, including all objects, colors, textures, and spatial relationships."),
+        (
+            "detailed_description",
+            "Describe this image in detail, including all objects, colors, textures, and spatial relationships.",
+        ),
         ("object_identification", "What objects can you identify in this image?"),
-        ("scene_understanding", "Describe the scene, setting, and context shown in this image."),
-        ("visual_reasoning", "Analyze what is happening in this image and explain your reasoning."),
-        ("counting", "Count and list all distinct objects or elements you can identify in this image."),
-        ("spatial_reasoning", "Describe the spatial arrangement and positioning of elements in this image."),
-        ("technical_description", "Provide a technical description of what is shown, including materials, structure, and design."),
-        ("color_texture", "Describe the colors, textures, and visual patterns present in this image."),
-        ("comparison", "Compare and contrast the different elements visible in this image."),
-        ("purpose_function", "What is the purpose or function of the main subject in this image?"),
-        ("environment_context", "Describe the environment and context surrounding the main subject."),
-        ("detailed_analysis", "Provide a comprehensive analysis of this image, covering all observable details and their relationships."),
-        ("characteristics", "What are the key characteristics and distinctive features of what is shown?"),
+        (
+            "scene_understanding",
+            "Describe the scene, setting, and context shown in this image.",
+        ),
+        (
+            "visual_reasoning",
+            "Analyze what is happening in this image and explain your reasoning.",
+        ),
+        (
+            "counting",
+            "Count and list all distinct objects or elements you can identify in this image.",
+        ),
+        (
+            "spatial_reasoning",
+            "Describe the spatial arrangement and positioning of elements in this image.",
+        ),
+        (
+            "technical_description",
+            "Provide a technical description of what is shown, including materials, structure, and design.",
+        ),
+        (
+            "color_texture",
+            "Describe the colors, textures, and visual patterns present in this image.",
+        ),
+        (
+            "comparison",
+            "Compare and contrast the different elements visible in this image.",
+        ),
+        (
+            "purpose_function",
+            "What is the purpose or function of the main subject in this image?",
+        ),
+        (
+            "environment_context",
+            "Describe the environment and context surrounding the main subject.",
+        ),
+        (
+            "detailed_analysis",
+            "Provide a comprehensive analysis of this image, covering all observable details and their relationships.",
+        ),
+        (
+            "characteristics",
+            "What are the key characteristics and distinctive features of what is shown?",
+        ),
         ("composition", "Analyze the composition and visual structure of this image."),
-        ("action_activity", "What action or activity, if any, is taking place in this image?"),
-        ("categorization", "What category or type does the main subject of this image belong to?"),
+        (
+            "action_activity",
+            "What action or activity, if any, is taking place in this image?",
+        ),
+        (
+            "categorization",
+            "What category or type does the main subject of this image belong to?",
+        ),
         ("materials", "What materials or substances can you identify in this image?"),
-        ("lighting_atmosphere", "Describe the lighting, shadows, and overall atmosphere of this image."),
+        (
+            "lighting_atmosphere",
+            "Describe the lighting, shadows, and overall atmosphere of this image.",
+        ),
         ("perspective", "From what perspective or viewpoint is this image captured?"),
     ]
 
@@ -150,11 +193,13 @@ def create_diverse_samples() -> List[Dict]:
         filename = os.path.basename(image_path)
         sample_name = f"{prompt_type}_{idx:03d}"
 
-        samples.append({
-            "name": sample_name,
-            "image_url": image_path,
-            "prompt": prompt_text,
-        })
+        samples.append(
+            {
+                "name": sample_name,
+                "image_url": image_path,
+                "prompt": prompt_text,
+            }
+        )
 
     print(f"Created {len(samples)} calibration samples from {len(image_files)} images")
     return samples
@@ -218,7 +263,9 @@ def capture_language_model_inputs(
     result = {}
 
     # Handle inputs_embeds - it's often None and needs to be computed
-    if "inputs_embeds" in captured_kwargs and isinstance(captured_kwargs["inputs_embeds"], torch.Tensor):
+    if "inputs_embeds" in captured_kwargs and isinstance(
+        captured_kwargs["inputs_embeds"], torch.Tensor
+    ):
         # Already have embeddings
         tensor = captured_kwargs["inputs_embeds"]
         if tensor.dtype == torch.bfloat16:
@@ -240,11 +287,13 @@ def capture_language_model_inputs(
         # Compute embeddings using the model's embed_tokens
         with torch.no_grad():
             # Find the embed_tokens layer - try different paths
-            if hasattr(model.model, 'embed_tokens'):
+            if hasattr(model.model, "embed_tokens"):
                 embed_tokens = model.model.embed_tokens
-            elif hasattr(model.model, 'model') and hasattr(model.model.model, 'embed_tokens'):
+            elif hasattr(model.model, "model") and hasattr(
+                model.model.model, "embed_tokens"
+            ):
                 embed_tokens = model.model.model.embed_tokens
-            elif hasattr(model, 'get_input_embeddings'):
+            elif hasattr(model, "get_input_embeddings"):
                 embed_tokens = model.get_input_embeddings()
             else:
                 # Try to find it by inspecting the model structure
@@ -259,7 +308,7 @@ def capture_language_model_inputs(
                 # Process vision features
                 image_embeds = model.visual(
                     pixel_values.to(model.device),
-                    grid_thw=image_grid_thw.to(model.device)
+                    grid_thw=image_grid_thw.to(model.device),
                 )
 
                 # Merge vision embeddings into text embeddings
@@ -280,12 +329,16 @@ def capture_language_model_inputs(
                 )
 
                 # Convert image embeds to same dtype and device as inputs_embeds
-                image_embeds = image_embeds.to(inputs_embeds.device, inputs_embeds.dtype)
+                image_embeds = image_embeds.to(
+                    inputs_embeds.device, inputs_embeds.dtype
+                )
 
                 # Scatter image embeddings into the text embeddings at image token positions
                 inputs_embeds = inputs_embeds.masked_scatter(image_mask, image_embeds)
 
-                print(f"   ✓ Merged {n_image_features} image features into inputs_embeds")
+                print(
+                    f"   ✓ Merged {n_image_features} image features into inputs_embeds"
+                )
 
             # Convert to float32 and move to CPU
             if inputs_embeds.dtype == torch.bfloat16:
@@ -304,19 +357,27 @@ def capture_language_model_inputs(
         embeds_std = inputs_embeds.std()
 
         print(f"   ✓ inputs_embeds shape: {embeds_shape}")
-        print(f"   ✓ inputs_embeds range: [{embeds_min:.2f}, {embeds_max:.2f}], mean: {embeds_mean:.2f}, std: {embeds_std:.2f}")
+        print(
+            f"   ✓ inputs_embeds range: [{embeds_min:.2f}, {embeds_max:.2f}], mean: {embeds_mean:.2f}, std: {embeds_std:.2f}"
+        )
 
         # Expected: [batch=1, seq_len=dynamic, hidden_size=1536]
-        assert len(embeds_shape) == 3, f"inputs_embeds should be 3D, got shape {embeds_shape}"
+        assert (
+            len(embeds_shape) == 3
+        ), f"inputs_embeds should be 3D, got shape {embeds_shape}"
         assert embeds_shape[0] == 1, f"batch size should be 1, got {embeds_shape[0]}"
         expected_hidden_size = 1536  # For Qwen2-VL-2B-Instruct
         if embeds_shape[2] != expected_hidden_size:
-            print(f"   ⚠ Warning: hidden_size is {embeds_shape[2]}, expected {expected_hidden_size}")
+            print(
+                f"   ⚠ Warning: hidden_size is {embeds_shape[2]}, expected {expected_hidden_size}"
+            )
             print(f"   This may be a different model variant")
 
         # Warn if range seems too small (likely missing vision features)
         if abs(embeds_max) < 1.0 and abs(embeds_min) < 1.0:
-            print(f"   ⚠ WARNING: inputs_embeds range is very small ({embeds_min:.2f} to {embeds_max:.2f})")
+            print(
+                f"   ⚠ WARNING: inputs_embeds range is very small ({embeds_min:.2f} to {embeds_max:.2f})"
+            )
             print(f"   ⚠ This might indicate vision features were not properly merged!")
             print(f"   ⚠ Expected range is typically much larger (e.g., -20 to 80)")
 
@@ -368,7 +429,7 @@ def generate_language_calibration_data(
         "image_size": list(image_size),
         "max_new_tokens": max_new_tokens,
         "num_samples": len(sample_configs),
-        "samples": []
+        "samples": [],
     }
 
     # List to store all npy file paths
@@ -393,40 +454,45 @@ def generate_language_calibration_data(
             # Save only inputs_embeds.npy
             npy_path = os.path.join(sample_dir, "inputs_embeds.npy")
             np.save(npy_path, inputs_embeds)
-            shape_str = str(inputs_embeds.shape) + " # [batch, seq_len, hidden_size=1536]"
+            shape_str = (
+                str(inputs_embeds.shape) + " # [batch, seq_len, hidden_size=1536]"
+            )
             print(f"   ✓ Saved inputs_embeds.npy: {shape_str}")
 
             # Add absolute path to list
             npy_file_paths.append(os.path.abspath(npy_path))
 
             # Add to metadata
-            metadata["samples"].append({
-                "index": i,
-                "name": sample_config["name"],
-                "prompt": sample_config["prompt"],
-                "image_url": sample_config["image_url"],
-                "directory": f"sample_{i:03d}",
-                "shape": list(inputs_embeds.shape)
-            })
+            metadata["samples"].append(
+                {
+                    "index": i,
+                    "name": sample_config["name"],
+                    "prompt": sample_config["prompt"],
+                    "image_url": sample_config["image_url"],
+                    "directory": f"sample_{i:03d}",
+                    "shape": list(inputs_embeds.shape),
+                }
+            )
 
         except Exception as e:
             print(f"   ✗ Error processing sample: {e}")
             import traceback
+
             traceback.print_exc()
             continue
 
     # Save metadata
     metadata_path = os.path.join(output_dir, "metadata.json")
-    with open(metadata_path, 'w') as f:
+    with open(metadata_path, "w") as f:
         json.dump(metadata, f, indent=2)
 
     print(f"\n✓ Metadata saved to: {metadata_path}")
 
     # Save txt file listing all npy file paths
     npy_list_path = os.path.join(output_dir, "npy_files.txt")
-    with open(npy_list_path, 'w') as f:
+    with open(npy_list_path, "w") as f:
         for npy_path in npy_file_paths:
-            f.write(npy_path + '\n')
+            f.write(npy_path + "\n")
 
     print(f"✓ NPY file list saved to: {npy_list_path}")
 
@@ -450,10 +516,10 @@ def generate_language_calibration_data(
     print(f"  - Max tokens per sample: {max_new_tokens}")
     print(f"\nStructure:")
     print(f"  {output_dir}/")
-    for sample in metadata['samples'][:3]:  # Show first 3
+    for sample in metadata["samples"][:3]:  # Show first 3
         print(f"  ├── {sample['directory']}/")
         print(f"  │   └── inputs_embeds.npy    # {sample['shape']}")
-    if len(metadata['samples']) > 3:
+    if len(metadata["samples"]) > 3:
         print(f"  ├── ... ({len(metadata['samples']) - 3} more samples)")
     print(f"  ├── metadata.json")
     print(f"  └── npy_files.txt")

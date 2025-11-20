@@ -1,12 +1,14 @@
 import argparse
 import os
-import torch
+
 import numpy as np
-from transformers import AutoTokenizer
+import torch
 from datasets import load_dataset
+from transformers import AutoTokenizer
 
 # LANGUAGES = ["en", "de", "fr", "es", "it", "ja", "ko", "zh"]
 LANGUAGES = ["en"]
+
 
 def generate_calibration(
     model_tag: str,
@@ -47,7 +49,9 @@ def generate_calibration(
 
         print(f"Loading Wikipedia dataset for {lang}...")
         try:
-            dataset = load_dataset("wikimedia/wikipedia", subset_name, split="train")["text"]
+            dataset = load_dataset("wikimedia/wikipedia", subset_name, split="train")[
+                "text"
+            ]
         except Exception as e:
             print(f"Error loading dataset for {lang}: {e}")
             continue
@@ -58,7 +62,11 @@ def generate_calibration(
                 break
 
             try:
-                token_ids = tokenizer(text, return_tensors="pt")["input_ids"].squeeze().to(device)
+                token_ids = (
+                    tokenizer(text, return_tensors="pt")["input_ids"]
+                    .squeeze()
+                    .to(device)
+                )
             except Exception as e:
                 print(f"Skipping sentence {i}: tokenization error")
                 continue
@@ -78,7 +86,9 @@ def generate_calibration(
             elif seq_len > max_seqlen:
                 embedded_text = embedded_text[:, :max_seqlen, :]
 
-            output_path = os.path.join(output_lang_dir, f"inputs_embeds_{cur_num_calib}.npy")
+            output_path = os.path.join(
+                output_lang_dir, f"inputs_embeds_{cur_num_calib}.npy"
+            )
             np.save(output_path, embedded_text.cpu().numpy())
 
             cur_num_calib += 1
@@ -107,15 +117,9 @@ def main():
         default="/workspace/tutorial/embedding.pt",
     )
     parser.add_argument(
-        "--tokenizer_path",
-        type=str,
-        default="meta-llama/Llama-3.2-1B-Instruct"
+        "--tokenizer_path", type=str, default="meta-llama/Llama-3.2-1B-Instruct"
     )
-    parser.add_argument(
-        "--output_dir",
-        type=str,
-        default="/workspace/tutorial/calib"
-    )
+    parser.add_argument("--output_dir", type=str, default="/workspace/tutorial/calib")
     parser.add_argument(
         "--min_seqlen",
         type=int,
@@ -135,7 +139,6 @@ def main():
         help="Number of calibration samples per language (default: 128)",
     )
 
-
     args = parser.parse_args()
 
     generate_calibration(
@@ -145,7 +148,7 @@ def main():
         output_dir=args.output_dir,
         min_seqlen=args.min_seqlen,
         max_seqlen=args.max_seqlen,
-        max_calib=args.max_calib
+        max_calib=args.max_calib,
     )
 
 

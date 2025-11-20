@@ -16,26 +16,24 @@ calibration_data/vision/
 └── npy_files.txt            # List of all .npy file paths (absolute paths)
 """
 
-import os
-import sys
 import json
-import torch
-import numpy as np
-from typing import List, Dict, Tuple
-from pathlib import Path
+import os
+from typing import Dict, List, Tuple
 
+import numpy as np
+import torch
+from qubee.model_dict.parser.backend.fx_hf_extensions.transformers.models.qwen2vl import (
+    repreprocess_pixel_values,
+)
 from qubee.model_dict.parser.backend.hf.util import (
     DefaultInputsCaptureContainer,
     InputCaptureCtxManager,
-)
-from qubee.model_dict.parser.backend.fx_hf_extensions.transformers.models.qwen2vl import (
-    repreprocess_pixel_values,
 )
 
 
 def load_model_and_processor(model_name: str):
     """Load Qwen2-VL model and processor from HuggingFace."""
-    from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
+    from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
 
     print(f"Loading model and processor from {model_name}...")
     model = Qwen2VLForConditionalGeneration.from_pretrained(
@@ -116,24 +114,69 @@ def create_diverse_samples() -> List[Dict]:
     # These are cycled through to ensure calibration diversity
     prompt_templates = [
         ("short_answer", "What is the main subject of this image?"),
-        ("detailed_description", "Describe this image in detail, including all objects, colors, textures, and spatial relationships."),
+        (
+            "detailed_description",
+            "Describe this image in detail, including all objects, colors, textures, and spatial relationships.",
+        ),
         ("object_identification", "What objects can you identify in this image?"),
-        ("scene_understanding", "Describe the scene, setting, and context shown in this image."),
-        ("visual_reasoning", "Analyze what is happening in this image and explain your reasoning."),
-        ("counting", "Count and list all distinct objects or elements you can identify in this image."),
-        ("spatial_reasoning", "Describe the spatial arrangement and positioning of elements in this image."),
-        ("technical_description", "Provide a technical description of what is shown, including materials, structure, and design."),
-        ("color_texture", "Describe the colors, textures, and visual patterns present in this image."),
-        ("comparison", "Compare and contrast the different elements visible in this image."),
-        ("purpose_function", "What is the purpose or function of the main subject in this image?"),
-        ("environment_context", "Describe the environment and context surrounding the main subject."),
-        ("detailed_analysis", "Provide a comprehensive analysis of this image, covering all observable details and their relationships."),
-        ("characteristics", "What are the key characteristics and distinctive features of what is shown?"),
+        (
+            "scene_understanding",
+            "Describe the scene, setting, and context shown in this image.",
+        ),
+        (
+            "visual_reasoning",
+            "Analyze what is happening in this image and explain your reasoning.",
+        ),
+        (
+            "counting",
+            "Count and list all distinct objects or elements you can identify in this image.",
+        ),
+        (
+            "spatial_reasoning",
+            "Describe the spatial arrangement and positioning of elements in this image.",
+        ),
+        (
+            "technical_description",
+            "Provide a technical description of what is shown, including materials, structure, and design.",
+        ),
+        (
+            "color_texture",
+            "Describe the colors, textures, and visual patterns present in this image.",
+        ),
+        (
+            "comparison",
+            "Compare and contrast the different elements visible in this image.",
+        ),
+        (
+            "purpose_function",
+            "What is the purpose or function of the main subject in this image?",
+        ),
+        (
+            "environment_context",
+            "Describe the environment and context surrounding the main subject.",
+        ),
+        (
+            "detailed_analysis",
+            "Provide a comprehensive analysis of this image, covering all observable details and their relationships.",
+        ),
+        (
+            "characteristics",
+            "What are the key characteristics and distinctive features of what is shown?",
+        ),
         ("composition", "Analyze the composition and visual structure of this image."),
-        ("action_activity", "What action or activity, if any, is taking place in this image?"),
-        ("categorization", "What category or type does the main subject of this image belong to?"),
+        (
+            "action_activity",
+            "What action or activity, if any, is taking place in this image?",
+        ),
+        (
+            "categorization",
+            "What category or type does the main subject of this image belong to?",
+        ),
         ("materials", "What materials or substances can you identify in this image?"),
-        ("lighting_atmosphere", "Describe the lighting, shadows, and overall atmosphere of this image."),
+        (
+            "lighting_atmosphere",
+            "Describe the lighting, shadows, and overall atmosphere of this image.",
+        ),
         ("perspective", "From what perspective or viewpoint is this image captured?"),
     ]
 
@@ -148,11 +191,13 @@ def create_diverse_samples() -> List[Dict]:
         filename = os.path.basename(image_path)
         sample_name = f"{prompt_type}_{idx:03d}"
 
-        samples.append({
-            "name": sample_name,
-            "image_url": image_path,
-            "prompt": prompt_text,
-        })
+        samples.append(
+            {
+                "name": sample_name,
+                "image_url": image_path,
+                "prompt": prompt_text,
+            }
+        )
 
     print(f"Created {len(samples)} calibration samples from {len(image_files)} images")
     return samples
@@ -228,7 +273,7 @@ def capture_vision_encoder_inputs(
         # Pad if needed
         images = np.zeros(target_shape, dtype=pixel_values_np.dtype)
         flat_pv = pixel_values_np.flatten()
-        images.flat[:len(flat_pv)] = flat_pv
+        images.flat[: len(flat_pv)] = flat_pv
 
     return {
         "images": images,
@@ -275,7 +320,7 @@ def generate_vision_calibration_data(
         "model_name": model_name,
         "image_size": [224, 224],  # Fixed at 224x224
         "num_samples": len(sample_configs),
-        "samples": []
+        "samples": [],
     }
 
     # List to store all npy file paths
@@ -307,33 +352,38 @@ def generate_vision_calibration_data(
                 npy_file_paths.append(os.path.abspath(npy_path))
 
             # Add to metadata
-            metadata["samples"].append({
-                "index": i,
-                "name": sample_config["name"],
-                "prompt": sample_config["prompt"],
-                "image_url": sample_config["image_url"],
-                "directory": f"sample_{i:03d}",
-                "shapes": {key: list(val.shape) for key, val in captured_data.items()}
-            })
+            metadata["samples"].append(
+                {
+                    "index": i,
+                    "name": sample_config["name"],
+                    "prompt": sample_config["prompt"],
+                    "image_url": sample_config["image_url"],
+                    "directory": f"sample_{i:03d}",
+                    "shapes": {
+                        key: list(val.shape) for key, val in captured_data.items()
+                    },
+                }
+            )
 
         except Exception as e:
             print(f"   ✗ Error processing sample: {e}")
             import traceback
+
             traceback.print_exc()
             continue
 
     # Save metadata
     metadata_path = os.path.join(output_dir, "metadata.json")
-    with open(metadata_path, 'w') as f:
+    with open(metadata_path, "w") as f:
         json.dump(metadata, f, indent=2)
 
     print(f"\n✓ Metadata saved to: {metadata_path}")
 
     # Save txt file listing all npy file paths
     npy_list_path = os.path.join(output_dir, "npy_files.txt")
-    with open(npy_list_path, 'w') as f:
+    with open(npy_list_path, "w") as f:
         for npy_path in npy_file_paths:
-            f.write(npy_path + '\n')
+            f.write(npy_path + "\n")
 
     print(f"✓ NPY file list saved to: {npy_list_path}")
 
@@ -356,10 +406,10 @@ def generate_vision_calibration_data(
     print(f"  - Image size: 224 x 224 (fixed)")
     print(f"\nStructure:")
     print(f"  {output_dir}/")
-    for sample in metadata['samples'][:3]:  # Show first 3
+    for sample in metadata["samples"][:3]:  # Show first 3
         print(f"  ├── {sample['directory']}/")
         print(f"  │   └── images.npy      # {sample['shapes']['images']}")
-    if len(metadata['samples']) > 3:
+    if len(metadata["samples"]) > 3:
         print(f"  ├── ... ({len(metadata['samples']) - 3} more samples)")
     print(f"  ├── metadata.json")
     print(f"  └── npy_files.txt")

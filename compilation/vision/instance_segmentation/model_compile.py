@@ -1,7 +1,7 @@
 from argparse import ArgumentParser
-from qubee import mxq_compile
-import torch
 
+import torch
+from qubee import mxq_compile
 
 if __name__ == "__main__":
     parser = ArgumentParser(description="Compile YOLO11 ONNX model to MXQ model")

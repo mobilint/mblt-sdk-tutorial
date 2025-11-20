@@ -1,7 +1,8 @@
-from huggingface_hub import snapshot_download
-import os
 import json
+import os
+
 import torch
+from huggingface_hub import snapshot_download
 from safetensors import safe_open
 from safetensors.torch import save_file
 
@@ -11,7 +12,9 @@ snapshot_download(
     repo_id="Qwen/Qwen2-VL-2B-Instruct",
     local_dir="./huggingface/",
     local_dir_use_symlinks=False,
-    allow_patterns=["model-00001-of-00002.safetensors"]      # optional: only download specific files
+    allow_patterns=[
+        "model-00001-of-00002.safetensors"
+    ],  # optional: only download specific files
 )
 
 SOURCE_FILE = "./huggingface/model-00001-of-00002.safetensors"
@@ -28,8 +31,12 @@ with safe_open(SOURCE_FILE, framework="pt") as f:
     tensor = f.get_tensor(TENSOR_NAME)
 
 # Apply rotation matrix
-head_out_ch_rotation_matrix_path = "/tmp/qubee/spinWeight/qwen2vl_language/R1/global_rotation.pth"
-head_out_ch_rotation_matrix = torch.jit.load(head_out_ch_rotation_matrix_path, map_location='cpu').state_dict()['0']
+head_out_ch_rotation_matrix_path = (
+    "/tmp/qubee/spinWeight/qwen2vl_language/R1/global_rotation.pth"
+)
+head_out_ch_rotation_matrix = torch.jit.load(
+    head_out_ch_rotation_matrix_path, map_location="cpu"
+).state_dict()["0"]
 
 embedding = tensor.double() @ head_out_ch_rotation_matrix
 

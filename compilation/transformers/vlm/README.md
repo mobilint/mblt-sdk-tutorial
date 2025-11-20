@@ -4,7 +4,7 @@ This tutorial provides detailed instructions for compiling Vision Language Model
 
 In this tutorial, we will use the [Qwen2-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct) model, a state-of-the-art vision-language model developed by Qwen.
 
-> ** Important Disclaimer:**
+> **Important Disclaimer:**
 >
 > The code in this tutorial requires **qubee version >= 0.12** with equivalent transformation support, which will be available in a near future release. The current version (v0.11.0.1) does not yet support the equivalent transformation features used in the MXQ compilation scripts, and compilation will fail with the current qubee version.
 >
@@ -15,7 +15,7 @@ The VLM compilation process consists of three main stages:
 
 1. **Calibration Data Generation**: Create calibration datasets for quantization
 2. **MBLT Compilation**: Compile the model to MBLT (Mobilint Binary Layout) format
-3. **MXQ Compilation**: Apply advanced quantization and compile to MXQ format for deployment
+3. **MXQ Compilation**: Apply advanced quantization and compile to `.mxq` format for deployment
 
 The compilation process is performed separately for the **language model** (decoder) and **vision encoder** components.
 
@@ -26,7 +26,7 @@ After compilation, you will have all necessary files in the `mxq/` directory rea
 Before starting, ensure you have:
 
 - Python 3.8 or higher
-- qubee SDK installed (version >= 0.12 required)
+- qubee SDK compiler installed (version >= 0.12 required)
 - (optional) CUDA-capable GPU for calibration and compilation
 - Sufficient disk space (~20GB for model + calibration data)
 
@@ -50,12 +50,14 @@ python download_images.py
 ```
 
 **What it does:**
+
 - Downloads 100 images from the COCO 2017 validation set using HuggingFace datasets
 - Automatically resizes images to 224x224 resolution
 - Saves images to the `images/` directory as JPEG files
 - If COCO download fails, generates synthetic sample images as fallback
 
 **Output:**
+
 - `images/image_0000.jpg` through `images/image_0099.jpg`
 
 The calibration scripts will automatically use all images in the `images/` directory and cycle through diverse prompts (detailed descriptions, visual reasoning, counting, spatial understanding, etc.) to ensure calibration diversity.
@@ -78,6 +80,7 @@ python generate_language_calibration_data.py \
 ```
 
 **Parameters:**
+
 - `--model-name`: HuggingFace model identifier
 - `--output-dir`: Directory to save calibration data
 - `--num-samples`: Number of calibration samples (default: all available images)
@@ -90,6 +93,7 @@ python generate_language_calibration_data.py \
 - Saves calibration data as `.npy` files with metadata
 
 **Output structure:**
+
 ```
 calibration_data/language/
  sample_000/
@@ -113,6 +117,7 @@ python generate_vision_calibration_data.py \
 ```
 
 **Parameters:**
+
 - `--model-name`: HuggingFace model identifier
 - `--output-dir`: Directory to save calibration data
 - `--num-samples`: Number of calibration samples (default: all available images)
@@ -120,6 +125,7 @@ python generate_vision_calibration_data.py \
 **Note:** Image size is fixed at 224x224 for vision encoder calibration.
 
 **What it does:**
+
 - Loads all images from `images/` folder (100 JPEG images downloaded earlier)
 - Cycles through diverse prompts (same as language calibration)
 - Captures vision encoder inputs (pixel values)
@@ -127,6 +133,7 @@ python generate_vision_calibration_data.py \
 - Saves calibration data as `.npy` files with metadata
 
 **Output structure:**
+
 ```
 calibration_data/vision/
  sample_000/
@@ -152,6 +159,7 @@ python mblt_compile_language.py
 ```
 
 **What it does:**
+
 - Captures language model inputs during sample generation
 - Marks sequence length dimensions as dynamic (for variable-length inputs)
 - Applies Aries 2-compatible architectural patches:
@@ -165,12 +173,14 @@ python mblt_compile_language.py
 - Validates output by comparing with original model
 
 **Key transformations:**
+
 - Input embeddings dimension marked as dynamic: `[batch, seq_len, hidden_size]`
 - Attention mask and position IDs marked as dynamic for variable sequences
 - Cache position marked as dynamic for auto-regressive generation
 - RoPE embeddings pre-computed for max sequence length (16384)
 
 **Output files:**
+
 - `./mblt/Qwen2-VL-2B-Instruct_text_model.mblt`: Compiled model in MBLT format
 - `./mblt/Qwen2-VL-2B-Instruct_text_model.infer`: Inference values for validation
 - `./mblt/Qwen2-VL-2B-Instruct_text_model.json`: Comparison results with original model
@@ -184,6 +194,7 @@ python mblt_compile_vision.py
 ```
 
 **What it does:**
+
 - Captures vision encoder inputs during sample inference
 - Reprocesses pixel values to Aries 2-compatible format
 - Applies Aries 2-compatible architectural patches:
@@ -197,12 +208,14 @@ python mblt_compile_vision.py
 - Validates output by comparing with original model
 
 **Key transformations:**
+
 - Pixel values reprocessed from HuggingFace format `[num_patches, channels*patch_size^2]` to Aries 2 format `[batch, channels*temporal, height, width]`
 - 3D temporal convolutions converted to 2D spatial convolutions
 - QKV attention projections split for parallel execution
 - RoPE embeddings pre-computed based on image grid dimensions
 
 **Output files:**
+
 - `./mblt/Qwen2-VL-2B-Instruct_vision_transformer.mblt`: Compiled model in MBLT format
 - `./mblt/Qwen2-VL-2B-Instruct_vision_transformer.infer`: Inference values for validation
 - `./mblt/Qwen2-VL-2B-Instruct_vision_transformer.json`: Comparison results with original model
@@ -220,6 +233,7 @@ python mxq_compile_language.py
 ```
 
 **What it does:**
+
 - Loads the MBLT file: `./mblt/Qwen2-VL-2B-Instruct_text_model.mblt`
 - Loads calibration data from: `../calibration/calibration_data/language/npy_files.txt`
 - Applies advanced quantization with equivalent transformations.
@@ -230,6 +244,7 @@ python mxq_compile_language.py
   - This rotation matrix is **required for vision encoder MXQ compilation**
 
 **Key configurations:**
+
 - Calibration mode: 1 (standard calibration)
 - Activation 16-bit layers: `["inputs_embeds/reshape"]`
 - Inference scheme: `single` (single-core execution)
@@ -237,6 +252,7 @@ python mxq_compile_language.py
 - Equivalent transformations: QK, UD (with learning), SPIN R1, SPIN R2
 
 **Output files:**
+
 - `./mxq/Qwen2-VL-2B-Instruct_text_model.mxq`: Quantized model ready for Aries 2 deployment
 - `/tmp/qubee/spinWeight/qwen2vl_language/R1/global_rotation.pth`: Global rotation matrix (needed for vision encoder)
 
@@ -251,6 +267,7 @@ python mxq_compile_vision.py
 ```
 
 **What it does:**
+
 - Loads the MBLT file: `./mblt/Qwen2-VL-2B-Instruct_vision_transformer.mblt`
 - Loads calibration data from: `/workspace/data_prep/calibration_data/vision/npy_files.txt`
 - **Loads rotation matrix** from: `/tmp/qubee/spinWeight/qwen2vl_language/R1/global_rotation.pth`
@@ -262,6 +279,7 @@ python mxq_compile_vision.py
 - Uses multi-core compilation for vision encoder
 
 **Key configurations:**
+
 - Calibration output mode: 1 (standard output calibration)
 - Activation 16-bit layers: `["model_merger_fc2"]`
 - Inference scheme: `multi` (multi-core execution)
@@ -272,6 +290,7 @@ python mxq_compile_vision.py
 The vision encoder's output must be properly aligned with the language model's input space. The rotation matrix generated during language model quantization ensures that the vision features and text embeddings live in the same quantized space, maintaining accuracy when vision and language components are combined during inference.
 
 **Output files:**
+
 - `./mxq/Qwen2-VL-2B-Instruct_vision_transformer.mxq`: Quantized model ready for Aries 2 deployment
 
 ### Step 3.3: Prepare Inference Configuration Files
@@ -289,6 +308,7 @@ python get_config.py
 ```
 
 **What it does:**
+
 - Downloads `config.json` from the HuggingFace model repository
 - Creates a `./mxq/` directory for inference files
 - Modifies the config to point to the compiled MXQ model files:
@@ -311,6 +331,7 @@ python get_safetensors.py
 ```
 
 **What it does:**
+
 - Downloads `model-00001-of-00002.safetensors` from HuggingFace (contains embedding weights)
 - Extracts the `model.embed_tokens.weight` tensor
 - Applies the rotation matrix from the language model MXQ compilation:
@@ -322,10 +343,12 @@ python get_safetensors.py
 The embedding layer needs to be rotated with the same rotation matrix used during language model quantization. This ensures that the input embeddings are in the same quantized space as the rest of the language model, maintaining accuracy and consistency throughout the inference pipeline.
 
 **Output files:**
+
 - `./mxq/config.json`: Modified model configuration pointing to MXQ files
 - `./mxq/model.safetensors`: Rotated embedding weights aligned with quantized model
 
 **Important:** After running these scripts, you will have all 4 files needed for inference in the `./mxq/` directory:
+
 1. `Qwen2-VL-2B-Instruct_text_model.mxq` (compiled language model)
 2. `Qwen2-VL-2B-Instruct_vision_transformer.mxq` (compiled vision encoder)
 3. `config.json` (model configuration)
@@ -387,6 +410,7 @@ python get_safetensors.py
 ## Understanding the Compilation Flow
 
 ### Language Model Pipeline
+
 ```
 [Download Images] -> images/*.jpg (100 COCO images)
     |
@@ -402,6 +426,7 @@ Original Model (HF) + Calibration Images
 ```
 
 ### Vision Encoder Pipeline
+
 ```
 [Download Images] -> images/*.jpg (100 COCO images)
     |
@@ -416,6 +441,7 @@ Original Model (HF) + Calibration Images
 ```
 
 ### Configuration Files Preparation
+
 ```
 [get_config.py] -> config.json
                    (Modified with MXQ paths)
@@ -425,6 +451,7 @@ Original Model (HF) + Calibration Images
 ```
 
 ### Key Dependencies
+
 1. Vision encoder MXQ compilation **requires** the rotation matrix from language model MXQ compilation
 2. Always run `mxq_compile_language.py` **before** `mxq_compile_vision.py`
 3. Both MBLT files can be compiled independently, but MXQ files must follow the order above
@@ -436,14 +463,17 @@ Original Model (HF) + Calibration Images
 After completing all stages, you will have:
 
 ### Calibration Data
+
 - `calibration_data/language/`: Language model calibration samples with metadata
 - `calibration_data/vision/`: Vision encoder calibration samples with metadata
 
 ### MBLT Models (Hardware-Agnostic) - in `compile/mblt/`
+
 - `Qwen2-VL-2B-Instruct_text_model.mblt`: Language model in MBLT format
 - `Qwen2-VL-2B-Instruct_vision_transformer.mblt`: Vision encoder in MBLT format
 
 ### MXQ Models and Deployment Files - in `compile/mxq/`
+
 All files needed for deployment are in this single directory:
 - `Qwen2-VL-2B-Instruct_text_model.mxq`: Quantized language model
 - `Qwen2-VL-2B-Instruct_vision_transformer.mxq`: Quantized vision encoder
@@ -451,42 +481,54 @@ All files needed for deployment are in this single directory:
 - `model.safetensors`: Rotated embedding weights
 
 ### Validation Files - in `compile/`
+
 - `*.infer`: Inference values for validation
 - `*.json`: Comparison results with original models
 
 ## Troubleshooting
 
 ### Out of Memory (OOM) Errors
+
 - Reduce `--num-samples` in calibration scripts
 - Reduce `--max-new-tokens` in language calibration
 - Close other GPU-intensive applications
 
 ### Missing Rotation Matrix Error
+
 If vision encoder MXQ compilation fails with a missing rotation matrix error:
-```
+
+```bash
 FileNotFoundError: /tmp/qubee/spinWeight/qwen2vl_language/R1/global_rotation.pth
 ```
+
 **Solution:** Run `mxq_compile_language.py` first to generate the rotation matrix.
 
 ### Calibration Data Not Found
+
 Ensure the calibration data paths in the MXQ compile scripts match your actual calibration data location:
+
 - Language: `../calibration/calibration_data/language/npy_files.txt`
 - Vision: Update the path in `mxq_compile_vision.py` if your data is elsewhere
 
 ### Model Download Issues
+
 - Ensure you have accepted the model agreement on HuggingFace
 - Verify your access token is valid: `huggingface-cli whoami`
 - Check your internet connection and HuggingFace status
 
 ### No Images Found
-```
+
+```bash
 FileNotFoundError: No images found in images/ directory
 ```
+
 **Solution:** Run the image download script:
+
 ```bash
 cd calibration
 python download_images.py
 ```
+
 This will download 100 images from COCO dataset to the `images/` directory.
 
 ## Deployment
@@ -505,6 +547,7 @@ These files are ready for deployment on Aries 2 hardware using the Mobilint runt
 To run inference with your compiled models, see the [Runtime Inference Tutorial](../../../runtime/transformers/vlm/README.md).
 
 The runtime tutorial demonstrates how to:
+
 - Load compiled MXQ models using mblt-model-zoo
 - Run image-text-to-text inference
 - Customize prompts and generation parameters
@@ -519,6 +562,7 @@ The runtime tutorial demonstrates how to:
 ## Support
 
 For issues or questions:
+
 - Check the troubleshooting section above
 - Review qubee SDK documentation
 - Contact Mobilint support with detailed error logs

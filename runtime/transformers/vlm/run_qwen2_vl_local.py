@@ -1,12 +1,14 @@
-import torch
-from transformers import TextStreamer, Qwen2TokenizerFast
-from mblt_model_zoo.transformers import pipeline, AutoModelForImageTextToText, AutoProcessor
-from PIL import Image
+from mblt_model_zoo.transformers import (
+    AutoModelForImageTextToText,
+    AutoProcessor,
+    pipeline,
+)
+from transformers import TextStreamer
 
 model_folder = "/workspace/mblt-sdk-tutorial/compilation/transformers/vlm/compile/mxq/"
 model_id = "mobilint/Qwen2-VL-2B-Instruct"
 
-model = AutoModelForImageTextToText.from_pretrained(model_folder) # Model from config
+model = AutoModelForImageTextToText.from_pretrained(model_folder)  # Model from config
 
 # Load processor
 processor = AutoProcessor.from_pretrained(model_id)
@@ -30,7 +32,10 @@ messages = [
                 "type": "image",
                 "image": "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-VL/assets/demo.jpeg",
             },
-            {"type": "text", "text": "Describe the environment and context surrounding the main subject."},
+            {
+                "type": "text",
+                "text": "Describe the environment and context surrounding the main subject.",
+            },
         ],
     }
 ]

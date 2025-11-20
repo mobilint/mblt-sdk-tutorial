@@ -1,14 +1,14 @@
-from typing import Tuple, Optional, Union, List
+import math
+from typing import List, Optional, Tuple, Union
+
+import maccel
+import numpy as np
 import torch
 from torch import nn
-import numpy as np
-import math
-import maccel
-
-from transformers.models.llama.modeling_llama import LlamaPreTrainedModel
-from transformers.modeling_outputs import CausalLMOutputWithPast
-from transformers.generation.utils import GenerationMixin
 from transformers.cache_utils import Cache, StaticCache
+from transformers.generation.utils import GenerationMixin
+from transformers.modeling_outputs import CausalLMOutputWithPast
+from transformers.models.llama.modeling_llama import LlamaPreTrainedModel
 from transformers.utils import replace_return_docstrings
 
 _CONFIG_FOR_DOC = "LlamaConfig"
@@ -194,10 +194,8 @@ class LlamaMXQ(LlamaPreTrainedModel, GenerationMixin):
             )
             self.current_cache_position += seq_end - seq_start
 
-        out_logits = tmp_logits[0][0,0,-1:,:]
-        out_logits = torch.tensor(
-            np.array([out_logits]), dtype=torch.float32
-        )
+        out_logits = tmp_logits[0][0, 0, -1:, :]
+        out_logits = torch.tensor(np.array([out_logits]), dtype=torch.float32)
         logits_all = [out_logits]
         # -------------------------------------------------------------------------------------------
         # Stage 2: Process tokens that will return logits
@@ -208,10 +206,8 @@ class LlamaMXQ(LlamaPreTrainedModel, GenerationMixin):
                 self.current_cache_position,
             )
             self.current_cache_position += 1
-            out_logits = tmp_logits[0][0,0,-1:,:]
-            out_logits = torch.tensor(
-                np.array([out_logits]), dtype=torch.float32
-            )
+            out_logits = tmp_logits[0][0, 0, -1:, :]
+            out_logits = torch.tensor(np.array([out_logits]), dtype=torch.float32)
             logits_all.append(out_logits)
 
         logits = torch.cat(logits_all, dim=1)
