@@ -1,3 +1,5 @@
+from argparse import ArgumentParser
+
 import torch
 from llamamxq import LlamaMXQ
 from transformers import AutoConfig, AutoTokenizer
@@ -6,14 +8,15 @@ MODEL_NAME = "meta-llama/Llama-3.2-1B-Instruct"
 config = AutoConfig.from_pretrained(MODEL_NAME)
 
 
-def main():
+def main(mxq_path, embedding_weight_path):
+
     device = "cpu"  # Do not use gpu since we are using npu.
 
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, config=config)
     model = LlamaMXQ(
         config=config,
-        mxq_path="/workspace/tutorial/Llama-3.2-1B-Instruct.mxq",
-        embedding_weight_path="/workspace/tutorial/embedding.pt",
+        mxq_path=mxq_path,
+        embedding_weight_path=embedding_weight_path,
         max_sub_seq=192,
     )
 
@@ -51,4 +54,16 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = ArgumentParser()
+    parser.add_argument(
+        "--mxq_path",
+        type=str,
+        default="../../../compilation/transformers/llm/Llama-3.2-1B-Instruct.mxq",
+    )
+    parser.add_argument(
+        "--embedding_weight_path",
+        type=str,
+        default="../../../compilation/transformers/llm/embedding.pt",
+    )
+    args = parser.parse_args()
+    main(args.mxq_path, args.embedding_weight_path)

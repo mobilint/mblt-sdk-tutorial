@@ -34,9 +34,9 @@ hf_config = {
 }
 
 mxq_compile(
-    model=model_path,
-    calib_data_path=calib_data_path,
-    save_path=save_path,
+    model=args.model_path,
+    calib_data_path=args.calib_data_path,
+    save_path=args.save_path,
     backend="torch",
     singlecore_compile=True,
     quant_output="layer",

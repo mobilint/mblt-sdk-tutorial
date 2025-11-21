@@ -6,7 +6,7 @@ In this tutorial, we will use the [Qwen2-VL-2B-Instruct](https://huggingface.co/
 
 > **Important Disclaimer:**
 >
-> The code in this tutorial requires **qubee version >= 0.12** with equivalent transformation support, which will be available in a near future release. The current version (v0.11.0.1) does not yet support the equivalent transformation features used in the MXQ compilation scripts, and compilation will fail with the current qubee version.
+> The code in this tutorial requires **qubee version >= 0.12** with equivalent transformation support, which will be available in a near-future release. The current version (v0.11.0.1) does not yet support the equivalent transformation features used in the MXQ compilation scripts, and compilation will fail with the current qubee version.
 >
 
 ## Overview
@@ -14,7 +14,7 @@ In this tutorial, we will use the [Qwen2-VL-2B-Instruct](https://huggingface.co/
 The VLM compilation process consists of three main stages:
 
 1. **Calibration Data Generation**: Create calibration datasets for quantization
-2. **MBLT Compilation**: Compile the model to MBLT (Mobilint Binary Layout) format
+2. **MBLT Compilation**: Compile the model to MBLT (Mobilint Binary LayouT) format
 3. **MXQ Compilation**: Apply advanced quantization and compile to `.mxq` format for deployment
 
 The compilation process is performed separately for the **language model** (decoder) and **vision encoder** components.
@@ -54,7 +54,7 @@ python download_images.py
 - Downloads 100 images from the COCO 2017 validation set using HuggingFace datasets
 - Automatically resizes images to 224x224 resolution
 - Saves images to the `images/` directory as JPEG files
-- If COCO download fails, generates synthetic sample images as fallback
+- If the COCO download fails, generates synthetic sample images as fallback
 
 **Output:**
 
@@ -87,6 +87,7 @@ python generate_language_calibration_data.py \
 - `--max-new-tokens`: Maximum tokens to generate per sample (captures longer sequences)
 
 **What it does:**
+
 - Loads all images from `images/` folder (100 JPEG images downloaded earlier)
 - Cycles through 20 diverse prompt types (object identification, detailed description, visual reasoning, spatial understanding, etc.)
 - Captures `inputs_embeds` tensors after vision features are merged into text embeddings
@@ -94,7 +95,7 @@ python generate_language_calibration_data.py \
 
 **Output structure:**
 
-```
+```text
 calibration_data/language/
  sample_000/
     inputs_embeds.npy    # [1, seq_len, 1536]
@@ -134,7 +135,7 @@ python generate_vision_calibration_data.py \
 
 **Output structure:**
 
-```
+```text
 calibration_data/vision/
  sample_000/
     images.npy          # [896, 56, 6]
@@ -147,7 +148,7 @@ calibration_data/vision/
 
 ## Stage 2: MBLT Compilation
 
-MBLT (Mobilint Binary Layout) is an intermediate format that represents the model graph and weights in a hardware-agnostic way.
+MBLT (Mobilint Binary LayouT) is an intermediate format that represents the model graph and weights in a hardware-agnostic way.
 
 ### Step 2.1: Compile Language Model to MBLT
 
@@ -236,7 +237,7 @@ python mxq_compile_language.py
 
 - Loads the MBLT file: `./mblt/Qwen2-VL-2B-Instruct_text_model.mblt`
 - Loads calibration data from: `../calibration/calibration_data/language/npy_files.txt`
-- Applies advanced quantization with equivalent transformations.
+- Applies advanced quantization with equivalent transformations
 - Configures 16-bit activations for input embeddings: `inputs_embeds/reshape`
 - Uses single-core compilation for language model
 - Enables LLM-specific optimizations
@@ -411,7 +412,7 @@ python get_safetensors.py
 
 ### Language Model Pipeline
 
-```
+```text
 [Download Images] -> images/*.jpg (100 COCO images)
     |
 Original Model (HF) + Calibration Images
@@ -427,7 +428,7 @@ Original Model (HF) + Calibration Images
 
 ### Vision Encoder Pipeline
 
-```
+```text
 [Download Images] -> images/*.jpg (100 COCO images)
     |
 Original Model (HF) + Calibration Images
@@ -442,7 +443,7 @@ Original Model (HF) + Calibration Images
 
 ### Configuration Files Preparation
 
-```
+```text
 [get_config.py] -> config.json
                    (Modified with MXQ paths)
 
@@ -475,6 +476,7 @@ After completing all stages, you will have:
 ### MXQ Models and Deployment Files - in `compile/mxq/`
 
 All files needed for deployment are in this single directory:
+
 - `Qwen2-VL-2B-Instruct_text_model.mxq`: Quantized language model
 - `Qwen2-VL-2B-Instruct_vision_transformer.mxq`: Quantized vision encoder
 - `config.json`: Model configuration with MXQ paths

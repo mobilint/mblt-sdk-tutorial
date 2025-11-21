@@ -1,6 +1,6 @@
 # Large Language Model Compilation
 
-This tutorial provides detailed instructions for compiling large language models using the Mobilint QB compiler. The compilation process converts a standard transformer model into an optimized `.mxq` format that can run efficiently on Mobilint NPU hardware.
+This tutorial provides detailed instructions for compiling large language models using the Mobilint qubee compiler. The compilation process converts a standard transformer model into an optimized `.mxq` format that can run efficiently on Mobilint NPU hardware.
 
 In this tutorial, we will use the [Llama-3.2-1B-Instruct](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct) model, a 1B parameter language model developed by Meta.
 
@@ -22,9 +22,9 @@ The compilation process consists of three main steps:
 
 ## Step 1: Model Preparation
 
-Before using the model, sign up for an account on [HuggingFace](https://huggingface.co/) and sign the agreement to use the model on the [model page](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct).
+Before using the model, sign up for an account on [HuggingFace](https://huggingface.co/) and accept the agreement to use the model on the [model page](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct).
 
-Then, login to HuggingFace using the following command and replace <your_huggingface_token> with your actual HuggingFace token:
+Then, log in to HuggingFace using the following command and replace <your_huggingface_token> with your actual HuggingFace token:
 
 ```bash
 hf auth login --token <your_huggingface_token>
@@ -43,9 +43,9 @@ python download_model.py \
 
 **What this does:**
 
-- Downloads the specified model from HuggingFace Hub and saves it in cache directory
+- Downloads the specified model from HuggingFace Hub and saves it in the cache directory
 - Extracts the input embedding layer weights
-- Saves the embedding weight to `embedding.pt`
+- Saves the embedding weights to `embedding.pt`
 
 **Parameters:**
 
@@ -70,7 +70,7 @@ python generate_calib.py \
 
 **What this does:**
 
-- Loads Wikitext dataset for specified language(s)
+- Loads the Wikitext dataset for specified language(s)
 - Tokenizes text samples using the model's tokenizer
 - Converts tokens to embeddings using the extracted embedding layer
 - Saves calibration samples as `.npy` files
@@ -113,7 +113,7 @@ python generate_mxq.py \
 - Loads the original model from HuggingFace
 - Uses calibration data to determine optimal quantization parameters
 - Compiles the model layers for NPU execution
-- Saves the compiled model as `.mxq` format
+- Saves the compiled model in `.mxq` format
 
 **Parameters:**
 

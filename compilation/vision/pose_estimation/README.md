@@ -1,6 +1,6 @@
 # Pose Estimation
 
-This tutorial provides detailed instructions for compiling object detection models using the Mobilint qb compiler.
+This tutorial provides detailed instructions for compiling pose estimation models using the Mobilint qb compiler.
 
 In this tutorial, we will use the [YOLO11m-pose](https://docs.ultralytics.com/models/yolo11/) model, a pose estimation model developed by Ultralytics.
 
@@ -16,7 +16,5 @@ yolo export model=yolo11m-pose.pt format=onnx # Export the model to ONNX format
 After execution, the exported ONNX model is saved as `yolo11m-pose.onnx` in the current directory.
 
 ## Calibration Dataset Preparation
-
-
 
 ## Model Compilation

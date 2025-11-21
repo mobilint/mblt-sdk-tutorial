@@ -7,6 +7,7 @@ This directory contains the runtime inference code for running the compiled Qwen
 After compiling the VLM model using the compilation tutorial (in `/workspace/mblt-sdk-tutorial/compilation/transformers/vlm/`), you can run inference on the compiled MXQ models using this runtime script.
 
 The inference script demonstrates how to:
+
 - Load compiled MXQ models from the compilation output directory
 - Use the Mobilint runtime pipeline for image-text-to-text tasks
 - Run inference with streaming output
@@ -15,12 +16,16 @@ The inference script demonstrates how to:
 ## Prerequisites
 
 Before running inference, ensure you have:
+
 - **Completed the compilation tutorial** - All 4 files must be generated in the compilation directory
 - **mblt-model-zoo package installed**:
+
   ```bash
   pip install mblt-model-zoo
   ```
+
 - **Required dependencies**:
+
   ```bash
   pip install transformers==4.54.0 torch pillow
   ```
@@ -48,6 +53,7 @@ python run_qwen2_vl_local.py
 ```
 
 The script will:
+
 1. Load the compiled MXQ models from the compilation output directory
 2. Load the processor from HuggingFace (model ID: `mobilint/Qwen2-VL-2B-Instruct`)
 3. Run inference on a demo image with a sample prompt
@@ -105,23 +111,28 @@ pipe.model.dispose()
 ### Key Components
 
 #### 1. Model Loading
+
 - **AutoModelForImageTextToText.from_pretrained()** - Loads the compiled MXQ models from the specified directory
 - Automatically detects and loads both language and vision models based on config.json
 
 #### 2. Processor Loading
+
 - **AutoProcessor.from_pretrained()** - Loads the tokenizer and image processor from HuggingFace
 - Uses the model ID `mobilint/Qwen2-VL-2B-Instruct` for processor configuration
 
 #### 3. Pipeline Creation
+
 - **pipeline()** - Creates an image-text-to-text pipeline
 - Automatically handles the interaction between vision and language components
 
 #### 4. Message Format
+
 - Messages use a structured format with roles and content types
 - Content can include both images and text
 - Images can be specified as URLs or local file paths
 
 #### 5. Generation
+
 - **generate_kwargs** - Controls generation parameters
 - **TextStreamer** - Displays generated text in real-time
 - **max_length** - Controls the maximum output length
@@ -229,28 +240,37 @@ This ID is used to download the tokenizer and image processor configuration.
 ## Troubleshooting
 
 ### Model Not Found Error
-```
+
+```text
 FileNotFoundError: Model files not found
 ```
+
 **Solution**: Ensure you've completed the compilation tutorial and all 4 files exist in the compilation output directory.
 
 ### Out of Memory (OOM) Errors
+
 **Solutions**:
+
 - Reduce `max_length` in generation parameters
 - Process smaller images
 - Close other GPU-intensive applications
 
 ### Processor Download Issues
+
 **Solutions**:
+
 - Check your internet connection
 - Verify HuggingFace access (may require authentication)
 - Use `huggingface-cli login` if needed
 
 ### Import Errors
-```
+
+```text
 ModuleNotFoundError: No module named 'mblt_model_zoo'
 ```
+
 **Solution**: Install the required package:
+
 ```bash
 pip install mblt-model-zoo
 ```
@@ -258,18 +278,22 @@ pip install mblt-model-zoo
 ## Example Outputs
 
 ### Image Description
+
 **Input**: "Describe the environment and context surrounding the main subject."
 **Output**: Detailed description of the scene, objects, and spatial relationships
 
 ### Object Counting
+
 **Input**: "How many people are in this image?"
 **Output**: Count and description of people visible
 
 ### Visual Reasoning
+
 **Input**: "What is the person doing?"
 **Output**: Analysis of actions and activities in the image
 
 ### Spatial Understanding
+
 **Input**: "Where is the dog located relative to the tree?"
 **Output**: Description of spatial relationships between objects
 
@@ -283,11 +307,10 @@ pip install mblt-model-zoo
 ## Support
 
 For issues or questions:
+
 - Check the troubleshooting section above
 - Review the compilation tutorial to ensure models are properly compiled
 - Refer to the mblt-model-zoo documentation
 - Contact Mobilint support with detailed error logs
 
----
-
-**Note**: This runtime inference script requires properly compiled MXQ models from the compilation tutorial. Make sure to complete the compilation process before attempting to run inference.
+> **Note**: This runtime inference script requires properly compiled MXQ models from the compilation tutorial. Make sure to complete the compilation process before attempting to run inference.
