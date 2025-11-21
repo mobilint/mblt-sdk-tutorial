@@ -4,23 +4,23 @@ import torch
 from qubee import mxq_compile
 
 if __name__ == "__main__":
-    parser = ArgumentParser(description="Compile YOLO11-seg ONNX model to MXQ model")
+    parser = ArgumentParser(description="Compile YOLO11 ONNX model to MXQ model")
     parser.add_argument(
         "--onnx_path",
         type=str,
-        default="./yolo11m-seg.onnx",
+        default="./yolo11m.onnx",
         help="Path to the ONNX model",
     )
     parser.add_argument(
         "--calib_data_path",
         type=str,
-        default="./yolo11m-seg_cali",
+        default="./yolo11m_cali",
         help="Path to the calibration data",
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="./yolo11m-seg.mxq",
+        default="./yolo11m.mxq",
         help="Path to save the MXQ model",
     )
     parser.add_argument(

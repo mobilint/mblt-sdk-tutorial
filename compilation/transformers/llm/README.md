@@ -12,6 +12,12 @@ Before starting, ensure you have the following installed:
 - GPU with CUDA support (recommended for reducing compilation time)
 - HuggingFace account with access to Llama models (if using gated models)
 
+Also, you need to install the following packages:
+
+```bash
+pip install accelerate datasets
+```
+
 ## Overview
 
 The compilation process consists of three main steps:
@@ -35,7 +41,6 @@ If you are not sure about your HuggingFace token, you can find it in your [Huggi
 Then, download the model from HuggingFace and extract its embedding layer weights. The embedding layer is used separately during runtime while the rest of the model runs on the NPU.
 
 ```bash
-pip install accelerate 
 python download_model.py \
   --repo_id meta-llama/Llama-3.2-1B-Instruct \
   --embedding ./embedding.pt
@@ -57,7 +62,6 @@ python download_model.py \
 Calibration data is essential for quantization during compilation. We generate this data from [Wikipedia articles](https://huggingface.co/datasets/wikimedia/wikipedia), converting text into embedding vectors that represent typical model inputs.
 
 ```bash
-pip install datasets
 python generate_calib.py \
   --model_tag meta-llama/Llama-3.2-1B-Instruct \
   --embedding_path ./embedding.pt \

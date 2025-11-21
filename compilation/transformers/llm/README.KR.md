@@ -12,6 +12,12 @@
 - CUDA 지원 GPU (컴파일 시간 단축을 위해 권장)
 - Llama 모델에 대한 접근 권한이 있는 HuggingFace 계정 (접근 권한이 필요한 모델 사용 시)
 
+또한, 다음 패키지를 설치해야 합니다:
+
+```bash
+pip install accelerate datasets
+```
+
 ## 개요
 
 컴파일 과정은 세 가지 주요 단계로 구성됩니다:
@@ -35,7 +41,6 @@ HuggingFace 토큰에 대해 알 수 없는 경우 [HuggingFace 계정 설정](h
 그런 다음 HuggingFace에서 모델을 다운로드하고 임베딩 레이어 가중치를 추출해야 합니다. 임베딩 레이어는 런타임 중에 별도로 사용되며, 나머지 모델은 NPU에서 실행됩니다.
 
 ```bash
-pip install accelerate 
 python download_model.py \
   --repo_id meta-llama/Llama-3.2-1B-Instruct \
   --embedding ./embedding.pt
@@ -57,7 +62,6 @@ python download_model.py \
 캘리브레이션 데이터는 컴파일 중 양자화에 필수적입니다. [Wikipedia 기사](https://huggingface.co/datasets/wikimedia/wikipedia)에서 이 데이터를 생성하여 텍스트를 일반적인 모델 입력을 나타내는 임베딩 벡터로 변환합니다.
 
 ```bash
-pip install datasets
 python generate_calib.py \
   --model_tag meta-llama/Llama-3.2-1B-Instruct \
   --embedding_path ./embedding.pt \
