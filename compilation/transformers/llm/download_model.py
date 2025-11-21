@@ -13,10 +13,9 @@ repo_id = args.repo_id
 
 model = AutoModelForCausalLM.from_pretrained(
     repo_id,
-    device_map="auto",
-    trust_remote_code=True,
+    device_map="cpu",
 )
 embedding_layer = model.get_input_embeddings()
-weights = embedding_layer.weight.detach().cpu()
+weights = embedding_layer.weight.detach()
 torch.save(weights, out_file)
 print(f"Downloaded embedding weight matrix to {out_file}")

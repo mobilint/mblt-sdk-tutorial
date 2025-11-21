@@ -35,6 +35,7 @@ If you are not sure about your HuggingFace token, you can find it in your [Huggi
 Then, download the model from HuggingFace and extract its embedding layer weights. The embedding layer is used separately during runtime while the rest of the model runs on the NPU.
 
 ```bash
+pip install accelerate 
 python download_model.py \
   --repo_id meta-llama/Llama-3.2-1B-Instruct \
   --embedding ./embedding.pt
@@ -42,7 +43,7 @@ python download_model.py \
 
 **What this does:**
 
-- Downloads the specified model from HuggingFace Hub
+- Downloads the specified model from HuggingFace Hub and saves it in cache directory
 - Extracts the input embedding layer weights
 - Saves the embedding weight to `embedding.pt`
 
@@ -53,9 +54,10 @@ python download_model.py \
 
 ## Step 2: Calibration Dataset Preparation
 
-Calibration data is essential for quantization during compilation. We generate this data from Wikipedia articles, converting text into embedding vectors that represent typical model inputs.
+Calibration data is essential for quantization during compilation. We generate this data from [Wikipedia articles](https://huggingface.co/datasets/wikimedia/wikipedia), converting text into embedding vectors that represent typical model inputs.
 
 ```bash
+pip install datasets
 python generate_calib.py \
   --model_tag meta-llama/Llama-3.2-1B-Instruct \
   --embedding_path ./embedding.pt \
@@ -90,7 +92,7 @@ The calibration files will be saved in: `./calib/datas/meta-llama-Llama-3.2-1B-I
 To use multiple languages, modify the `LANGUAGES` list in `generate_calib.py`:
 
 ```python
-LANGUAGES = ["en", "de", "fr", "es", "it", "ja", "ko", "zh"]
+LANGUAGES = ["en", "de", "fr", "es", "it", "ja", "ko", "zh"] # more languages are supported
 ```
 
 If using multiple languages, merge the language directories into a single directory before compilation.
