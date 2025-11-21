@@ -133,4 +133,3 @@ python generate_mxq.py \
 - `embedding.pt` - 추출된 임베딩 레이어 가중치
 - `Llama-3.2-1B-Instruct.mxq` - NPU 실행을 위한 컴파일된 모델
 - `calib/datas/meta-llama-Llama-3.2-1B-Instruct/en/` - 캘리브레이션 데이터셋 (128개 샘플)
-

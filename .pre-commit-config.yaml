@@ -10,3 +10,9 @@ repos:
     rev: 25.9.0
     hooks:
       - id: black
+
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.46.0
+    hooks:
+      - id: markdownlint
+        args: ["--disable", "MD013"]
