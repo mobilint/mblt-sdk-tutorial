@@ -13,7 +13,8 @@ repo_id = args.repo_id
 
 model = AutoModelForCausalLM.from_pretrained(
     repo_id,
-    device_map="cpu",
+    device_map="auto",
+    trust_remote_code=True,
 )
 embedding_layer = model.get_input_embeddings()
 weights = embedding_layer.weight.detach().cpu()

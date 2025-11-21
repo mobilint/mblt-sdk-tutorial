@@ -24,7 +24,15 @@ The compilation process consists of three main steps:
 
 Before using the model, sign up for an account on [HuggingFace](https://huggingface.co/) and sign the agreement to use the model on the [model page](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct).
 
-First, we need to download the model from HuggingFace and extract its embedding layer weights. The embedding layer is used separately during runtime while the rest of the model runs on the NPU.
+Then, login to HuggingFace using the following command and replace <your_huggingface_token> with your actual HuggingFace token:
+
+```bash
+hf auth login --token <your_huggingface_token>
+```
+
+If you are not sure about your HuggingFace token, you can find it in your [HuggingFace account settings](https://huggingface.co/settings/tokens).
+
+Then, download the model from HuggingFace and extract its embedding layer weights. The embedding layer is used separately during runtime while the rest of the model runs on the NPU.
 
 ```bash
 python download_model.py \

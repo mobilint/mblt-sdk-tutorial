@@ -8,7 +8,7 @@
 </p>
 </div>
 
-This repository provides examples and explanations to help users easily get started with the Mobilint SDK, which includes the compiler (qubee) and the runtime software (maccel) library.
+This repository provides examples and explanations to help users easily get started with the Mobilint SDK qb, which includes the compiler (qubee) and the runtime software (maccel) library.
 
 Models converted using the compiler can be executed on the Mobilint NPU through the runtime. When properly configured, this workflow enables models to achieve faster inference performance while maintaining the original model’s accuracy.
 
@@ -31,10 +31,8 @@ Mobilint [SDK qb](https://www.mobilint.com/sdk-qb) consists of two main componen
 The Mobilint qb compiler converts models from popular deep learning frameworks into the Mobilint Model eXeCUtable (MXQ) format.
 Using a pre-trained model and a calibration dataset, the compiler parses, quantizes, and optimizes the model for execution on the Mobilint NPU.
 
-The Mobilint qb runtime enables execution of Mobilint-compiled models on the NPU.
-Using the runtime library, you can integrate your compiled models into real-world applications in a simple and efficient way.
-
-With the Mobilint qb SDK, you can compile your models and run them on the Mobilint NPU in a simple and efficient way.
+The Mobilint qb runtime enables execution of the compiled MXQ models on the NPU.
+Using the runtime library, you can integrate your compiled MXQ models into real-world applications in a simple and efficient way.
 
 For more information, please refer to the [compiler](compilation/README.md) and [runtime](runtime/README.md) tutorials.
 

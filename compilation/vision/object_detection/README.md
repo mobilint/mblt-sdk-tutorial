@@ -1,4 +1,4 @@
-# Object Detection
+# Object Detection Model Compilation
 
 This tutorial provides detailed instructions for compiling object detection models using the Mobilint qb compiler.
 
