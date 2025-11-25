@@ -45,7 +45,7 @@ unzip val2017.zip # Unzip the dataset
 
 > Note: According to the [COCO dataset](https://cocodataset.org/#download) page, downloading the dataset through Google Cloud Platform is recommended, but currently it is not available.
 
-The calibration dataset should be pre-processed to be compatible with the quantized model. Therfore, we should first investigate the pre-processing operation used in the original model. The pre-processing operation is defined in [Ultralytics' GitHub](https://github.com/ultralytics/ultralytics/blob/main/ultralytics/data/augment.py). We wrote the simplified but equivalent operation as follows:
+The calibration dataset should be pre-processed to be compatible with the quantized model. Therefore, we should first investigate the pre-processing operation used in the original model. The pre-processing operation is defined in [Ultralytics' GitHub](https://github.com/ultralytics/ultralytics/blob/main/ultralytics/data/augment.py). We wrote the simplified but equivalent operation as follows:
 
 ```python
 import numpy as np

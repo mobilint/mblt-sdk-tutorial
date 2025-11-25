@@ -126,7 +126,7 @@ python model_compile.py --onnx_path {path_to_onnx_model} --calib_data_path {path
 예를 들어, 명령은 다음과 같습니다:
 
 ```bash
-python model_compile.py --onnx_path ./resnet50.onnx --calib_data_path ./resnet50_cali --save_path ./resnet50.mxq --quant_percentile 0.999 --topk_ratio 0.01 --inference_scheme single
+python model_compile.py --onnx_path ./resnet50.onnx --calib_data_path ./resnet50_cali --save_path ./resnet50.mxq --quant_percentile 0.9999 --topk_ratio 0.01 --inference_scheme single
 ```
 
 위 명령을 실행하면 컴파일된 모델이 현재 디렉토리에 `resnet50.mxq`로 저장됩니다.

@@ -24,6 +24,14 @@ Mobilint qb 런타임 튜토리얼은 Mobilint NPU가 장착된 추론 PC에서 
 다음으로, 런타임 라이브러리를 설치해야 합니다.
 자세한 내용은 [런타임 라이브러리 설치 가이드](https://docs.mobilint.com/v0.29/en/installation.html#runtime-library-installtion)를 참조하세요.
 
+Python 프레임워크에서 런타임을 실행하는 경우, 다음 명령을 사용하여 런타임 라이브러리를 설치할 수 있습니다:
+
+```bash
+pip install maccel
+```
+
+모델 유형에 따라 추가 Python 패키지가 필요할 수 있습니다 (예: `torch`, `numpy`, `PIL`, `transformers`). 자세한 요구사항은 특정 모델 튜토리얼을 참조하세요.
+
 Mobilint는 또한 NPU 상태 확인, MXQ 파일 검증, 간단한 추론 작업 실행을 위한 유틸리티 도구를 제공합니다.
 자세한 내용은 [유틸리티 도구 설치 가이드](https://docs.mobilint.com/v0.29/en/installation.html#utility-installation)를 참조하세요.
 

@@ -45,7 +45,7 @@ unzip val2017.zip # Unzip the dataset
 
 > Note: According to the [COCO dataset](https://cocodataset.org/#download) page, downloading the dataset through Google Cloud Platform is recommended, but currently it is not available.
 
-The calibration dataset should be pre-processed to be compatible with the quantized model. Therfore, we should first investigate the pre-processing operation used in the original model. The pre-processing operation is defined in [Ultralytics' GitHub](https://github.com/ultralytics/ultralytics/blob/main/ultralytics/data/augment.py). We wrote the simplified but equivalent operation as follows:
+The calibration dataset should be pre-processed to be compatible with the quantized model. Therefore, we should first investigate the pre-processing operation used in the original model. The pre-processing operation is defined in [Ultralytics' GitHub](https://github.com/ultralytics/ultralytics/blob/main/ultralytics/data/augment.py). We wrote the simplified but equivalent operation as follows:
 
 ```python
 import numpy as np
@@ -124,19 +124,15 @@ python3 model_compile.py --onnx_path {path_to_onnx_model} --calib_data_path {pat
 
 **Parameters:**
 
-The quantization percentile and top-k ratio are parameters that required for running quantization algorithm.
-
 - `--onnx_path`: Path to the ONNX model
 - `--calib_data_path`: Path to the calibration data
 - `--save_path`: Path to save the MXQ model
-- `--quant_percentile`: Quantization percentile
-- `--topk_ratio`: Top-k ratio
+- `--quant_percentile`: Quantization percentile (required for running quantization algorithm)
+- `--topk_ratio`: Top-k ratio (required for running quantization algorithm)
 - `--inference_scheme`: Inference scheme
 
 **Output Location:**
 The compiled model will be saved in the directory specified by `--save_path`.
-
-The quantization percentile and top-k ratio are parameters that are required for running quantization algorithm.
 
 The inference scheme is a parameter that specifies the core allocation strategy for the model. Currently, the following inference schemes are supported:
 

@@ -36,6 +36,12 @@ Mobilint qb 런타임은 컴파일된 MXQ 모델을 Mobilint NPU에서 실행할
 
 자세한 내용은 [컴파일러](compilation/README.md) 및 [런타임](runtime/README.md) 튜토리얼을 참조하세요.
 
+## 레포지토리 구조
+
+- `compilation/` - Mobilint qb 컴파일러를 사용하여 모델을 컴파일하는 튜토리얼
+- `runtime/` - Mobilint qb 런타임을 사용하여 컴파일된 모델을 실행하는 튜토리얼
+- `assets/` - 문서에 사용되는 이미지 및 다이어그램
+
 ## 지원 및 이슈
 
 이 튜토리얼을 따라하는 동안 문제가 발생하면 [기술 지원 이메일](mailto:tech-support@mobilint.com)로 문의바랍니다.

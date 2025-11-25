@@ -10,7 +10,13 @@
 
 This repository provides examples and explanations to help users easily get started with the Mobilint SDK qb, which includes the compiler (qubee) and the runtime software (maccel) library.
 
-Models converted using the compiler can be executed on the Mobilint NPU through the runtime. When properly configured, this workflow enables models to achieve faster inference performance while maintaining the original model’s accuracy.
+Models converted using the compiler can be executed on the Mobilint NPU through the runtime. When properly configured, this workflow enables models to achieve faster inference performance while maintaining the original model's accuracy.
+
+## Repository Structure
+
+- `compilation/` - Tutorials for compiling models using the Mobilint qb compiler
+- `runtime/` - Tutorials for running compiled models using the Mobilint qb runtime
+- `assets/` - Images and diagrams used in the documentation
 
 ## Before you start
 
