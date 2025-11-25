@@ -12,7 +12,7 @@ Before running inference, ensure you have:
 
 - maccel runtime library (provides NPU accelerator access)
 - Compiled `.mxq` model file
-- Python packages: `PIL`, `numpy`, `torch`, `torchvision`
+- Python packages: `PIL`, `numpy`, `torch`
 
 ## Overview
 

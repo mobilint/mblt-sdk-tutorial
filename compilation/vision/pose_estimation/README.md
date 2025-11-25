@@ -51,7 +51,7 @@ The calibration dataset should be pre-processed to be compatible with the quanti
 import numpy as np
 import cv2
 
-img_size = [640, 640] 
+img_size = [640, 640]
 def preprocess_yolo(img_path: str):
     img = cv2.imread(img_path)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)

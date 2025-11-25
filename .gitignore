@@ -10,8 +10,8 @@
 *.mxq
 *.npz
 *.npy
-*.onnx
 *.o
+*.onnx
 *.out
 *.pb
 *.pth
@@ -27,10 +27,9 @@
 *.whl
 *.zip
 *__pycache__*
-.vscode/
 build/
 dist/
+.vscode/
+imagenet-1k*/
 tmp/
 val2017/
-imagenet-1k*/
-annotations/
