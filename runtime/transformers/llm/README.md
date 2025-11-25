@@ -1,6 +1,6 @@
 # Large Language Model Runtime Guide
 
-This tutorial provides detailed instructions for running inference with compiled large language models using the Mobilint QB runtime and maccel accelerator library.
+This tutorial provides detailed instructions for running inference with compiled large language models using the Mobilint qb runtime.
 
 This guide continues from `mblt-sdk-tutorial/compilation/transformers/llm/README.md`. We assume you have successfully compiled the model and have the following files ready:
 

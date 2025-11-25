@@ -32,3 +32,4 @@ build/
 dist/
 tmp/
 val2017/
+imagenet-1k*/
