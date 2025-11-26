@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
 Download 100 images from COCO validation set and resize to 224x224.
 Uses the Hugging Face datasets library to access COCO images.

@@ -1,8 +1,8 @@
-# 인스턴스 세그멘테이션 모델 컴파일
+# 인스턴스 분할 모델 컴파일
 
-이 튜토리얼은 Mobilint qb 컴파일러를 사용하여 인스턴스 세그멘테이션 모델을 컴파일하는 방법에 대한 상세한 안내를 제공합니다.
+이 튜토리얼은 Mobilint qb 컴파일러를 사용하여 인스턴스 분할 모델을 컴파일하는 방법에 대한 상세한 안내를 제공합니다.
 
-이 튜토리얼에서는 Ultralytics에서 개발한 COCO 데이터셋으로 사전 훈련된 [YOLO11m-seg](https://docs.ultralytics.com/models/yolo11/) 모델을 사용합니다. 이 모델은 이미지에서 객체를 세그멘테이션하는 데 사용할 수 있는 인스턴스 세그멘테이션 모델입니다.
+이 튜토리얼에서는 Ultralytics에서 개발한 COCO 데이터셋으로 사전 훈련된 [YOLO11m-seg](https://docs.ultralytics.com/models/yolo11/) 모델을 사용합니다. 이 모델은 이미지에서 객체를 분할하는 데 사용할 수 있는 인스턴스 분할 모델입니다.
 
 ## 사전 요구사항
 
@@ -82,7 +82,7 @@ def preprocess_yolo(img_path: str):
 qb 컴파일러의 유틸리티 함수 중 하나인 `make_calib_man`은 사용자 정의 전처리 함수로 캘리브레이션 데이터셋을 생성하는 데 사용할 수 있습니다. `prepare_calib.py` 스크립트는 위에서 정의한 전처리 작업을 사용하여 캘리브레이션 데이터셋을 생성하는 데 이 함수를 사용합니다.
 
 ```bash
-python3 prepare_calib.py --data_dir {path_to_calibration_dataset} --img_size {image_size} --save_dir {path_to_save_calibration_dataset} --save_name {name_of_calibration_dataset} --max_size {maximum_number_of_calibration_data}
+python prepare_calib.py --data_dir {path_to_calibration_dataset} --img_size {image_size} --save_dir {path_to_save_calibration_dataset} --save_name {name_of_calibration_dataset} --max_size {maximum_number_of_calibration_data}
 ```
 
 **이 스크립트의 동작:**
@@ -105,7 +105,7 @@ python3 prepare_calib.py --data_dir {path_to_calibration_dataset} --img_size {im
 예제 명령어는 다음과 같습니다:
 
 ```bash
-python3 prepare_calib.py --data_dir ./val2017 --img_size 640 --save_dir ./ --save_name yolo11m-seg_cali --max_size 100
+python prepare_calib.py --data_dir ./val2017 --img_size 640 --save_dir ./ --save_name yolo11m-seg_cali --max_size 100
 ```
 
 ## Step 3: 모델 컴파일
@@ -113,7 +113,7 @@ python3 prepare_calib.py --data_dir ./val2017 --img_size 640 --save_dir ./ --sav
 캘리브레이션 데이터셋과 모델이 준비되면 모델을 컴파일할 수 있습니다.
 
 ```bash
-python3 model_compile.py --onnx_path {path_to_onnx_model} --calib_data_path {path_to_calibration_dataset} --save_path {path_to_save_model} --quant_percentile {quantization_percentile} --topk_ratio {topk_ratio} --inference_scheme {inference_scheme}
+python model_compile.py --onnx_path {path_to_onnx_model} --calib_data_path {path_to_calibration_dataset} --save_path {path_to_save_model} --quant_percentile {quantization_percentile} --topk_ratio {topk_ratio} --inference_scheme {inference_scheme}
 ```
 
 **이 스크립트의 동작:**
@@ -151,7 +151,7 @@ python3 model_compile.py --onnx_path {path_to_onnx_model} --calib_data_path {pat
 예제 명령은 다음과 같습니다:
 
 ```bash
-python3 model_compile.py --onnx_path ./yolo11m-seg.onnx --calib_data_path ./yolo11m-seg_cali --save_path ./yolo11m-seg.mxq --quant_percentile 0.999 --topk_ratio 0.01 --inference_scheme single
+python model_compile.py --onnx_path ./yolo11m-seg.onnx --calib_data_path ./yolo11m-seg_cali --save_path ./yolo11m-seg.mxq --quant_percentile 0.999 --topk_ratio 0.01 --inference_scheme single
 ```
 
 위 명령어를 실행하면 현재 디렉토리에 `yolo11m-seg.mxq`로 컴파일된 모델이 저장됩니다.

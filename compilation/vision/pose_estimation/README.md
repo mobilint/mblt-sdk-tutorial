@@ -81,7 +81,7 @@ def preprocess_yolo(img_path: str):
 One of the qb compiler's utility functions is `make_calib_man`, which can be used to create a calibration dataset with custom pre-processing functions. The script `prepare_calib.py` uses this function to create a calibration dataset with the pre-processing operation defined above.
 
 ```bash
-python3 prepare_calib.py --data_dir {path_to_calibration_dataset} --img_size {image_size} --save_dir {path_to_save_calibration_dataset} --save_name {name_of_calibration_dataset} --max_size {maximum_number_of_calibration_data}
+python prepare_calib.py --data_dir {path_to_calibration_dataset} --img_size {image_size} --save_dir {path_to_save_calibration_dataset} --save_name {name_of_calibration_dataset} --max_size {maximum_number_of_calibration_data}
 ```
 
 **What this does:**
@@ -104,7 +104,7 @@ The calibration dataset will be saved in the directory specified by `--save_dir`
 The example command is as follows:
 
 ```bash
-python3 prepare_calib.py --data_dir ./val2017 --img_size 640 --save_dir ./ --save_name yolo11m-pose_cali --max_size 100
+python prepare_calib.py --data_dir ./val2017 --img_size 640 --save_dir ./ --save_name yolo11m-pose_cali --max_size 100
 ```
 
 ## Step 3: Model Compilation
@@ -112,7 +112,7 @@ python3 prepare_calib.py --data_dir ./val2017 --img_size 640 --save_dir ./ --sav
 After the calibration dataset and the model are prepared, we can compile the model.
 
 ```bash
-python3 model_compile.py --onnx_path {path_to_onnx_model} --calib_data_path {path_to_calibration_dataset} --save_path {path_to_save_model} --quant_percentile {quantization_percentile} --topk_ratio {topk_ratio} --inference_scheme {inference_scheme}
+python model_compile.py --onnx_path {path_to_onnx_model} --calib_data_path {path_to_calibration_dataset} --save_path {path_to_save_model} --quant_percentile {quantization_percentile} --topk_ratio {topk_ratio} --inference_scheme {inference_scheme}
 ```
 
 **What this does:**
@@ -146,7 +146,7 @@ Further details about the inference scheme can be found in the [Multi-Core Modes
 The example command is as follows:
 
 ```bash
-python3 model_compile.py --onnx_path ./yolo11m-pose.onnx --calib_data_path ./yolo11m-pose_cali --save_path ./yolo11m-pose.mxq --quant_percentile 0.99 --topk_ratio 0.05 --inference_scheme single
+python model_compile.py --onnx_path ./yolo11m-pose.onnx --calib_data_path ./yolo11m-pose_cali --save_path ./yolo11m-pose.mxq --quant_percentile 0.99 --topk_ratio 0.05 --inference_scheme single
 ```
 
 After executing the above command, the compiled model will be saved as `yolo11m-pose.mxq` in the current directory.
