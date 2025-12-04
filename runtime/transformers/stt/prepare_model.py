@@ -6,13 +6,18 @@ This script prepares a model folder with the necessary configuration files
 for running inference with compiled Whisper MXQ models.
 """
 
-import os
-import json
-import shutil
 import argparse
+import json
+import os
+import shutil
+
 import torch
 from safetensors.torch import save_file
-from transformers import WhisperConfig, WhisperProcessor, WhisperForConditionalGeneration
+from transformers import (
+    WhisperConfig,
+    WhisperForConditionalGeneration,
+    WhisperProcessor,
+)
 
 
 def prepare_model_folder(
@@ -71,6 +76,7 @@ def prepare_model_folder(
 
     # Save generation config
     from transformers import GenerationConfig
+
     gen_config = GenerationConfig.from_pretrained(base_model)
     gen_config.save_pretrained(output_folder)
 
@@ -118,25 +124,25 @@ def main():
         "--encoder_mxq",
         type=str,
         default="../../../compilation/transformers/stt/compilation/compiled/whisper-small_encoder.mxq",
-        help="Path to the compiled encoder MXQ file"
+        help="Path to the compiled encoder MXQ file",
     )
     parser.add_argument(
         "--decoder_mxq",
         type=str,
         default="../../../compilation/transformers/stt/compilation/compiled/whisper-small_decoder.mxq",
-        help="Path to the compiled decoder MXQ file"
+        help="Path to the compiled decoder MXQ file",
     )
     parser.add_argument(
         "--output_folder",
         type=str,
         default="./whisper-small-mxq",
-        help="Output folder to create with all necessary files"
+        help="Output folder to create with all necessary files",
     )
     parser.add_argument(
         "--base_model",
         type=str,
         default="openai/whisper-small",
-        help="HuggingFace model ID to get base configuration from"
+        help="HuggingFace model ID to get base configuration from",
     )
 
     args = parser.parse_args()
@@ -160,7 +166,9 @@ def main():
     )
 
     print("\nYou can now run inference with:")
-    print(f"  python inference_mxq.py --audio /path/to/audio.wav --model_folder {args.output_folder}")
+    print(
+        f"  python inference_mxq.py --audio /path/to/audio.wav --model_folder {args.output_folder}"
+    )
 
     return 0
 

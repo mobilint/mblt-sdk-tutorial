@@ -1,43 +1,41 @@
-from typing import Optional, Tuple, TypeVar, Union
-import math
-import maccel
 import hashlib
+import math
 import os
+from typing import Optional, Tuple, TypeVar, Union
+
+import maccel
 import torch
+from mblt_model_zoo.transformers.utils.cache_utils import MobilintCache
+from mblt_model_zoo.transformers.utils.generation_utils import MobilintGenerationMixin
 from torch import nn
 from torch.nn import CrossEntropyLoss
-
 from transformers import (
-    WhisperTokenizer,
-    WhisperFeatureExtractor,
-    WhisperProcessor,
+    AutoConfig,
+    AutoFeatureExtractor,
+    AutoModelForSpeechSeq2Seq,
+    AutoProcessor,
+    AutoTokenizer,
     PreTrainedModel,
     WhisperConfig,
+    WhisperFeatureExtractor,
     WhisperPreTrainedModel,
-    AutoConfig,
-    AutoTokenizer,
-    AutoFeatureExtractor,
-    AutoProcessor,
-    AutoModelForSpeechSeq2Seq,
+    WhisperProcessor,
+    WhisperTokenizer,
+)
+from transformers.modeling_outputs import (
+    BaseModelOutput,
+    BaseModelOutputWithPastAndCrossAttentions,
+    Seq2SeqLMOutput,
+    Seq2SeqModelOutput,
+)
+from transformers.models.whisper.generation_whisper import (
+    WhisperGenerationMixin,
 )
 from transformers.models.whisper.modeling_whisper import (
     WhisperPositionalEmbedding,
     shift_tokens_right,
 )
-from transformers.models.whisper.generation_whisper import (
-    WhisperGenerationMixin,
-)
-from transformers.modeling_outputs import (
-    BaseModelOutput,
-    BaseModelOutputWithPastAndCrossAttentions,
-    Seq2SeqModelOutput,
-    Seq2SeqLMOutput,
-)
 from transformers.utils import logging
-
-from mblt_model_zoo.transformers.utils.generation_utils import MobilintGenerationMixin
-from mblt_model_zoo.transformers.utils.cache_utils import MobilintCache
-
 
 logger = logging.get_logger(__name__)
 
@@ -72,8 +70,10 @@ class MobilintWhisperPreTrainedModel(WhisperPreTrainedModel):
     _supports_sdpa = False
     _supports_static_cache = False
 
+
 class Object(object):
     pass
+
 
 class MobilintWhisperEncoder(MobilintWhisperPreTrainedModel):
     def __init__(self, config: MobilintWhisperConfig):
@@ -87,10 +87,10 @@ class MobilintWhisperEncoder(MobilintWhisperPreTrainedModel):
         self.padding_idx = config.pad_token_id
         self.max_source_positions = config.max_source_positions
         self.embed_scale = math.sqrt(embed_dim) if config.scale_embedding else 1.0
-        
+
         self.conv1 = lambda: None
         self.conv2 = lambda: None
-        
+
         self.conv1.stride = [1]
         self.conv2.stride = [2]
 
@@ -104,8 +104,12 @@ class MobilintWhisperEncoder(MobilintWhisperPreTrainedModel):
             f"{config.name_or_path}/{config.encoder_mxq_path}", mc
         )
         print(f"Model Initialized")
-        print(f"Model Size: {os.path.getsize(f'{config.name_or_path}/{config.encoder_mxq_path}') / 1024 / 1024:.2f} MB")
-        print(f"Model Hash: {hashlib.md5(open(f'{config.name_or_path}/{config.encoder_mxq_path}', 'rb').read()).hexdigest()}")
+        print(
+            f"Model Size: {os.path.getsize(f'{config.name_or_path}/{config.encoder_mxq_path}') / 1024 / 1024:.2f} MB"
+        )
+        print(
+            f"Model Hash: {hashlib.md5(open(f'{config.name_or_path}/{config.encoder_mxq_path}', 'rb').read()).hexdigest()}"
+        )
         self.mxq_model.launch(self.acc)
 
     def _freeze_parameters(self):
@@ -128,7 +132,9 @@ class MobilintWhisperEncoder(MobilintWhisperPreTrainedModel):
         return_dict=None,
     ):
         expected_seq_length = (
-            self.config.max_source_positions * self.conv1.stride[0] * self.conv2.stride[0]
+            self.config.max_source_positions
+            * self.conv1.stride[0]
+            * self.conv2.stride[0]
         )
         if input_features.shape[-1] != expected_seq_length:
             raise ValueError(
@@ -161,7 +167,9 @@ class MobilintWhisperEncoder(MobilintWhisperPreTrainedModel):
         output = self.mxq_model.infer(
             input_features.permute(0, 2, 1).type(torch.float32).cpu().numpy()
         )[0]
-        hidden_states = torch.tensor(output, dtype=torch.float32, device=input_features.device).unsqueeze(0)
+        hidden_states = torch.tensor(
+            output, dtype=torch.float32, device=input_features.device
+        ).unsqueeze(0)
 
         if not return_dict:
             return (hidden_states,)
@@ -209,8 +217,12 @@ class MobilintWhisperDecoder(MobilintWhisperPreTrainedModel):
             f"{config.name_or_path}/{config.decoder_mxq_path}", mc
         )
         print(f"Model Initialized")
-        print(f"Model Size: {os.path.getsize(f'{config.name_or_path}/{config.decoder_mxq_path}') / 1024 / 1024:.2f} MB")
-        print(f"Model Hash: {hashlib.md5(open(f'{config.name_or_path}/{config.decoder_mxq_path}', 'rb').read()).hexdigest()}")
+        print(
+            f"Model Size: {os.path.getsize(f'{config.name_or_path}/{config.decoder_mxq_path}') / 1024 / 1024:.2f} MB"
+        )
+        print(
+            f"Model Hash: {hashlib.md5(open(f'{config.name_or_path}/{config.decoder_mxq_path}', 'rb').read()).hexdigest()}"
+        )
         self.mxq_model.launch(self.acc)
 
     def get_input_embeddings(self):
@@ -470,7 +482,7 @@ class MobilintWhisperForConditionalGeneration(
         self.max_target_positions = config.max_target_positions
         # for pipeline type checking
         self.config.model_type = "whisper"
-    
+
     def get_mxq_model(self):
         return self.model.decoder.mxq_model
 
@@ -574,7 +586,7 @@ class MobilintWhisperForConditionalGeneration(
             encoder_hidden_states=outputs.encoder_hidden_states,
             encoder_attentions=outputs.encoder_attentions,
         )
-    
+
     def dispose(self):
         self.model.dispose()
 
@@ -587,7 +599,7 @@ AutoModelForSpeechSeq2Seq.register(
     MobilintWhisperConfig, MobilintWhisperForConditionalGeneration
 )
 
-'''
+"""
 from mblt_model_zoo.transformers.utils.types import TransformersModelInfo
 
 whisper_small = TransformersModelInfo(
@@ -610,4 +622,4 @@ whisper_small = TransformersModelInfo(
         "whisper-small_decoder.mxq",
     ],
 )
-'''
+"""

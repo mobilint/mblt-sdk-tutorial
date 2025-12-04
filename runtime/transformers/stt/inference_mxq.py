@@ -7,20 +7,24 @@ using the local mblt-whisper module.
 """
 
 import argparse
-import torch
-import librosa
 import os
-from importlib.util import spec_from_loader, module_from_spec
 from importlib.machinery import SourceFileLoader
+from importlib.util import module_from_spec, spec_from_loader
+
+import librosa
+import torch
 
 # Load mblt-whisper.py module to register HuggingFace Auto classes
 _current_dir = os.path.dirname(os.path.abspath(__file__))
-_spec = spec_from_loader("mblt_whisper", SourceFileLoader("mblt_whisper", os.path.join(_current_dir, "mblt-whisper.py")))
+_spec = spec_from_loader(
+    "mblt_whisper",
+    SourceFileLoader("mblt_whisper", os.path.join(_current_dir, "mblt-whisper.py")),
+)
 mblt_whisper = module_from_spec(_spec)
 _spec.loader.exec_module(mblt_whisper)
 
 # Now Auto classes are registered and can be used
-from transformers import AutoProcessor, AutoModelForSpeechSeq2Seq
+from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor
 
 
 def transcribe_audio(
@@ -50,6 +54,7 @@ def transcribe_audio(
 
     # Create pipeline for automatic speech recognition
     from transformers import pipeline
+
     pipe = pipeline(
         "automatic-speech-recognition",
         model=model,
@@ -110,9 +115,7 @@ def transcribe_audio_manual(
 
     # Process audio through feature extractor
     input_features = processor(
-        audio_array,
-        sampling_rate=16000,
-        return_tensors="pt"
+        audio_array, sampling_rate=16000, return_tensors="pt"
     ).input_features
 
     # Prepare generation kwargs
@@ -129,16 +132,10 @@ def transcribe_audio_manual(
     # Generate transcription
     print(input_features.shape, flush=True)
     with torch.no_grad():
-        predicted_ids = model.generate(
-            input_features,
-            **generate_kwargs
-        )
+        predicted_ids = model.generate(input_features, **generate_kwargs)
 
     # Decode tokens to text
-    transcription = processor.batch_decode(
-        predicted_ids,
-        skip_special_tokens=True
-    )[0]
+    transcription = processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
 
     # Clean up resources
     model.dispose()
@@ -154,31 +151,31 @@ def main():
         "--audio",
         type=str,
         default="../../../compilation/transformers/stt/data/audio_files/en_us_0000.wav",
-        help="Path to the audio file to transcribe"
+        help="Path to the audio file to transcribe",
     )
     parser.add_argument(
         "--model_folder",
         type=str,
         default="./whisper-small-mxq",
-        help="Path to the folder containing compiled MXQ models"
+        help="Path to the folder containing compiled MXQ models",
     )
     parser.add_argument(
         "--language",
         type=str,
         default=None,
-        help="Source language code (e.g., 'en', 'ko', 'ja'). If not specified, auto-detect."
+        help="Source language code (e.g., 'en', 'ko', 'ja'). If not specified, auto-detect.",
     )
     parser.add_argument(
         "--task",
         type=str,
         choices=["transcribe", "translate"],
         default="transcribe",
-        help="Task: 'transcribe' for transcription, 'translate' for translation to English"
+        help="Task: 'transcribe' for transcription, 'translate' for translation to English",
     )
     parser.add_argument(
         "--use_pipeline",
         action="store_true",
-        help="Use pipeline API instead of manual inference"
+        help="Use pipeline API instead of manual inference",
     )
 
     args = parser.parse_args()
