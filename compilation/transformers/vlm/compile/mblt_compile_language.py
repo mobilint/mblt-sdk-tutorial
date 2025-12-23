@@ -32,18 +32,6 @@ from qubee.model_dict.parser.transform_operator.util import (
 )
 from qubee.model_dict.common.layers.impl.rmsnorm import RmsNormalization
 
-# Temporary fix for RMSNorm predict function. Will not be necessary for qubee > 0.12.0.0
-def _modified_predict(self, input_: torch.Tensor, **kwargs) -> torch.Tensor:
-    if not self.normalized_shape:
-        variance = input_.pow(2).mean(dim=-1, keepdim=True)
-        x = input_ * torch.rsqrt(variance + self.epsilon)
-        return self.scale * x
-    else:
-        return torch.nn.functional.rms_norm(
-            input_, self.normalized_shape, weight=self.scale, eps=float(self.epsilon if self.epsilon is not None else torch.finfo(x.dtype).eps)
-        )
-RmsNormalization._predict = _modified_predict
-
 from utils import (
     prepare_inputs,
     print_compilation_summary,
