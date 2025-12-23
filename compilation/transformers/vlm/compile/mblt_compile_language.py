@@ -30,8 +30,6 @@ from qubee.model_dict.parser.parser import ModelParser
 from qubee.model_dict.parser.transform_operator.util import (
     check_sequential_pattern_strict_bwd,
 )
-from qubee.model_dict.common.layers.impl.rmsnorm import RmsNormalization
-
 from utils import (
     prepare_inputs,
     print_compilation_summary,
