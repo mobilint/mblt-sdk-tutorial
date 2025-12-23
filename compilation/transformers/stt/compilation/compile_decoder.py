@@ -39,11 +39,8 @@ def compile_decoder(calib_path, output_dir="./compiled"):
     print("Compiling to MXQ...")
     mxq_path = os.path.join(output_dir, "whisper-small_decoder.mxq")
 
-    # Note: The qubee C++ compiler expects llmConfig.attributes.debug but Python
-    # doesn't provide it. The fix at the top of this file patches LlmConfig.to_dict
-    # to add the missing debug section.
-    llm_config = get_llm_config(llm_config_apply=True, use_full_seq_length=True)
     try:
+        llm_config = get_llm_config(llm_config_apply=True, use_full_seq_length=True)
         mxq_compile(
             model=mblt_path,
             calib_data_path=calib_path,
