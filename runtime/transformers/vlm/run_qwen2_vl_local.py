@@ -5,7 +5,7 @@ from mblt_model_zoo.transformers import (
 )
 from transformers import TextStreamer
 
-model_folder = "/workspace/mblt-sdk-tutorial/compilation/transformers/vlm/compile/mxq/"
+model_folder = "../../../compilation/transformers/vlm/compile/mxq/"
 model_id = "mobilint/Qwen2-VL-2B-Instruct"
 
 model = AutoModelForImageTextToText.from_pretrained(model_folder)  # Model from config
@@ -46,6 +46,7 @@ pipe(
     generate_kwargs={
         "max_length": 512,
         "streamer": TextStreamer(tokenizer=pipe.tokenizer, skip_prompt=False),
+        "repetition_penalty": 1.1,
     },
 )
 

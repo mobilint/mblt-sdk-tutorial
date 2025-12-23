@@ -32,7 +32,7 @@
 
 ## 필수 파일
 
-추론 스크립트는 컴파일 출력 디렉토리(`/workspace/mblt-sdk-tutorial/compilation/transformers/vlm/compile/mxq/`)에 다음 4개의 파일이 존재할 것으로 예상합니다:
+추론 스크립트는 컴파일 출력 디렉토리(런타임 디렉토리 기준 `../../../compilation/transformers/vlm/compile/mxq/`)에 다음 4개의 파일이 존재할 것으로 예상합니다:
 
 1. **Qwen2-VL-2B-Instruct_text_model.mxq** - 컴파일된 언어 모델
 2. **Qwen2-VL-2B-Instruct_vision_transformer.mxq** - 컴파일된 비전 인코더
@@ -67,8 +67,8 @@ python run_qwen2_vl_local.py
 from transformers import TextStreamer
 from mblt_model_zoo.transformers import pipeline, AutoModelForImageTextToText, AutoProcessor
 
-# 컴파일된 MXQ 모델 경로
-model_folder = "/workspace/mblt-sdk-tutorial/compilation/transformers/vlm/compile/mxq/"
+# 컴파일된 MXQ 모델 경로 (런타임 디렉토리 기준 상대 경로)
+model_folder = "../../../compilation/transformers/vlm/compile/mxq/"
 model_id = "mobilint/Qwen2-VL-2B-Instruct"
 
 # 컴파일된 모델 로드
@@ -83,6 +83,9 @@ pipe = pipeline(
     model=model,
     processor=processor,
 )
+
+# max_new_tokens 제한 해제
+pipe.generation_config.max_new_tokens = None
 
 # 이미지가 포함된 메시지 준비
 messages = [
@@ -101,6 +104,7 @@ pipe(
     generate_kwargs={
         "max_length": 512,
         "streamer": TextStreamer(tokenizer=pipe.tokenizer, skip_prompt=False),
+        "repetition_penalty": 1.1,
     },
 )
 
@@ -219,13 +223,13 @@ messages = [
 
 ### 모델 경로
 
-스크립트는 컴파일된 모델에 대한 절대 경로를 사용합니다:
+스크립트는 컴파일된 모델에 대한 상대 경로를 사용합니다:
 
 ```python
-model_folder = "/workspace/mblt-sdk-tutorial/compilation/transformers/vlm/compile/mxq/"
+model_folder = "../../../compilation/transformers/vlm/compile/mxq/"
 ```
 
-모델을 다른 위치에 컴파일한 경우, 이 경로를 그에 맞게 업데이트하세요.
+이 상대 경로는 `runtime/transformers/vlm/` 디렉토리에서 스크립트를 실행할 때 작동합니다. 모델을 다른 위치에 컴파일한 경우, 이 경로를 그에 맞게 업데이트하세요.
 
 ### 모델 ID
 

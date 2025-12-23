@@ -13,10 +13,10 @@ save_path = "mxq/Qwen2-VL-2B-Instruct_vision_transformer.mxq"
 calib_data_path = "../calibration/calibration_data/vision/npy_files.txt"
 device = "cuda"
 head_out_ch_rotation_matrix_path = (
-    "/tmp/qubee/spinWeight/qwen2vl_language/R1/global_rotation.pth"
+    "/tmp/qubee/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth"
 )
 
-cal_config = get_calibration_config(output=1)
+cal_config = get_calibration_config()
 bit_config = get_bit_config(
     activation_16bits=["model_merger_fc2"]
 )  # TODO: we will not want this to be 16bits in the future
@@ -35,6 +35,6 @@ mxq_compile(
     calib_data_path=calib_data_path,
     device=device,
     inference_scheme="multi",
-    quantization=quantization_config,
-    advanced_quantization=advanced_config,
+    quantization_config=quantization_config,
+    advanced_quantization_config=advanced_config,
 )

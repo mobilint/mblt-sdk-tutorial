@@ -32,7 +32,7 @@ Before running inference, ensure you have:
 
 ## Required Files
 
-The inference script expects the following 4 files to be present in the compilation output directory (`/workspace/mblt-sdk-tutorial/compilation/transformers/vlm/compile/mxq/`):
+The inference script expects the following 4 files to be present in the compilation output directory (`../../../compilation/transformers/vlm/compile/mxq/` relative to the runtime directory):
 
 1. **Qwen2-VL-2B-Instruct_text_model.mxq** - Compiled language model
 2. **Qwen2-VL-2B-Instruct_vision_transformer.mxq** - Compiled vision encoder
@@ -67,8 +67,8 @@ The `run_qwen2_vl_local.py` script demonstrates the complete inference workflow:
 from transformers import TextStreamer
 from mblt_model_zoo.transformers import pipeline, AutoModelForImageTextToText, AutoProcessor
 
-# Path to compiled MXQ models
-model_folder = "/workspace/mblt-sdk-tutorial/compilation/transformers/vlm/compile/mxq/"
+# Path to compiled MXQ models (relative path from runtime directory)
+model_folder = "../../../compilation/transformers/vlm/compile/mxq/"
 model_id = "mobilint/Qwen2-VL-2B-Instruct"
 
 # Load compiled model
@@ -83,6 +83,9 @@ pipe = pipeline(
     model=model,
     processor=processor,
 )
+
+# Remove max_new_tokens limit
+pipe.generation_config.max_new_tokens = None
 
 # Prepare messages with image
 messages = [
@@ -101,6 +104,7 @@ pipe(
     generate_kwargs={
         "max_length": 512,
         "streamer": TextStreamer(tokenizer=pipe.tokenizer, skip_prompt=False),
+        "repetition_penalty": 1.1,
     },
 )
 
@@ -219,13 +223,13 @@ messages = [
 
 ### Model Path
 
-The script uses an absolute path to the compiled models:
+The script uses a relative path to the compiled models:
 
 ```python
-model_folder = "/workspace/mblt-sdk-tutorial/compilation/transformers/vlm/compile/mxq/"
+model_folder = "../../../compilation/transformers/vlm/compile/mxq/"
 ```
 
-If you've compiled the models to a different location, update this path accordingly.
+This relative path works when running the script from the `runtime/transformers/vlm/` directory. If you've compiled the models to a different location, update this path accordingly.
 
 ### Model ID
 

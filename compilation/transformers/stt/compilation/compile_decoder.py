@@ -11,18 +11,6 @@ import torch
 from qubee import get_llm_config, mblt_compile, mxq_compile
 from transformers import AutoModelForSpeechSeq2Seq
 
-print(qubee.model_dict.parser.parser.__file__)
-"""
-IMPORTANT NOTE
-
-1. After installing qubee==0.11.0.1, go to file printed above('<qubee_location>/model_dict/parser/parser.py').
-2. In line 538, modify line as below:
-    From 
-        if self.backend == "hf":
-    To
-        if False:
-"""
-
 
 def compile_decoder(calib_path, output_dir="./compiled"):
     """Compile Whisper decoder to MXQ"""
@@ -51,13 +39,17 @@ def compile_decoder(calib_path, output_dir="./compiled"):
     print("Compiling to MXQ...")
     mxq_path = os.path.join(output_dir, "whisper-small_decoder.mxq")
 
+    # Note: The qubee C++ compiler expects llmConfig.attributes.debug but Python
+    # doesn't provide it. The fix at the top of this file patches LlmConfig.to_dict
+    # to add the missing debug section.
+    llm_config = get_llm_config(llm_config_apply=True, use_full_seq_length=True)
     try:
-        llm_config = get_llm_config(use_full_seq_len_calib=True)
         mxq_compile(
             model=mblt_path,
             calib_data_path=calib_path,
             save_path=mxq_path,
             device="cuda",
+            inference_scheme="single",
             llm_config=llm_config,
         )
 
@@ -67,7 +59,6 @@ def compile_decoder(calib_path, output_dir="./compiled"):
     except Exception as e:
         print(f"❌ Decoder compilation failed: {e}")
         return None
-
 
 def main():
     """Compile Whisper decoder"""
