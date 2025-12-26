@@ -8,7 +8,7 @@ In this tutorial, we will use the [YOLO11m-seg](https://docs.ultralytics.com/mod
 
 Before starting, ensure you have the following installed:
 
-- qubee SDK compiler installed (version >= 0.11 required)
+- qubee SDK compiler installed (version >= 0.12 required)
 
 Also, you need to install the following packages:
 

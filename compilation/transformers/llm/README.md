@@ -8,7 +8,7 @@ In this tutorial, we will use the [Llama-3.2-1B-Instruct](https://huggingface.co
 
 Before starting, ensure you have the following installed:
 
-- qubee SDK compiler installed (version >= 0.11 required)
+- qubee SDK compiler installed (version >= 0.12 required)
 - GPU with CUDA support (recommended for reducing compilation time)
 - HuggingFace account with access to Llama models (if using gated models)
 

@@ -14,7 +14,7 @@ def generate_calibration(
     model_tag: str,
     embedding_path: str,
     tokenizer_path: str,
-    output_dir: str = "/workspace/tutorial/calib",
+    output_dir: str = "./calib",
     min_seqlen: int = 512,
     max_seqlen: int = 2048,
     max_calib: int = 128,
@@ -114,12 +114,12 @@ def main():
     parser.add_argument(
         "--embedding_path",
         type=str,
-        default="/workspace/tutorial/embedding.pt",
+        default="./embedding.pt",
     )
     parser.add_argument(
         "--tokenizer_path", type=str, default="meta-llama/Llama-3.2-1B-Instruct"
     )
-    parser.add_argument("--output_dir", type=str, default="/workspace/tutorial/calib")
+    parser.add_argument("--output_dir", type=str, default="./calib")
     parser.add_argument(
         "--min_seqlen",
         type=int,

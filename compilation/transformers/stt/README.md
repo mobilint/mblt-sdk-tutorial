@@ -14,33 +14,15 @@ Before starting, ensure you have the following:
 
 ### Install qubee Compiler
 
-Download and install the qubee compiler (version 0.11.0.1) from the Mobilint release page:
+Download and install the qubee compiler (version 0.12.0.0) from the Mobilint release page:
 
 1. Go to [https://dl.mobilint.com/releases?series-id=1](https://dl.mobilint.com/releases?series-id=1)
-2. Download the appropriate `.whl` file for qubee version **0.11.0.1**
+2. Download the appropriate `.whl` file for qubee version **0.12.0.0**
 3. Install the wheel file:
 
 ```bash
-pip install qubee-0.11.0.1-<your-platform>.whl
+pip install qubee-0.12.0.0-<your-platform>.whl
 ```
-
-> **Important Note for Decoder Compilation:**
->
-> After installing qubee==0.11.0.1, a minor modification is required for decoder compilation to work correctly:
->
-> 1. Run the following Python code to find the parser file location:
->    ```python
->    import qubee
->    print(qubee.model_dict.parser.parser.__file__)
->    ```
->
-> 2. Open the file printed above (`<qubee_location>/model_dict/parser/parser.py`)
->
-> 3. At **line 538**, modify the code as follows:
->    - **From:** `if self.backend == "hf":`
->    - **To:** `if False:`
->
-> This modification is required for proper Whisper decoder compilation.
 
 ## Overview
 
@@ -58,7 +40,6 @@ First, download audio data from the Google FLEURS dataset. This data includes mu
 
 ```bash
 cd data
-pip install -r requirements.txt
 ```
 
 **Required packages:**
@@ -98,7 +79,6 @@ Generate calibration data for both the Whisper encoder and decoder. This data is
 
 ```bash
 cd ../calibration
-pip install -r requirements.txt
 ```
 
 **Required packages:**
@@ -150,12 +130,11 @@ Compile both the encoder and decoder to `.mxq` format using the calibration data
 
 ```bash
 cd ../compilation
-pip install -r requirements.txt
 ```
 
 **Required packages:**
 - transformers==4.50.0
-- qubee==0.11.0.1 (with modification described in Prerequisites)
+- qubee==0.12.0.0 (with modification described in Prerequisites)
 
 ### Compile Encoder
 
@@ -199,17 +178,14 @@ Here's the complete sequence of commands:
 ```bash
 # Step 1: Download audio data
 cd data
-pip install -r requirements.txt
 python download_data.py
 
 # Step 2: Generate calibration data
 cd ../calibration
-pip install -r requirements.txt
 python create_calibration.py
 
 # Step 3: Compile models
 cd ../compilation
-pip install -r requirements.txt
 
 # Compile encoder
 python compile_encoder.py
@@ -236,19 +212,6 @@ After completing all steps, you will have:
 - `compilation/compiled/whisper-small_decoder.mxq` - Quantized decoder for NPU
 
 ## Troubleshooting
-
-### Decoder Compilation Fails
-
-If decoder compilation fails, ensure you have applied the modification to qubee's parser.py:
-
-1. Find the parser file:
-   ```python
-   import qubee
-   print(qubee.model_dict.parser.parser.__file__)
-   ```
-
-2. Edit line 538 in that file:
-   - Change `if self.backend == "hf":` to `if False:`
 
 ### Out of Memory Errors
 
@@ -279,13 +242,11 @@ If files are missing, re-run `create_calibration.py` from the calibration folder
 stt/
 ├── README.md
 ├── data/
-│   ├── requirements.txt
 │   ├── download_data.py
 │   ├── audio_files/                        # Downloaded audio samples
 │   ├── transcriptions.json                 # Generated transcriptions
 │   └── translations.json                   # Generated translations
 ├── calibration/
-│   ├── requirements.txt
 │   ├── create_calibration.py
 │   ├── encoder/                            # Encoder calibration data
 │   │   ├── whisper_encoder_cali.txt        # Calibration file list
@@ -297,7 +258,6 @@ stt/
 │           ├── encoder_hidden_states.npy
 │           └── decoder_hidden_states.npy
 └── compilation/
-    ├── requirements.txt
     ├── compile_encoder.py
     ├── compile_decoder.py
     └── compiled/                           # Output MXQ models

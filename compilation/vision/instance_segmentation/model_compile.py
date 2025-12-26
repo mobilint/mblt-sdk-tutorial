@@ -43,11 +43,11 @@ if __name__ == "__main__":
     mxq_compile(
         model=onnx_path,
         calib_data_path=calib_data_path,
-        quantize_method="maxpercentile",  # quantization method to use
+        quantization_method=2,  # quantization method: maxPercentile
         is_quant_ch=True,  # whether to use channel-wise quantization
-        quantize_percentile=args.quant_percentile,
+        percentile=args.quant_percentile,
         topk_ratio=args.topk_ratio,
-        quant_output="ch",  # quantization method for the output layer
+        quantization_output=1,  # quantization method: 'ch'
         save_path=save_path,
         optimize_option=2,  # optmize option for Aries
         inference_scheme=args.inference_scheme,

@@ -35,7 +35,7 @@ Before starting, ensure you have:
 Install the required Python packages for compilation:
 
 ```bash
-pip install transformers==4.50.3 torch torchvision qwen-vl-utils datasets
+pip install transformers==4.50.0 torch torchvision qwen-vl-utils datasets
 ```
 
 Note that you will need transformers==4.54.0 when you test runtime code in runtime/transformers/vlm.
@@ -241,7 +241,7 @@ python mxq_compile_language.py
 - Configures 16-bit activations for input embeddings: `inputs_embeds/reshape`
 - Uses single-core compilation for language model
 - Enables LLM-specific optimizations
-- **Generates rotation matrix** at: `/tmp/qubee/spinWeight/qwen2vl_language/R1/global_rotation.pth`
+- **Generates rotation matrix** at: `/tmp/qubee/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
   - This rotation matrix is **required for vision encoder MXQ compilation**
 
 **Key configurations:**
@@ -255,7 +255,7 @@ python mxq_compile_language.py
 **Output files:**
 
 - `./mxq/Qwen2-VL-2B-Instruct_text_model.mxq`: Quantized model ready for Aries 2 deployment
-- `/tmp/qubee/spinWeight/qwen2vl_language/R1/global_rotation.pth`: Global rotation matrix (needed for vision encoder)
+- `/tmp/qubee/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`: Global rotation matrix (needed for vision encoder)
 
 ### Step 3.2: Compile Vision Encoder to MXQ
 
@@ -270,8 +270,8 @@ python mxq_compile_vision.py
 **What it does:**
 
 - Loads the MBLT file: `./mblt/Qwen2-VL-2B-Instruct_vision_transformer.mblt`
-- Loads calibration data from: `/workspace/data_prep/calibration_data/vision/npy_files.txt`
-- **Loads rotation matrix** from: `/tmp/qubee/spinWeight/qwen2vl_language/R1/global_rotation.pth`
+- Loads calibration data from: `../calibration/calibration_data/vision/npy_files.txt`
+- **Loads rotation matrix** from: `/tmp/qubee/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
   - This matrix was generated during language model MXQ compilation
   - It ensures consistent quantization between vision and language components
 - Applies advanced quantization with equivalent transformations:
@@ -285,7 +285,7 @@ python mxq_compile_vision.py
 - Activation 16-bit layers: `["model_merger_fc2"]`
 - Inference scheme: `multi` (multi-core execution)
 - Equivalent transformations: Head output channel rotation (using language model rotation matrix)
-- Rotation matrix path: `/tmp/qubee/spinWeight/qwen2vl_language/R1/global_rotation.pth`
+- Rotation matrix path: `/tmp/qubee/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
 
 **Why the rotation matrix is needed:**
 The vision encoder's output must be properly aligned with the language model's input space. The rotation matrix generated during language model quantization ensures that the vision features and text embeddings live in the same quantized space, maintaining accuracy when vision and language components are combined during inference.
@@ -336,7 +336,7 @@ python get_safetensors.py
 - Downloads `model-00001-of-00002.safetensors` from HuggingFace (contains embedding weights)
 - Extracts the `model.embed_tokens.weight` tensor
 - Applies the rotation matrix from the language model MXQ compilation:
-  - Loads rotation matrix from: `/tmp/qubee/spinWeight/qwen2vl_language/R1/global_rotation.pth`
+  - Loads rotation matrix from: `/tmp/qubee/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
   - Multiplies the embedding tensor with the rotation matrix to align with quantized space
 - Saves the rotated embedding tensor to `./mxq/model.safetensors`
 
@@ -363,7 +363,7 @@ Here's the complete sequence of commands to compile the full VLM:
 
 ```bash
 # Stage 1: Calibration Data Generation
-cd /workspace/mblt-sdk-tutorial/compilation/vlm/calibration
+cd /workspace/mblt-sdk-tutorial/compilation/transformers/vlm/calibration
 
 # Download calibration images from COCO dataset
 python download_images.py
