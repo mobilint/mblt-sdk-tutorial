@@ -57,6 +57,7 @@ def compile_decoder(calib_path, output_dir="./compiled"):
         print(f"❌ Decoder compilation failed: {e}")
         return None
 
+
 def main():
     """Compile Whisper decoder"""
 

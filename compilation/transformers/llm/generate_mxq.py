@@ -14,9 +14,7 @@ parser.add_argument(
     type=str,
     default="./calib/datas/meta-llama-Llama-3.2-1B-Instruct/en",
 )
-parser.add_argument(
-    "--save_path", type=str, default="./Llama-3.2-1B-Instruct.mxq"
-)
+parser.add_argument("--save_path", type=str, default="./Llama-3.2-1B-Instruct.mxq")
 args = parser.parse_args()
 
 hf_config = {
@@ -39,7 +37,7 @@ mxq_compile(
     save_path=args.save_path,
     backend="torch",
     singlecore_compile=True,
-    quantization_output=0, # Layer
+    quantization_output=0,  # Layer
     hf_config=hf_config,
     use_gpu_only_for_calibration=True,
     weight_dtype="bfloat16",
