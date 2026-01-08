@@ -24,6 +24,8 @@ The inference process is implemented in the `inference_mxq.py` script. This scri
 - Postprocess the output (convert to bounding box coordinates, apply non-max suppression)
 - Visualize the results
 
+To analyze which operations should be included in the postprocessing, you may upload the `.mblt` file, which is generated during the compilation process, to [Mobilint Netron](https://netron.mobilint.com/).
+
 ## Running Inference
 
 To run the example inference script:

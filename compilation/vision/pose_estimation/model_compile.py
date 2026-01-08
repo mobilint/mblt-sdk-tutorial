@@ -1,7 +1,6 @@
 from argparse import ArgumentParser
 
-import torch
-from qubee import mxq_compile
+from qubee import QuantizationConfig, mxq_compile
 
 if __name__ == "__main__":
     parser = ArgumentParser(description="Compile YOLO11 ONNX model to MXQ model")
@@ -36,21 +35,22 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    onnx_path = args.onnx_path
-    calib_data_path = args.calib_data_path
-    save_path = args.save_path
+
+    quantization_config = QuantizationConfig.from_kwargs(
+        quantization_method=1,  # 0 for per tensor, 1 for per channel
+        quantization_output=1,  # 0 for layer, 1 for channel
+        quantization_mode=2,  # maxpercentile
+        percentile=args.quant_percentile,
+        topk_ratio=args.topk_ratio,
+    )
 
     mxq_compile(
-        model=onnx_path,
-        calib_data_path=calib_data_path,
-        quantize_method="maxpercentile",  # quantization method to use
-        is_quant_ch=True,  # whether to use channel-wise quantization
-        quantize_percentile=args.quant_percentile,
-        topk_ratio=args.topk_ratio,
-        quant_output="ch",  # quantization method for the output layer
-        save_path=save_path,
-        optimize_option=2,  # optmize option for Aries
-        inference_scheme=args.inference_scheme,
+        model=args.onnx_path,
+        calib_data_path=args.calib_data_path,
+        save_subgraph_type=2,  # save mblt file before quantization
+        output_subgraph_path=args.onnx_path.replace(".onnx", ".mblt"),
+        save_path=args.save_path,
         backend="onnx",
-        device="gpu" if torch.cuda.is_available() else "cpu",
+        inference_scheme=args.inference_scheme,
+        quantization_config=quantization_config,
     )

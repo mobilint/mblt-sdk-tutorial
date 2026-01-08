@@ -62,8 +62,8 @@ if __name__ == "__main__":
     img = preprocess_yolo(args.image_path)
     img = np.expand_dims(np.transpose(img, [2, 0, 1]), 0)
     outputs = model.infer([img])
+    print("Output shape:", [output.shape for output in outputs])
     result = postprocess(outputs)
-
     output_path = args.output_path or os.path.join(
         os.path.dirname(args.image_path), "output.jpg"
     )

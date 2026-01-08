@@ -1,6 +1,6 @@
 from argparse import ArgumentParser
 
-from qubee import mxq_compile
+from qubee import QuantizationConfig, mxq_compile
 
 if __name__ == "__main__":
     parser = ArgumentParser(description="Compile ResNet-50 ONNX model to MXQ model")
@@ -35,16 +35,22 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
+
+    quantization_config = QuantizationConfig.from_kwargs(
+        quantization_method=1,  # 0 for per tensor, 1 for per channel
+        quantization_output=0,  # 0 for layer, 1 for channel
+        quantization_mode=2,  # maxpercentile
+        percentile=args.quant_percentile,
+        topk_ratio=args.topk_ratio,
+    )
+
     mxq_compile(
         model=args.onnx_path,
         calib_data_path=args.calib_data_path,
-        quantize_method="maxpercentile",  # quantization method to use
-        is_quant_ch=True,  # whether to use channel-wise quantization
-        quantize_percentile=args.quant_percentile,
-        topk_ratio=args.topk_ratio,
-        quant_output="layer",  # quantization method for the output layer
+        save_subgraph_type=2,  # save mblt file before quantization
+        output_subgraph_path=args.onnx_path.replace(".onnx", ".mblt"),
         save_path=args.save_path,
         backend="onnx",
         inference_scheme=args.inference_scheme,
-        optimize_option=2,
+        quantization_config=quantization_config,
     )
