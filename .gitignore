@@ -19,9 +19,11 @@
 *.pyc
 *.safetensors
 *.so
+*.tar
 *.tar.gz
 *.tar.xz
 *.tflite
+*.tgz
 *.torchscript
 *.txt
 *.whl
