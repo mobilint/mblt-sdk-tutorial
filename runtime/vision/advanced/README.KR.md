@@ -55,5 +55,5 @@ python benchmark_imagenet.py --local_path {path_to_local_mxq_file} --model_type 
 예를 들어, 명령어는 다음과 같습니다.
 
 ```bash
-python benchmark_imagenet.py --local_path /workspace/mblt-sdk-tutorial/compilation/vision/advanced/resnet50_5cls_100_9999_01.mxq --model_type IMAGENET1K_V1 --infer_mode single --batch_size 1 
+python benchmark_imagenet.py --local_path ./resnet50_5cls_100_9999_01.mxq --model_type IMAGENET1K_V1 --infer_mode single --batch_size 1 
 ```
