@@ -1,4 +1,4 @@
-from qubee import (
+from qbcompiler import (
     get_advanced_quantization_config,
     get_bit_config,
     get_calibration_config,
@@ -13,7 +13,7 @@ save_path = "mxq/Qwen2-VL-2B-Instruct_vision_transformer.mxq"
 calib_data_path = "../calibration/calibration_data/vision/npy_files.txt"
 device = "cuda"
 head_out_ch_rotation_matrix_path = (
-    "/tmp/qubee/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth"
+    "/tmp/qbcompiler/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth"
 )
 
 cal_config = get_calibration_config()

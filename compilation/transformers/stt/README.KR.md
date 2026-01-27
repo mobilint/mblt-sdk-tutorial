@@ -1,6 +1,6 @@
 # 음성-텍스트 변환(STT) 모델 컴파일
 
-이 튜토리얼은 Mobilint qubee 컴파일러를 사용하여 Whisper 음성-텍스트 변환 모델을 컴파일하는 방법을 상세히 설명합니다. 컴파일 과정에서는 Whisper 모델(인코더와 디코더를 별도로)을 Mobilint NPU 하드웨어에서 효율적으로 실행할 수 있는 최적화된 `.mxq` 형식으로 변환합니다.
+이 튜토리얼은 Mobilint qbcompiler 컴파일러를 사용하여 Whisper 음성-텍스트 변환 모델을 컴파일하는 방법을 상세히 설명합니다. 컴파일 과정에서는 Whisper 모델(인코더와 디코더를 별도로)을 Mobilint NPU 하드웨어에서 효율적으로 실행할 수 있는 최적화된 `.mxq` 형식으로 변환합니다.
 
 이 튜토리얼에서는 OpenAI가 개발한 다국어 음성 인식 모델인 [Whisper Small](https://huggingface.co/openai/whisper-small) 모델을 사용합니다.
 
@@ -12,16 +12,16 @@
 - CUDA를 지원하는 GPU (캘리브레이션 및 컴파일에 필요)
 - 충분한 디스크 공간 (모델 + 캘리브레이션 데이터를 위해 약 10GB)
 
-### qubee 컴파일러 설치
+### qbcompiler 컴파일러 설치
 
-Mobilint 릴리즈 페이지에서 qubee 컴파일러(버전 0.12.0.0)를 다운로드하여 설치하세요:
+Mobilint 릴리즈 페이지에서 qbcompiler 컴파일러(버전 0.12.0.0)를 다운로드하여 설치하세요:
 
 1. [https://dl.mobilint.com/releases?series-id=1](https://dl.mobilint.com/releases?series-id=1)로 이동
-2. qubee 버전 **0.12.0.0**에 해당하는 `.whl` 파일 다운로드
+2. qbcompiler 버전 **0.12.0.0**에 해당하는 `.whl` 파일 다운로드
 3. wheel 파일 설치:
 
 ```bash
-pip install qubee-0.12.0.0-<your-platform>.whl
+pip install qbcompiler-0.12.0.0-<your-platform>.whl
 ```
 
 ## 개요
@@ -134,7 +134,7 @@ cd ../compilation
 
 **필요한 패키지:**
 - transformers==4.50.0
-- qubee==0.12.0.0 (사전 요구사항에 설명된 수정 포함)
+- qbcompiler==0.12.0.0 (사전 요구사항에 설명된 수정 포함)
 
 ### 인코더 컴파일
 
@@ -154,7 +154,7 @@ python compile_encoder.py
 
 ### 디코더 컴파일
 
-> **중요:** 디코더 컴파일을 실행하기 전에 사전 요구사항에 설명된 대로 qubee의 parser.py 수정을 적용했는지 확인하세요.
+> **중요:** 디코더 컴파일을 실행하기 전에 사전 요구사항에 설명된 대로 qbcompiler의 parser.py 수정을 적용했는지 확인하세요.
 
 ```bash
 python compile_decoder.py
@@ -190,7 +190,7 @@ cd ../compilation
 # 인코더 컴파일
 python compile_encoder.py
 
-# 디코더 컴파일 (qubee 수정 필요 - 사전 요구사항 참조)
+# 디코더 컴파일 (qbcompiler 수정 필요 - 사전 요구사항 참조)
 python compile_decoder.py
 ```
 
@@ -278,5 +278,5 @@ stt/
 
 문제나 질문이 있는 경우:
 - 위의 문제 해결 섹션 확인
-- qubee SDK 문서 검토
+- qbcompiler SDK 문서 검토
 - 상세한 오류 로그와 함께 Mobilint 지원팀에 문의

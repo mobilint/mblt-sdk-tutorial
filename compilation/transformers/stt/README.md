@@ -1,6 +1,6 @@
 # Speech-to-Text (STT) Model Compilation
 
-This tutorial provides detailed instructions for compiling the Whisper speech-to-text model using the Mobilint qubee compiler. The compilation process converts the Whisper model (encoder and decoder separately) into optimized `.mxq` format that can run efficiently on Mobilint NPU hardware.
+This tutorial provides detailed instructions for compiling the Whisper speech-to-text model using the Mobilint qbcompiler compiler. The compilation process converts the Whisper model (encoder and decoder separately) into optimized `.mxq` format that can run efficiently on Mobilint NPU hardware.
 
 In this tutorial, we will use the [Whisper Small](https://huggingface.co/openai/whisper-small) model, a multilingual speech recognition model developed by OpenAI.
 
@@ -12,16 +12,16 @@ Before starting, ensure you have the following:
 - GPU with CUDA support (required for calibration and compilation)
 - Sufficient disk space (~10GB for model + calibration data)
 
-### Install qubee Compiler
+### Install qbcompiler Compiler
 
-Download and install the qubee compiler (version 0.12.0.0) from the Mobilint release page:
+Download and install the qbcompiler compiler (version 0.12.0.0) from the Mobilint release page:
 
 1. Go to [https://dl.mobilint.com/releases?series-id=1](https://dl.mobilint.com/releases?series-id=1)
-2. Download the appropriate `.whl` file for qubee version **0.12.0.0**
+2. Download the appropriate `.whl` file for qbcompiler version **0.12.0.0**
 3. Install the wheel file:
 
 ```bash
-pip install qubee-0.12.0.0-<your-platform>.whl
+pip install qbcompiler-0.12.0.0-<your-platform>.whl
 ```
 
 ## Overview
@@ -134,7 +134,7 @@ cd ../compilation
 
 **Required packages:**
 - transformers==4.50.0
-- qubee==0.12.0.0 (with modification described in Prerequisites)
+- qbcompiler==0.12.0.0 (with modification described in Prerequisites)
 
 ### Compile Encoder
 
@@ -154,7 +154,7 @@ python compile_encoder.py
 
 ### Compile Decoder
 
-> **Important:** Before running decoder compilation, ensure you have applied the modification to qubee's parser.py as described in the Prerequisites section.
+> **Important:** Before running decoder compilation, ensure you have applied the modification to qbcompiler's parser.py as described in the Prerequisites section.
 
 ```bash
 python compile_decoder.py
@@ -190,7 +190,7 @@ cd ../compilation
 # Compile encoder
 python compile_encoder.py
 
-# Compile decoder (requires qubee modification - see Prerequisites)
+# Compile decoder (requires qbcompiler modification - see Prerequisites)
 python compile_decoder.py
 ```
 
@@ -278,5 +278,5 @@ stt/
 
 For issues or questions:
 - Check the troubleshooting section above
-- Review qubee SDK documentation
+- Review qbcompiler SDK documentation
 - Contact Mobilint support with detailed error logs

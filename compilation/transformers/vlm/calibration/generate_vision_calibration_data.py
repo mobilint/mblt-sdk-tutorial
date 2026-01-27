@@ -22,10 +22,10 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 import torch
-from qubee.model_dict.parser.backend.fx_hf_extensions.transformers.models.qwen2vl import (
+from qbcompiler.model_dict.parser.backend.fx_hf_extensions.transformers.models.qwen2vl import (
     repreprocess_pixel_values,
 )
-from qubee.model_dict.parser.backend.hf.util import (
+from qbcompiler.model_dict.parser.backend.hf.util import (
     DefaultInputsCaptureContainer,
     InputCaptureCtxManager,
 )

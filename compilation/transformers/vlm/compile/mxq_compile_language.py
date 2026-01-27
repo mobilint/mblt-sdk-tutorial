@@ -1,4 +1,4 @@
-from qubee import (
+from qbcompiler import (
     get_advanced_quantization_config,
     get_bit_config,
     get_calibration_config,

@@ -1,14 +1,12 @@
 # Mobilint Compiler Tutorial
 
-Tutorials in this section provide detailed instructions for compiling models using the Mobilint qb compiler.
+Tutorials in this section provide detailed instructions for compiling models using the Mobilint qbcompiler.
 
-<div align="center">
-<img src="../assets/Compiler.avif" width="75%", alt="Compiler Diagram">
-</div>
+![Compiler Diagram](../assets/Compiler.avif)
 
 ## Compiler Preparation
 
-The Mobilint qb compiler runs in a Linux environment with Docker installed.
+The Mobilint qbcompiler runs in a Linux environment with Docker installed.
 Before starting, ensure you have:
 
 - [Ubuntu](https://ubuntu.com/) 20.04 LTS or later (WSL2 is also supported)
@@ -26,11 +24,11 @@ After preparing the environment, download the latest qbcompiler image from [qbco
 - `{version}-cuda*` for compilation on GPU with CUDA support
 
 Choose the Docker image that matches your setup.
-For example, for version 0.11:
+For example, for version 0.12:
 
 ```bash
-docker pull mobilint/qbcompiler:0.11-cpu-ubuntu22.04 # compilation on CPU
-docker pull mobilint/qbcompiler:0.11-cuda12.8.1-ubuntu22.04 # compilation on GPU with CUDA support
+docker pull mobilint/qbcompiler:0.12-cpu-ubuntu22.04 # compilation on CPU
+docker pull mobilint/qbcompiler:0.12-cuda12.8.1-ubuntu22.04 # compilation on GPU with CUDA support
 ```
 
 Then, create a Docker container:
@@ -60,11 +58,11 @@ docker run -it --ipc=host \
   --name {your_container_name} \
   --gpus=all \ # Enable the access to the GPU on docker container
   --device /dev/aries0:/dev/aries0 \ # Enable the access to the Mobilint NPU on docker container
-  mobilint/qbcompiler:0.11-cuda12.8.1-ubuntu22.04
+  mobilint/qbcompiler:0.12-cuda12.8.1-ubuntu22.04
 ```
 
 Next, visit the [Mobilint Download Center](https://dl.mobilint.com/) to download the latest qbcompiler wheel file.
-After logging in, go to ARIES -> qb Compiler and download the wheel file compatible with your environment.
+After logging in, go to ARIES -> qbcompiler and download the wheel file compatible with your environment.
 
 Copy it to the container and install:
 
@@ -77,7 +75,7 @@ pip install {path_to_container_workspace}/{wheel_file_name}
 Verify the installation:
 
 ```bash
-pip list | grep qubee # Verify the installation
+pip list | grep qbcompiler # Verify the installation
 ```
 
 Now, you’re ready to compile your models!

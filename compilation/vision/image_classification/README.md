@@ -1,6 +1,6 @@
 # Image Classification Model Compilation
 
-This tutorial provides detailed instructions for compiling image classification models using the Mobilint qubee compiler.
+This tutorial provides detailed instructions for compiling image classification models using the Mobilint qbcompiler.
 
 In this tutorial, we will use the [ResNet-50](https://docs.pytorch.org/vision/main/models/generated/torchvision.models.resnet50.html) model, which is pretrained on the ImageNet dataset developed by PyTorch. This model is a simple image classification model that can be used to classify images into 1000 classes.
 
@@ -8,8 +8,8 @@ In this tutorial, we will use the [ResNet-50](https://docs.pytorch.org/vision/ma
 
 Before starting, ensure you have the following installed:
 
-- qubee SDK compiler installed (version >= 0.11 required)
-- HuggingFace account with access to ImageNet dataset (if using gated dataset)
+- qbcompiler v1.0.0
+- HuggingFace account with access to ImageNet dataset (to use the gated dataset)
 
 ## Overview
 
@@ -58,7 +58,7 @@ hf auth login --token <your_huggingface_token>
 
 If you are not sure about your HuggingFace token, you can find it in your [HuggingFace account settings](https://huggingface.co/settings/tokens).
 
-Then, download the dataset from HuggingFace and save it to the `imagenet-1k-selected` directory. This script will select 1000 images from each class of the dataset and save them to the `imagenet-1k-selected` directory.
+Then, download the dataset from HuggingFace and save it to the `imagenet-1k-selected` directory. This script will select 1 images from each class of the dataset and save 1000 image files to the `imagenet-1k-selected` directory.
 
 ```bash
 python prepare_imagenet.py
@@ -67,41 +67,66 @@ python prepare_imagenet.py
 **What it does:**
 
 - Downloads the dataset from HuggingFace
-- Selects 1000 images from each class of the dataset
+- Selects 1 image from each class of the dataset
 - Saves the selected images to the `imagenet-1k-selected` directory
 
 **Output:**
 
 - `imagenet-1k-selected/` directory containing the selected images
 
-With the selected images, we can generate the calibration dataset. Before generating the calibration dataset, you need to confirm the preprocessing that the original model uses. The preprocessing information can be found on the original [ResNet-50](https://docs.pytorch.org/vision/main/models/generated/torchvision.models.resnet50.html) page. The preprocessing operations that the model uses are: resizing the image to match the shortest side to 256 pixels with bilinear interpolation, center cropping to 224x224 pixels, rescaling the image to the range [0, 1], and normalizing the image with mean [0.485, 0.456, 0.406] and standard deviation [0.229, 0.224, 0.225].
-
-The qubee compiler's utility function `make_calib` is designed to generate a calibration dataset with this kind of standard preprocessing operation. The script `prepare_calib.py` uses this function to create a calibration dataset with the preprocessing operation defined above by reading the preprocessing configuration file `resnet50.yaml` and the original calibration data from the `imagenet-1k-selected` directory.
-
-```bash
-python prepare_calib.py
-```
-
-**What it does:**
-
-- Reads the preprocessing configuration file `resnet50.yaml`
-- Reads the original calibration data from the `imagenet-1k-selected` directory
-- Generates a calibration dataset with the preprocessing operation defined above
-- Saves the calibration dataset to the `resnet50_cali` directory
-
-**Output:**
-
-- `resnet50_cali/` directory containing the calibration dataset
-- `resnet50_cali.txt` file containing the paths of the calibration dataset
-
-The calibration dataset is saved to the `resnet50_cali` directory. You can also see the paths recorded in the `resnet50_cali.txt` file.
+The selected image dataset is the calibration dataset we will use.
 
 ## Step 3: Model Compilation
 
-After the calibration dataset and the model are prepared, we can compile the model.
+Before running the model compilation code, you need to verify the preprocessing steps required for calibration. The preprocessing information can be found on the original [ResNet-50](https://docs.pytorch.org/vision/main/models/generated/torchvision.models.resnet50.html) page. The preprocessing operations that the model uses are: resizing the image to match the shortest side to 256 pixels with bilinear interpolation, center cropping to 224x224 pixels, rescaling the image to the range [0, 1], and normalizing the image with mean [0.485, 0.456, 0.406] and standard deviation [0.229, 0.224, 0.225].
+
+We designed the code to perform preprocessing inside the compilation API and fuse some operations into the MXQ model to maximize NPU usage.
+
+In `model_compile.py`, we define the preprocessing pipeline as follows. This pipeline is used in calibration and will fuse the normalization module into the deep learning model.
+
+```python
+preprocess_pipeline = [
+    {"op": "resize", "height": 256, "width": 256, "mode": "bilinear"},
+    {"op": "centerCrop", "height": 224, "width": 224},
+    {
+        "op": "normalize",
+        "mean": [0.485, 0.456, 0.406],
+        "std": [0.229, 0.224, 0.225],
+        "scaleToUint8": True,  # [0, 255] -> [0, 1]
+        "fuseIntoFirstLayer": True,
+    },
+]  # preprocessing operations for resnet 50
+
+preprocessing_config = PreprocessingConfig(
+    apply=True,
+    auto_convert_format=True,
+    pipeline=preprocess_pipeline,
+    input_configs={},
+)
+```
+
+Also, we define the following preprocessing configurations and quantization configuration.
+
+```python
+input_process_config = InputProcessConfig(
+    uint8_input=Uint8InputConfig(apply=True, inputs=[]),
+    image_channels=3,
+    preprocessing=preprocessing_config,
+)
+
+quantization_config = QuantizationConfig.from_kwargs(
+    quantization_method=1,  # 0 for per tensor, 1 for per channel
+    quantization_output=0,  # 0 for layer, 1 for channel
+    quantization_mode=2,  # maxpercentile
+    percentile=0.9999,  # quantization percentile
+    topk_ratio=0.01,  # quantization topk
+)
+```
+
+After configuring the settings, the code can be executed as follows.
 
 ```bash
-python model_compile.py --onnx_path {path_to_onnx_model} --calib_data_path {path_to_calibration_dataset} --save_path {path_to_save_model} --quant_percentile {quantization_percentile} --topk_ratio {topk_ratio} --inference_scheme {inference_scheme}
+python model_compile.py --onnx_path {path_to_onnx_model} --calib_data_path {path_to_calibration_dataset} --save_path {path_to_save_model}
 ```
 
 **What it does:**
@@ -115,9 +140,6 @@ python model_compile.py --onnx_path {path_to_onnx_model} --calib_data_path {path
 - `--onnx_path`: Path to the ONNX model
 - `--calib_data_path`: Path to the calibration data
 - `--save_path`: Path to save the MXQ model
-- `--quant_percentile`: Quantization percentile
-- `--topk_ratio`: Top-k ratio
-- `--inference_scheme`: Inference scheme(single, multi, global, global4, global8)
 
 **Output:**
 
@@ -126,7 +148,7 @@ python model_compile.py --onnx_path {path_to_onnx_model} --calib_data_path {path
 For example, the command is as follows:
 
 ```bash
-python model_compile.py --onnx_path ./resnet50.onnx --calib_data_path ./resnet50_cali --save_path ./resnet50.mxq --quant_percentile 0.9999 --topk_ratio 0.01 --inference_scheme single
+python model_compile.py --onnx_path ./resnet50.onnx --calib_data_path ./imagenet-1k-selected --save_path ./resnet50.mxq 
 ```
 
 After executing the above command, the compiled model will be saved as `resnet50.mxq` in the current directory.

@@ -1,8 +1,8 @@
 import math
 from typing import List, Optional, Tuple, Union
 
-import maccel
 import numpy as np
+import qbruntime
 import torch
 from torch import nn
 from transformers.cache_utils import Cache, StaticCache
@@ -26,10 +26,10 @@ class LlamaMXQ(LlamaPreTrainedModel, GenerationMixin):
         self.padding_idx = config.pad_token_id
         self.vocab_size = config.vocab_size
 
-        self.acc = maccel.Accelerator(0)  # LLM allows only 1 accelerator
-        mc = maccel.ModelConfig()  # LLM allows only 1 core
+        self.acc = qbruntime.Accelerator(0)  # LLM allows only 1 accelerator
+        mc = qbruntime.ModelConfig()  # LLM allows only 1 core
         mc.set_single_core_mode(1)
-        self.mxq_model = maccel.Model(mxq_path, mc)
+        self.mxq_model = qbruntime.Model(mxq_path, mc)
         self.mxq_model.launch(self.acc)
         self.mxq_path = mxq_path
         self.reset_cache()

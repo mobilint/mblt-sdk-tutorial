@@ -20,7 +20,7 @@ GPU를 사용할 수 있는 경우, 더 빠른 컴파일을 위해 GPU 사용을
 - [NVIDIA Driver 535.183.01 이상](https://www.nvidia.com/en-us/drivers/)
 - [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/index.html#)
 
-환경설정을 완료한 후, [qbcompiler Docker Hub](https://hub.docker.com/r/mobilint/qbcompiler)에서 최신 qbcompiler 이미지를 다운로드해야 합니다. qb compiler 버전 v0.11.\*.\*부터 해당 버전과 호환되는 두 가지 유형의 이미지가 제공됩니다:
+환경설정을 완료한 후, [qbcompiler Docker Hub](https://hub.docker.com/r/mobilint/qbcompiler)에서 최신 qbcompiler 이미지를 다운로드해야 합니다. qbcompiler 버전 v0.11.\*.\*부터 해당 버전과 호환되는 두 가지 유형의 이미지가 제공됩니다:
 
 - `{version}-cpu*` - CPU에서 컴파일 시 사용
 - `{version}-cuda*` - CUDA 지원 GPU에서 컴파일 시 사용
@@ -64,7 +64,7 @@ docker run -it --ipc=host \
 ```
 
 다음으로, [Mobilint 다운로드 센터](https://dl.mobilint.com/)를 방문하여 최신 qbcompiler wheel 파일을 다운로드해야 합니다.
-로그인 후, ARIES -> qb Compiler로 이동하여 환경에 호환되는 wheel 파일을 다운로드하세요.
+로그인 후, ARIES -> qbcompiler로 이동하여 환경에 호환되는 wheel 파일을 다운로드하세요.
 
 컨테이너로 복사하고 설치해야 합니다:
 
@@ -77,7 +77,7 @@ pip install {path_to_container_workspace}/{wheel_file_name}
 설치를 확인해야 합니다:
 
 ```bash
-pip list | grep qubee # 설치 확인
+pip list | grep qbcompiler # 설치 확인
 ```
 
 이제 모델을 컴파일할 준비가 되었습니다!

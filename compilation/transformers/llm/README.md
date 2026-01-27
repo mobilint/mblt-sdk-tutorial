@@ -1,6 +1,6 @@
 # Large Language Model Compilation
 
-This tutorial provides detailed instructions for compiling large language models using the Mobilint qubee compiler. The compilation process converts a standard transformer model into an optimized `.mxq` format that can run efficiently on Mobilint NPU hardware.
+This tutorial provides detailed instructions for compiling large language models using the Mobilint qbcompiler compiler. The compilation process converts a standard transformer model into an optimized `.mxq` format that can run efficiently on Mobilint NPU hardware.
 
 In this tutorial, we will use the [Llama-3.2-1B-Instruct](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct) model, a 1B parameter language model developed by Meta.
 
@@ -8,7 +8,7 @@ In this tutorial, we will use the [Llama-3.2-1B-Instruct](https://huggingface.co
 
 Before starting, ensure you have the following installed:
 
-- qubee SDK compiler installed (version >= 0.12 required)
+- qbcompiler SDK compiler installed (version >= 0.12 required)
 - GPU with CUDA support (recommended for reducing compilation time)
 - HuggingFace account with access to Llama models (if using gated models)
 

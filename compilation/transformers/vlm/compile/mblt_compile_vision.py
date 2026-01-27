@@ -2,7 +2,7 @@
 Qwen2-VL Vision Encoder Compilation to MBLT Format
 
 This module handles the compilation of the Qwen2-VL vision encoder to MBLT format
-using the qubee compiler. The vision encoder is patched with Aries 2-compatible
+using the qbcompiler compiler. The vision encoder is patched with Aries 2-compatible
 transformations before compilation.
 
 Key Transformations:
@@ -16,17 +16,17 @@ Key Transformations:
 from typing import Dict, List, Tuple
 
 import torch
-from qubee.model_dict.common import DataFormat, LayerType, WeightDict
-from qubee.model_dict.parser.backend.fx_hf_extensions.transformers.models.qwen2vl import (
+from qbcompiler.model_dict.common import DataFormat, LayerType, WeightDict
+from qbcompiler.model_dict.parser.backend.fx_hf_extensions.transformers.models.qwen2vl import (
     VisionModelForQwen2VL,
     repreprocess_pixel_values,
 )
-from qubee.model_dict.parser.backend.hf.util import (
+from qbcompiler.model_dict.parser.backend.hf.util import (
     DefaultInputsCaptureContainer,
     InputCaptureCtxManager,
 )
-from qubee.model_dict.parser.backend.torch.util import wrap_tensor
-from qubee.model_dict.parser.parser import ModelParser
+from qbcompiler.model_dict.parser.backend.torch.util import wrap_tensor
+from qbcompiler.model_dict.parser.parser import ModelParser
 from utils import (
     prepare_inputs,
     print_compilation_summary,
@@ -52,7 +52,7 @@ def compile_vision_encoder(
     1. Captures vision encoder inputs during a sample inference
     2. Reprocesses pixel values to Aries 2-compatible format
     3. Applies architectural patches (3D→2D conv, split QKV, etc.)
-    4. Compiles the model using qubee ModelParser
+    4. Compiles the model using qbcompiler ModelParser
     5. Serializes to MBLT binary format
     6. Validates output by comparing with original model
 
@@ -132,9 +132,11 @@ def compile_vision_encoder(
     print(f"   ✓ Pre-computed RoPE embeddings for grid {grid_thw[0].tolist()}")
 
     # ========================================================================
-    # STEP 4: COMPILE WITH QUBEE PARSER
+    # STEP 4: COMPILE WITH qbcompiler PARSER
     # ========================================================================
-    print(f"\n[4/6] Compiling to MBLT with qubee parser (target: {target_device})...")
+    print(
+        f"\n[4/6] Compiling to MBLT with qbcompiler parser (target: {target_device})..."
+    )
 
     parser = ModelParser(
         model=vision_model,
@@ -162,7 +164,7 @@ def compile_vision_encoder(
     # ========================================================================
     print("\n[5/6] Serializing to MBLT binary format...")
 
-    # Extract ModelDict and WeightDict using qubee's official API
+    # Extract ModelDict and WeightDict using qbcompiler's official API
     md, wd = parser.get_md_wd(body_only=False)
 
     # Set data format for all input constants to NHWC (Aries 2-friendly)

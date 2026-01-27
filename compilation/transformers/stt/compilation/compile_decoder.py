@@ -6,9 +6,9 @@ Separated from encoder compilation for efficiency
 
 import os
 
-import qubee
+import qbcompiler
 import torch
-from qubee import get_llm_config, mblt_compile, mxq_compile
+from qbcompiler import get_llm_config, mblt_compile, mxq_compile
 from transformers import AutoModelForSpeechSeq2Seq
 
 

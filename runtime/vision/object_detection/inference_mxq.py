@@ -2,8 +2,8 @@ import os
 from argparse import ArgumentParser
 
 import cv2
-import maccel
 import numpy as np
+import qbruntime
 from postprocess import YoloPostProcessAnchorless
 from visualize import YoloVisualizer
 
@@ -27,7 +27,6 @@ def preprocess_yolo(img_path: str, img_size=(640, 640)):
     img = cv2.copyMakeBorder(
         img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(114, 114, 114)
     )  # add border
-    img = (img / 255).astype(np.float32)
 
     return img
 
@@ -50,10 +49,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    acc = maccel.Accelerator()
-    mc = maccel.ModelConfig()
+    acc = qbruntime.Accelerator()
+    mc = qbruntime.ModelConfig()
     mc.set_single_core_mode(1)
-    model = maccel.Model(args.model_path, mc)
+    model = qbruntime.Model(args.model_path, mc)
     model.launch(acc)
 
     postprocess = YoloPostProcessAnchorless(args.conf_thres, args.iou_thres)

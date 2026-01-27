@@ -8,8 +8,8 @@ model compilation pipelines.
 from typing import Dict, List, Optional, Tuple
 
 import torch
-from qubee.model_dict.common import WeightDict
-from qubee.model_dict.serialize import ChainedByteObj, SerializeMeta
+from qbcompiler.model_dict.common import WeightDict
+from qbcompiler.model_dict.serialize import ChainedByteObj, SerializeMeta
 from qwen_vl_utils import process_vision_info
 
 

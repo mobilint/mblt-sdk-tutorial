@@ -27,7 +27,7 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 import torch
-from qubee.model_dict.parser.backend.hf.util import (
+from qbcompiler.model_dict.parser.backend.hf.util import (
     DefaultInputsCaptureContainer,
     InputCaptureCtxManager,
 )

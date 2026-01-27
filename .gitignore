@@ -30,6 +30,7 @@
 build/
 dist/
 .vscode/
+coco-*/
 imagenet-1k*/
 tmp/
 val2017/

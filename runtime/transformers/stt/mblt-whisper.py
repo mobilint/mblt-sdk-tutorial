@@ -3,7 +3,7 @@ import math
 import os
 from typing import Optional, Tuple, TypeVar, Union
 
-import maccel
+import qbruntime
 import torch
 from mblt_model_zoo.transformers.utils.cache_utils import MobilintCache
 from mblt_model_zoo.transformers.utils.generation_utils import MobilintGenerationMixin
@@ -97,10 +97,10 @@ class MobilintWhisperEncoder(MobilintWhisperPreTrainedModel):
         self.gradient_checkpointing = False
 
         self.dev_no = config.dev_no
-        self.acc = maccel.Accelerator(self.dev_no)
-        mc = maccel.ModelConfig()
-        mc.set_global4_core_mode([maccel.Cluster.Cluster1])
-        self.mxq_model = maccel.Model(
+        self.acc = qbruntime.Accelerator(self.dev_no)
+        mc = qbruntime.ModelConfig()
+        mc.set_global4_core_mode([qbruntime.Cluster.Cluster1])
+        self.mxq_model = qbruntime.Model(
             f"{config.name_or_path}/{config.encoder_mxq_path}", mc
         )
         print(f"Model Initialized")
@@ -208,12 +208,12 @@ class MobilintWhisperDecoder(MobilintWhisperPreTrainedModel):
         self.post_init()
 
         self.dev_no = config.dev_no
-        self.acc = maccel.Accelerator(self.dev_no)
-        mc = maccel.ModelConfig()
+        self.acc = qbruntime.Accelerator(self.dev_no)
+        mc = qbruntime.ModelConfig()
         mc.set_single_core_mode(
-            None, [maccel.CoreId(maccel.Cluster.Cluster0, maccel.Core.Core3)]
+            None, [qbruntime.CoreId(qbruntime.Cluster.Cluster0, qbruntime.Core.Core3)]
         )
-        self.mxq_model = maccel.Model(
+        self.mxq_model = qbruntime.Model(
             f"{config.name_or_path}/{config.decoder_mxq_path}", mc
         )
         print(f"Model Initialized")

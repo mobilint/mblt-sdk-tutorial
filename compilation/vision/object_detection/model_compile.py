@@ -1,6 +1,12 @@
 from argparse import ArgumentParser
 
-from qubee import QuantizationConfig, mxq_compile
+from qbcompiler import (
+    InputProcessConfig,
+    PreprocessingConfig,
+    QuantizationConfig,
+    Uint8InputConfig,
+    mxq_compile,
+)
 
 if __name__ == "__main__":
     parser = ArgumentParser(description="Compile YOLO11 ONNX model to MXQ model")
@@ -13,7 +19,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--calib_data_path",
         type=str,
-        default="./yolo11m_cali",
+        default="./coco-selected",
         help="Path to the calibration data",
     )
     parser.add_argument(
@@ -22,26 +28,32 @@ if __name__ == "__main__":
         default="./yolo11m.mxq",
         help="Path to save the MXQ model",
     )
-    parser.add_argument(
-        "--quant_percentile", type=float, default=0.999, help="Quantization percentile"
-    )
-    parser.add_argument("--topk_ratio", type=float, default=0.01, help="Top-k ratio")
-    parser.add_argument(
-        "--inference_scheme",
-        type=str,
-        choices=["single", "multi", "global", "global4", "global8"],
-        default="single",
-        help="Inference scheme",
-    )
 
     args = parser.parse_args()
+
+    preprocess_pipeline = [
+        {"op": "letterbox", "height": 640, "width": 640, "padValue": 114}
+    ]
+
+    preprocessing_config = PreprocessingConfig(
+        apply=True,
+        auto_convert_format=True,
+        pipeline=preprocess_pipeline,
+        input_configs={},
+    )
+
+    input_process_config = InputProcessConfig(
+        uint8_input=Uint8InputConfig(apply=True, inputs=[]),
+        image_channels=3,
+        preprocessing=preprocessing_config,
+    )
 
     quantization_config = QuantizationConfig.from_kwargs(
         quantization_method=1,  # 0 for per tensor, 1 for per channel
         quantization_output=1,  # 0 for layer, 1 for channel
         quantization_mode=2,  # maxpercentile
-        percentile=args.quant_percentile,
-        topk_ratio=args.topk_ratio,
+        percentile=0.999,
+        topk_ratio=0.01,
     )
 
     mxq_compile(
@@ -51,6 +63,7 @@ if __name__ == "__main__":
         output_subgraph_path=args.onnx_path.replace(".onnx", ".mblt"),
         save_path=args.save_path,
         backend="onnx",
-        inference_scheme=args.inference_scheme,
+        inference_scheme="single",
+        input_process_config=input_process_config,
         quantization_config=quantization_config,
     )

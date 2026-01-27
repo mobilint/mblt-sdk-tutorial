@@ -1,7 +1,7 @@
 import argparse
 import os
 
-from qubee import mxq_compile
+from qbcompiler import mxq_compile
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 

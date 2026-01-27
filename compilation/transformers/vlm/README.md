@@ -1,12 +1,12 @@
 # Vision Language Model (VLM) Compilation
 
-This tutorial provides detailed instructions for compiling Vision Language Models (VLMs) using the Mobilint qubee compiler.
+This tutorial provides detailed instructions for compiling Vision Language Models (VLMs) using the Mobilint qbcompiler compiler.
 
 In this tutorial, we will use the [Qwen2-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct) model, a state-of-the-art vision-language model developed by Qwen.
 
 > **Important Disclaimer:**
 >
-> The code in this tutorial requires **qubee version >= 0.12** with equivalent transformation support, which will be available in a near-future release. The current version (v0.11.0.1) does not yet support the equivalent transformation features used in the MXQ compilation scripts, and compilation will fail with the current qubee version.
+> The code in this tutorial requires **qbcompiler version >= 0.12** with equivalent transformation support, which will be available in a near-future release. The current version (v0.11.0.1) does not yet support the equivalent transformation features used in the MXQ compilation scripts, and compilation will fail with the current qbcompiler version.
 >
 
 ## Overview
@@ -26,7 +26,7 @@ After compilation, you will have all necessary files in the `mxq/` directory rea
 Before starting, ensure you have:
 
 - Python 3.8 or higher
-- qubee SDK compiler installed (version >= 0.12 required)
+- qbcompiler SDK compiler installed (version >= 0.12 required)
 - (optional) CUDA-capable GPU for calibration and compilation
 - Sufficient disk space (~20GB for model + calibration data)
 
@@ -168,7 +168,7 @@ python mblt_compile_language.py
   - **Last-query slicing**: Optimizes the final decoder layer for decode phase
   - **Stateful KV cache wrappers**: Enables efficient auto-regressive generation
   - **Dynamic shape handling**: Supports variable sequence lengths
-- Compiles the model using qubee's ModelParser with PyTorch FX tracing
+- Compiles the model using qbcompiler's ModelParser with PyTorch FX tracing
 - Configures dynamic shapes for attention operators
 - Serializes to MBLT binary format
 - Validates output by comparing with original model
@@ -203,7 +203,7 @@ python mblt_compile_vision.py
   - **Split QKV projection**: Separates Query, Key, Value projections for better parallelization
   - **Pre-computed RoPE embeddings**: Eliminates runtime trigonometric operations
   - **Merged patchify operation**: Reduces memory transfers
-- Compiles the model using qubee's ModelParser with PyTorch FX tracing
+- Compiles the model using qbcompiler's ModelParser with PyTorch FX tracing
 - Sets data format to NHWC (Aries 2-friendly) for all input constants
 - Serializes to MBLT binary format
 - Validates output by comparing with original model
@@ -241,7 +241,7 @@ python mxq_compile_language.py
 - Configures 16-bit activations for input embeddings: `inputs_embeds/reshape`
 - Uses single-core compilation for language model
 - Enables LLM-specific optimizations
-- **Generates rotation matrix** at: `/tmp/qubee/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
+- **Generates rotation matrix** at: `/tmp/qbcompiler/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
   - This rotation matrix is **required for vision encoder MXQ compilation**
 
 **Key configurations:**
@@ -255,7 +255,7 @@ python mxq_compile_language.py
 **Output files:**
 
 - `./mxq/Qwen2-VL-2B-Instruct_text_model.mxq`: Quantized model ready for Aries 2 deployment
-- `/tmp/qubee/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`: Global rotation matrix (needed for vision encoder)
+- `/tmp/qbcompiler/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`: Global rotation matrix (needed for vision encoder)
 
 ### Step 3.2: Compile Vision Encoder to MXQ
 
@@ -271,7 +271,7 @@ python mxq_compile_vision.py
 
 - Loads the MBLT file: `./mblt/Qwen2-VL-2B-Instruct_vision_transformer.mblt`
 - Loads calibration data from: `../calibration/calibration_data/vision/npy_files.txt`
-- **Loads rotation matrix** from: `/tmp/qubee/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
+- **Loads rotation matrix** from: `/tmp/qbcompiler/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
   - This matrix was generated during language model MXQ compilation
   - It ensures consistent quantization between vision and language components
 - Applies advanced quantization with equivalent transformations:
@@ -285,7 +285,7 @@ python mxq_compile_vision.py
 - Activation 16-bit layers: `["model_merger_fc2"]`
 - Inference scheme: `multi` (multi-core execution)
 - Equivalent transformations: Head output channel rotation (using language model rotation matrix)
-- Rotation matrix path: `/tmp/qubee/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
+- Rotation matrix path: `/tmp/qbcompiler/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
 
 **Why the rotation matrix is needed:**
 The vision encoder's output must be properly aligned with the language model's input space. The rotation matrix generated during language model quantization ensures that the vision features and text embeddings live in the same quantized space, maintaining accuracy when vision and language components are combined during inference.
@@ -336,7 +336,7 @@ python get_safetensors.py
 - Downloads `model-00001-of-00002.safetensors` from HuggingFace (contains embedding weights)
 - Extracts the `model.embed_tokens.weight` tensor
 - Applies the rotation matrix from the language model MXQ compilation:
-  - Loads rotation matrix from: `/tmp/qubee/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
+  - Loads rotation matrix from: `/tmp/qbcompiler/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
   - Multiplies the embedding tensor with the rotation matrix to align with quantized space
 - Saves the rotated embedding tensor to `./mxq/model.safetensors`
 
@@ -500,7 +500,7 @@ All files needed for deployment are in this single directory:
 If vision encoder MXQ compilation fails with a missing rotation matrix error:
 
 ```bash
-FileNotFoundError: /tmp/qubee/spinWeight/qwen2vl_language/R1/global_rotation.pth
+FileNotFoundError: /tmp/qbcompiler/spinWeight/qwen2vl_language/R1/global_rotation.pth
 ```
 
 **Solution:** Run `mxq_compile_language.py` first to generate the rotation matrix.
@@ -566,7 +566,7 @@ The runtime tutorial demonstrates how to:
 For issues or questions:
 
 - Check the troubleshooting section above
-- Review qubee SDK documentation
+- Review qbcompiler SDK documentation
 - Contact Mobilint support with detailed error logs
 
 ---

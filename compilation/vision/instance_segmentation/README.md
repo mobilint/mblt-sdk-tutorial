@@ -1,6 +1,6 @@
 # Instance Segmentation Model Compilation
 
-This tutorial provides detailed instructions for compiling instance segmentation models using the Mobilint qb compiler.
+This tutorial provides detailed instructions for compiling instance segmentation models using the Mobilint qbcompiler.
 
 In this tutorial, we will use the [YOLO11m-seg](https://docs.ultralytics.com/models/yolo11/) model, which is pretrained on the COCO dataset developed by Ultralytics. This model is an instance segmentation model that can be used to segment objects in images.
 
@@ -8,12 +8,13 @@ In this tutorial, we will use the [YOLO11m-seg](https://docs.ultralytics.com/mod
 
 Before starting, ensure you have the following installed:
 
-- qubee SDK compiler installed (version >= 0.12 required)
+- qbcompiler v1.0.0
+- HuggingFace account with access to COCO dataset (to use the gated dataset)
 
 Also, you need to install the following packages:
 
 ```bash
-pip install ultralytics
+pip install ultralytics aiohttp aiofiles
 ```
 
 ## Overview
@@ -36,84 +37,83 @@ After execution, the exported ONNX model is saved as `yolo11m-seg.onnx` in the c
 
 ## Step 2: Calibration Dataset Preparation
 
-The YOLO11m-seg model is trained on the COCO dataset, so we need to prepare the calibration dataset.
+A calibration dataset is a set of images that represent the typical input distribution of the model. Since the YOLO11m model is trained on the [COCO dataset](https://cocodataset.org/#download), so we need to prepare the calibration dataset.
+
+Before using the dataset, sign up for an account on [HuggingFace](https://huggingface.co/). Then, log in to HuggingFace using the following command and replace <your_huggingface_token> with your actual HuggingFace token:
 
 ```bash
-wget http://images.cocodataset.org/zips/val2017.zip # Download the validation dataset
-unzip val2017.zip # Unzip the dataset
+hf auth login --token <your_huggingface_token>
 ```
 
-> Note: According to the [COCO dataset](https://cocodataset.org/#download) page, downloading the dataset through Google Cloud Platform is recommended, but currently it is not available.
+If you are not sure about your HuggingFace token, you can find it in your [HuggingFace account settings](https://huggingface.co/settings/tokens).
 
-The calibration dataset should be pre-processed to be compatible with the quantized model. Therefore, we should first investigate the pre-processing operation used in the original model. The pre-processing operation is defined in [Ultralytics' GitHub](https://github.com/ultralytics/ultralytics/blob/main/ultralytics/data/augment.py). We wrote the simplified but equivalent operation as follows:
-
-```python
-import numpy as np
-import cv2
-
-img_size = [640, 640]
-def preprocess_yolo(img_path: str):
-    img = cv2.imread(img_path)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
-    h0, w0 = img.shape[:2]  # original hw
-    r = min(img_size[0] / h0, img_size[1] / w0)  # ratio
-    new_unpad = int(round(w0 * r)), int(round(h0 * r))
-    dh, dw = (
-        img_size[0] - new_unpad[1],
-        img_size[1] - new_unpad[0],
-    )  # wh padding
-
-    dw /= 2  # divide padding into 2 sides
-    dh /= 2
-    if (img.shape[1], img.shape[0]) != new_unpad:
-        img = cv2.resize(img, new_unpad, interpolation=cv2.INTER_LINEAR)
-    top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
-    left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
-    img = cv2.copyMakeBorder(
-        img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(114, 114, 114)
-    )  # add border
-    img = (img / 255).astype(np.float32)
-
-    return img
-
-```
-
-One of the qb compiler's utility functions is `make_calib_man`, which can be used to create a calibration dataset with custom pre-processing functions. The script `prepare_calib.py` uses this function to create a calibration dataset with the pre-processing operation defined above.
+You may download the files using `prepare_coco.py`, which automatically read the list of available files listed in the dataset, proceed random selection and download files into `coco-selected` directory.
 
 ```bash
-python prepare_calib.py --data_dir {path_to_calibration_dataset} --img_size {image_size} --save_dir {path_to_save_calibration_dataset} --save_name {name_of_calibration_dataset} --max_size {maximum_number_of_calibration_data}
+python prepare_coco.py
 ```
 
-**What this does:**
+**What it does:**
 
-- Loads the COCO dataset
-- Pre-processes the images using the pre-processing operation defined above
-- Saves the pre-processed images as calibration data
+- Downloads the dataset of URLs from HuggingFace
+- Randomly select images and construct the calibration dataset
+- Save the calibration dataset into `coco-selected` directory
 
-**Parameters:**
+**Output:**
 
-- `--data_dir`: Path to the calibration dataset
-- `--img_size`: Image size
-- `--save_dir`: Path to save the calibration dataset
-- `--save_name`: Name of the calibration dataset
-- `--max_size`: Maximum number of calibration data
+- `coco-selected`: Calibration dataset
 
-**Output Location:**
-The calibration dataset will be saved in the directory specified by `--save_dir`.
-
-The example command is as follows:
-
-```bash
-python prepare_calib.py --data_dir ./val2017 --img_size 640 --save_dir ./ --save_name yolo11m-seg_cali --max_size 100
-```
+The selected image dataset is the calibration dataset we will use.
 
 ## Step 3: Model Compilation
 
+Before running the model compilation code, you need to verify the preprocessing steps required for calibration. The preprocessing operation of the YOLO model is available on [Ultralytics GitHub](https://github.com/ultralytics/ultralytics). he preprocessing operations that the model use is defined as `LetterBox` operation. 
+
 After the calibration dataset and the model are prepared, we can compile the model.
 
+We designed the code to perform preprocessing inside the compilation API and fuse some operations into the MXQ model to maximize NPU usage.
+
+In `model_compile.py`, we define the preprocessing pipeline as follows. This pipeline is used in calibration and will fuse the normalization module into the deep learning model.
+
+```python
+preprocess_pipeline = [
+    {
+    "op": "letterbox",
+    "height": 640,
+    "width": 640,
+    "padValue": 114
+    }
+]
+preprocessing_config = PreprocessingConfig(
+    apply=True,
+    auto_convert_format=True,
+    pipeline=preprocess_pipeline,
+    input_configs={},
+)
+```
+
+Also, we define the following preprocessing configurations and quantization configuration.
+
+```python
+input_process_config = InputProcessConfig(
+    uint8_input=Uint8InputConfig(apply=True, inputs=[]),
+    image_channels=3,
+    preprocessing=preprocessing_config,
+)
+
+quantization_config = QuantizationConfig.from_kwargs(
+    quantization_method=1,  # 0 for per tensor, 1 for per channel
+    quantization_output=1,  # 0 for layer, 1 for channel
+    quantization_mode=2,  # maxpercentile
+    percentile=0.999,
+    topk_ratio=0.01,
+)
+```
+
+After configuring the settings, the code can be executed as follows.
+
 ```bash
-python model_compile.py --onnx_path {path_to_onnx_model} --calib_data_path {path_to_calibration_dataset} --save_path {path_to_save_model} --quant_percentile {quantization_percentile} --topk_ratio {topk_ratio} --inference_scheme {inference_scheme}
+python model_compile.py --onnx_path {path_to_onnx_model} --calib_data_path {path_to_calibration_dataset} --save_path {path_to_save_model}
 ```
 
 **What this does:**
@@ -127,27 +127,15 @@ python model_compile.py --onnx_path {path_to_onnx_model} --calib_data_path {path
 - `--onnx_path`: Path to the ONNX model
 - `--calib_data_path`: Path to the calibration data
 - `--save_path`: Path to save the MXQ model
-- `--quant_percentile`: Quantization percentile (required for running quantization algorithm)
-- `--topk_ratio`: Top-k ratio (required for running quantization algorithm)
-- `--inference_scheme`: Inference scheme
 
-**Output Location:**
-The compiled model will be saved in the directory specified by `--save_path`.
+**Output:**
 
-The inference scheme is a parameter that specifies the core allocation strategy for the model. Currently, the following inference schemes are supported:
-
-- single: Single core inference
-- multi: Multi-core inference
-- global: Global inference (Deprecated and replaced by global8)
-- global4: Global inference with 4 cores
-- global8: Global inference with 8 cores
-
-Further details about the inference scheme can be found in the [Multi-Core Modes](https://docs.mobilint.com/v0.29/en/multicore.html) documentation.
+- `{path_to_save_model}` file path containing the compiled model
 
 The example command is as follows:
 
 ```bash
-python model_compile.py --onnx_path ./yolo11m-seg.onnx --calib_data_path ./yolo11m-seg_cali --save_path ./yolo11m-seg.mxq --quant_percentile 0.999 --topk_ratio 0.01 --inference_scheme single
+python model_compile.py --onnx_path ./yolo11m-seg.onnx --calib_data_path ./coco-selected --save_path ./yolo11m-seg.mxq 
 ```
 
 After executing the above command, the compiled model will be saved as `yolo11m-seg.mxq` in the current directory.
