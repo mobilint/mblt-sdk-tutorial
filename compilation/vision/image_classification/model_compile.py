@@ -19,7 +19,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--calib_data_path",
         type=str,
-        default="./resnet50_cali",
+        default="./imagenet-1k-selected",
         help="Path to the calibration data",
     )
     parser.add_argument(
