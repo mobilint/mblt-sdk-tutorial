@@ -107,33 +107,33 @@ def main():
         description="Generate calibration datasets from Wikipedia for LLM models"
     )
     parser.add_argument(
-        "--model_tag",
+        "--model-tag",
         type=str,
         default="meta-llama/Llama-3.2-1B-Instruct",
     )
     parser.add_argument(
-        "--embedding_path",
+        "--embedding-path",
         type=str,
         default="./embedding.pt",
     )
     parser.add_argument(
-        "--tokenizer_path", type=str, default="meta-llama/Llama-3.2-1B-Instruct"
+        "--tokenizer-path", type=str, default="meta-llama/Llama-3.2-1B-Instruct"
     )
-    parser.add_argument("--output_dir", type=str, default="./calib")
+    parser.add_argument("--output-dir", type=str, default="./calib")
     parser.add_argument(
-        "--min_seqlen",
+        "--min-seqlen",
         type=int,
         default=512,
         help="Minimum sequence length (default: 512)",
     )
     parser.add_argument(
-        "--max_seqlen",
+        "--max-seqlen",
         type=int,
         default=2048,
         help="Maximum sequence length (default: 2048)",
     )
     parser.add_argument(
-        "--max_calib",
+        "--max-calib",
         type=int,
         default=128,
         help="Number of calibration samples per language (default: 128)",

@@ -67,7 +67,7 @@ output = np.exp(output) / np.sum(np.exp(output)) # softmax
 To run the example inference script, use the following command:
 
 ```bash
-python inference_mxq.py --mxq_path ../../../compilation/vision/image_classification/resnet50.mxq --image_path ../rc/volcano.jpg
+python inference_mxq.py --mxq-path ../../../compilation/vision/image_classification/resnet50.mxq --image-path ../rc/volcano.jpg
 ```
 
 ### Script Breakdown

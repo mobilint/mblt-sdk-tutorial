@@ -30,7 +30,7 @@ The inference process uses a custom `LlamaMXQ` model class that integrates the N
 To run the example inference script, use the following command:
 
 ```bash
-python inference_mxq.py --mxq_path ../../../compilation/transformers/llm/Llama-3.2-1B-Instruct.mxq --embedding_weight_path ../../../compilation/transformers/llm/embedding.pt
+python inference_mxq.py --mxq-path ../../../compilation/transformers/llm/Llama-3.2-1B-Instruct.mxq --embedding-weight-path ../../../compilation/transformers/llm/embedding.pt
 ```
 
 ### Script Breakdown
@@ -42,8 +42,8 @@ python inference_mxq.py --mxq_path ../../../compilation/transformers/llm/Llama-3
 
 ### Parameters
 
-- `--mxq_path`: Path to the compiled `.mxq` model file.
-- `--embedding_weight_path`: Path to the embedding weights file (`.pt`).
+- `--mxq-path`: Path to the compiled `.mxq` model file.
+- `--embedding-weight-path`: Path to the embedding weights file (`.pt`).
 - **Note**: The device is explicitly set to `'cpu'` in the script because the model offloads heavy computations to the NPU internally. Do **not** use GPU.
 
 ### Expected Output

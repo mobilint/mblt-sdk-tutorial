@@ -42,7 +42,7 @@ HuggingFace 토큰에 대해 알 수 없는 경우 [HuggingFace 계정 설정](h
 
 ```bash
 python download_model.py \
-  --repo_id meta-llama/Llama-3.2-1B-Instruct \
+  --repo-id meta-llama/Llama-3.2-1B-Instruct \
   --embedding ./embedding.pt
 ```
 
@@ -54,7 +54,7 @@ python download_model.py \
 
 **매개변수:**
 
-- `--repo_id`: HuggingFace 모델 식별자
+- `--repo-id`: HuggingFace 모델 식별자
 - `--embedding`: 임베딩 가중치 파일의 출력 경로
 
 ## Step 2: 캘리브레이션 데이터셋 준비
@@ -63,13 +63,13 @@ python download_model.py \
 
 ```bash
 python generate_calib.py \
-  --model_tag meta-llama/Llama-3.2-1B-Instruct \
-  --embedding_path ./embedding.pt \
-  --tokenizer_path meta-llama/Llama-3.2-1B-Instruct \
-  --output_dir ./calib \
-  --min_seqlen 512 \
-  --max_seqlen 2048 \
-  --max_calib 128
+  --model-tag meta-llama/Llama-3.2-1B-Instruct \
+  --embedding-path ./embedding.pt \
+  --tokenizer-path meta-llama/Llama-3.2-1B-Instruct \
+  --output-dir ./calib \
+  --min-seqlen 512 \
+  --max-seqlen 2048 \
+  --max-calib 128
 ```
 
 **이 작업의 내용:**
@@ -81,13 +81,13 @@ python generate_calib.py \
 
 **매개변수:**
 
-- `--model_tag`: 모델 식별자 (출력 디렉토리 명명에 사용)
-- `--embedding_path`: Step 1에서 추출한 임베딩 가중치 경로
-- `--tokenizer_path`: HuggingFace 토크나이저 식별자
-- `--output_dir`: 캘리브레이션 데이터의 기본 디렉토리
-- `--min_seqlen`: 최소 시퀀스 길이 (이보다 짧은 샘플은 건너뜀)
-- `--max_seqlen`: 최대 시퀀스 길이 (샘플이 이 길이로 잘림)
-- `--max_calib`: 언어당 생성할 캘리브레이션 샘플 수
+- `--model-tag`: 모델 식별자 (출력 디렉토리 명명에 사용)
+- `--embedding-path`: Step 1에서 추출한 임베딩 가중치 경로
+- `--tokenizer-path`: HuggingFace 토크나이저 식별자
+- `--output-dir`: 캘리브레이션 데이터의 기본 디렉토리
+- `--min-seqlen`: 최소 시퀀스 길이 (이보다 짧은 샘플은 건너뜀)
+- `--max-seqlen`: 최대 시퀀스 길이 (샘플이 이 길이로 잘림)
+- `--max-calib`: 언어당 생성할 캘리브레이션 샘플 수
 
 **출력 위치:**
 캘리브레이션 파일은 다음 위치에 저장됩니다: `./calib/datas/meta-llama-Llama-3.2-1B-Instruct/en/`
@@ -107,9 +107,9 @@ LANGUAGES = ["en", "de", "fr", "es", "it", "ja", "ko", "zh"] # 더 많은 언어
 
 ```bash
 python generate_mxq.py \
-  --model_path meta-llama/Llama-3.2-1B-Instruct \
-  --calib_data_path ./calib/datas/meta-llama-Llama-3.2-1B-Instruct/en \
-  --save_path ./Llama-3.2-1B-Instruct.mxq
+  --model-path meta-llama/Llama-3.2-1B-Instruct \
+  --calib-data-path ./calib/datas/meta-llama-Llama-3.2-1B-Instruct/en \
+  --save-path ./Llama-3.2-1B-Instruct.mxq
 ```
 
 **이 작업의 내용:**
@@ -121,9 +121,9 @@ python generate_mxq.py \
 
 **매개변수:**
 
-- `--model_path`: HuggingFace 모델 식별자
-- `--calib_data_path`: Step 2에서 생성한 캘리브레이션 데이터 디렉토리 경로
-- `--save_path`: 컴파일된 `.mxq` 모델의 출력 경로
+- `--model-path`: HuggingFace 모델 식별자
+- `--calib-data-path`: Step 2에서 생성한 캘리브레이션 데이터 디렉토리 경로
+- `--save-path`: 컴파일된 `.mxq` 모델의 출력 경로
 
 **예상 출력:**
 컴파일된 모델은 `./Llama-3.2-1B-Instruct.mxq`로 저장됩니다.

@@ -34,18 +34,18 @@ def preprocess_yolo(img_path: str, img_size=(640, 640)):
 if __name__ == "__main__":
     parser = ArgumentParser(description="Run inference with compiled model")
     parser.add_argument(
-        "--model_path", type=str, required=True, help="Path to the compiled MXQ model"
+        "--model-path", type=str, required=True, help="Path to the compiled MXQ model"
     )
     parser.add_argument(
-        "--image_path", type=str, required=True, help="Path to the input image"
+        "--image-path", type=str, required=True, help="Path to the input image"
     )
     parser.add_argument(
-        "--output_path", type=str, default=None, help="Path to the output image"
+        "--output-path", type=str, default=None, help="Path to the output image"
     )
     parser.add_argument(
-        "--conf_thres", type=float, default=0.25, help="Confidence threshold"
+        "--conf-thres", type=float, default=0.25, help="Confidence threshold"
     )
-    parser.add_argument("--iou_thres", type=float, default=0.45, help="IoU threshold")
+    parser.add_argument("--iou-thres", type=float, default=0.45, help="IoU threshold")
 
     args = parser.parse_args()
 

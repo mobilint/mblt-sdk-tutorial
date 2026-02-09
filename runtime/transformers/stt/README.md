@@ -28,10 +28,10 @@ First, execute the `prepare_model.py` script to organize the compiled MXQ files 
 
 ```bash
 python prepare_model.py \
-    --encoder_mxq ../../../compilation/transformers/stt/compilation/compiled/whisper-small_encoder.mxq \
-    --decoder_mxq ../../../compilation/transformers/stt/compilation/compiled/whisper-small_decoder.mxq \
-    --output_folder ./whisper-small-mxq \
-    --base_model openai/whisper-small
+    --encoder-mxq ../../../compilation/transformers/stt/compilation/compiled/whisper-small_encoder.mxq \
+    --decoder-mxq ../../../compilation/transformers/stt/compilation/compiled/whisper-small_decoder.mxq \
+    --output-folder ./whisper-small-mxq \
+    --base-model openai/whisper-small
 ```
 
 This script performs the following actions:
@@ -47,7 +47,7 @@ Execute speech-to-text inference on an audio file using `inference_mxq.py`:
 ```bash
 python inference_mxq.py \
     --audio /path/to/audio.wav \
-    --model_folder ./whisper-small-mxq
+    --model-folder ./whisper-small-mxq
 ```
 
 ## Usage Options
@@ -57,7 +57,7 @@ python inference_mxq.py \
 To transcribe an audio file:
 
 ```bash
-python inference_mxq.py --audio audio.wav --model_folder ./whisper-small-mxq
+python inference_mxq.py --audio audio.wav --model-folder ./whisper-small-mxq
 ```
 
 ### Specify Language
@@ -65,7 +65,7 @@ python inference_mxq.py --audio audio.wav --model_folder ./whisper-small-mxq
 To specify the source language (e.g., English):
 
 ```bash
-python inference_mxq.py --audio audio.wav --model_folder ./whisper-small-mxq --language en
+python inference_mxq.py --audio audio.wav --model-folder ./whisper-small-mxq --language en
 ```
 
 ### Translation to English
@@ -73,7 +73,7 @@ python inference_mxq.py --audio audio.wav --model_folder ./whisper-small-mxq --l
 To translate the spoken audio to English:
 
 ```bash
-python inference_mxq.py --audio audio.wav --model_folder ./whisper-small-mxq --task translate
+python inference_mxq.py --audio audio.wav --model-folder ./whisper-small-mxq --task translate
 ```
 
 ### Use Pipeline API
@@ -81,7 +81,7 @@ python inference_mxq.py --audio audio.wav --model_folder ./whisper-small-mxq --t
 To use the Hugging Face pipeline API (recommended for longer audio files):
 
 ```bash
-python inference_mxq.py --audio audio.wav --model_folder ./whisper-small-mxq --use_pipeline
+python inference_mxq.py --audio audio.wav --model-folder ./whisper-small-mxq --use-pipeline
 ```
 
 ## Command Line Arguments
@@ -90,20 +90,20 @@ python inference_mxq.py --audio audio.wav --model_folder ./whisper-small-mxq --u
 
 | Argument | Default | Description |
 |----------|---------|-------------|
-| `--encoder_mxq` | `../../../compilation/transformers/stt/compilation/compiled/whisper-small_encoder.mxq` | Path to the compiled encoder MXQ file |
-| `--decoder_mxq` | `../../../compilation/transformers/stt/compilation/compiled/whisper-small_decoder.mxq` | Path to the compiled decoder MXQ file |
-| `--output_folder` | `./whisper-small-mxq` | Destination folder for the prepared model |
-| `--base_model` | `openai/whisper-small` | Hugging Face model ID used for base configuration |
+| `--encoder-mxq` | `../../../compilation/transformers/stt/compilation/compiled/whisper-small_encoder.mxq` | Path to the compiled encoder MXQ file |
+| `--decoder-mxq` | `../../../compilation/transformers/stt/compilation/compiled/whisper-small_decoder.mxq` | Path to the compiled decoder MXQ file |
+| `--output-folder` | `./whisper-small-mxq` | Destination folder for the prepared model |
+| `--base-model` | `openai/whisper-small` | Hugging Face model ID used for base configuration |
 
 ### `inference_mxq.py`
 
 | Argument | Default | Description |
 |----------|---------|-------------|
 | `--audio` | `../../../compilation/transformers/stt/data/audio_files/en_us_0000.wav` | Path to the input audio file |
-| `--model_folder` | `./whisper-small-mxq` | Path to the prepared model folder |
+| `--model-folder` | `./whisper-small-mxq` | Path to the prepared model folder |
 | `--language` | `None` (auto-detect) | Source language code (e.g., `en`, `ko`, `ja`) |
 | `--task` | `transcribe` | Task to perform: `transcribe` or `translate` |
-| `--use_pipeline` | `False` | If set, uses the Hugging Face pipeline API instead of manual inference |
+| `--use-pipeline` | `False` | If set, uses the Hugging Face pipeline API instead of manual inference |
 
 ## Supported Languages
 
@@ -147,4 +147,4 @@ The implementation leverages Hugging Face's `AutoModel` classes for seamless int
 
 - Audio files are automatically resampled to 16kHz.
 - The model processes audio in chunks of up to 30 seconds.
-- For audio files longer than 30 seconds, it is recommended to use the pipeline API (`--use_pipeline`), which automatically handles chunking.
+- For audio files longer than 30 seconds, it is recommended to use the pipeline API (`--use-pipeline`), which automatically handles chunking.

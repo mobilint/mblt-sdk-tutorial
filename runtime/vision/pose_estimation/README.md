@@ -71,7 +71,7 @@ Finally, execute the model with the preprocessed input and apply postprocessing 
 To run the example inference script, use the following command:
 
 ```bash
-python inference_mxq.py --model_path ../../../compilation/vision/pose_estimation/yolo11m-pose.mxq --image_path ../rc/cr7.jpg --output_path tmp/cr7.jpg --conf_thres 0.25 --iou_thres 0.45
+python inference_mxq.py --model-path ../../../compilation/vision/pose_estimation/yolo11m-pose.mxq --image-path ../rc/cr7.jpg --output-path tmp/cr7.jpg --conf-thres 0.25 --iou_thres 0.45
 ```
 
 ### Script Breakdown
@@ -84,11 +84,11 @@ python inference_mxq.py --model_path ../../../compilation/vision/pose_estimation
 
 ### Parameters
 
-- `--model_path`: Path to the compiled `.mxq` model file.
-- `--image_path`: Path to the input image file.
-- `--output_path`: (Optional) Path where the output image will be saved. Defaults to `output.jpg` in the current directory if not specified.
-- `--conf_thres`: Confidence threshold for filtering detections (default: `0.25`).
-- `--iou_thres`: IoU (Intersection over Union) threshold for NMS (default: `0.45`).
+- `--model-path`: Path to the compiled `.mxq` model file.
+- `--image-path`: Path to the input image file.
+- `--output-path`: (Optional) Path where the output image will be saved. Defaults to `output.jpg` in the current directory if not specified.
+- `--conf-thres`: Confidence threshold for filtering detections (default: `0.25`).
+- `--iou-thres`: IoU (Intersection over Union) threshold for NMS (default: `0.45`).
 
 ### Expected Output
 

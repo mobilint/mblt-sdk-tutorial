@@ -1,8 +1,8 @@
 # Image Classification Model Compilation
 
-This tutorial provides detailed instructions for compiling image classification models using the Mobilint qbcompiler.
+This tutorial provides comprehensive instructions for compiling image classification models using the Mobilint `qbcompiler`.
 
-In this tutorial, we will use the [ResNet-50](https://docs.pytorch.org/vision/main/models/generated/torchvision.models.resnet50.html) model, which is pretrained on the ImageNet dataset developed by PyTorch. This model is a simple image classification model that can be used to classify images into 1000 classes.
+We will use the [ResNet-50](https://docs.pytorch.org/vision/main/models/generated/torchvision.models.resnet50.html) model, available via `torchvision`. This model, pretrained on the ImageNet-1K dataset, is a standard benchmark for classifying images into 1,000 distinct categories.
 
 ## Prerequisites
 
@@ -13,11 +13,11 @@ Before starting, ensure you have the following installed:
 
 ## Overview
 
-The compilation process consists of three main steps:
+The compilation workflow consists of three primary steps:
 
-1. **Model Preparation**: Download the model and export it to ONNX format
-2. **Calibration Dataset Generation**: Create calibration data from ImageNet dataset
-3. **Model Compilation**: Convert the model to `.mxq` format using calibration data
+1. **Model Preparation**: Download the model and export it to ONNX format.
+2. **Calibration Dataset Preparation**: Create a representative calibration dataset from ImageNet.
+3. **Model Compilation**: Convert the model to the `.mxq` format using the calibration data.
 
 Also, you need to install the following packages:
 
@@ -36,9 +36,11 @@ from torchvision.models import resnet50, ResNet50_Weights
 # Using pretrained weights:
 model = resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
 model.eval()
-# make dummy input depending on the model's input shape
+
+# Create dummy input based on the model's input shape
 input = torch.randn(1, 3, 224, 224)
-# export to onnx
+
+# Export to ONNX
 torch.onnx.export(model, input, "resnet50.onnx")
 ```
 
@@ -78,9 +80,13 @@ The selected image dataset is the calibration dataset we will use.
 
 ## Step 3: Model Compilation
 
-Before running the model compilation code, you need to verify the preprocessing steps required for calibration. The preprocessing information can be found on the original [ResNet-50](https://docs.pytorch.org/vision/main/models/generated/torchvision.models.resnet50.html) page. The preprocessing operations that the model uses are: resizing the image to match the shortest side to 256 pixels with bilinear interpolation, center cropping to 224x224 pixels, rescaling the image to the range [0, 1], and normalizing the image with mean [0.485, 0.456, 0.406] and standard deviation [0.229, 0.224, 0.225].
+Before running the compilation, verify the preprocessing steps required by the model. According to the [official ResNet-50 documentation](https://docs.pytorch.org/vision/main/models/generated/torchvision.models.resnet50.html), the required operations include:
+- Resizing the shorter side to 256 pixels (bilinear interpolation)
+- Center cropping to 224x224 pixels
+- Rescaling to the [0, 1] range
+- Normalizing with mean `[0.485, 0.456, 0.406]` and standard deviation `[0.229, 0.224, 0.225]`
 
-We designed the code to perform preprocessing inside the compilation API and fuse some operations into the MXQ model to maximize NPU usage.
+The Mobilint compilation API performs these preprocessing steps internally and fuses operations like normalization directly into the MXQ model to maximize NPU efficiency.
 
 In `model_compile.py`, we define the preprocessing pipeline as follows. This pipeline is used in calibration and will fuse the normalization module into the deep learning model.
 
@@ -93,7 +99,7 @@ preprocess_pipeline = [
         "mean": [0.485, 0.456, 0.406],
         "std": [0.229, 0.224, 0.225],
         "scaleToUint8": True,  # [0, 255] -> [0, 1]
-        "fuseIntoFirstLayer": True,
+        "fuseIntoFirstLayer": True, # fuse into MXQ
     },
 ]  # preprocessing operations for resnet 50
 
@@ -126,7 +132,7 @@ quantization_config = QuantizationConfig.from_kwargs(
 After configuring the settings, the code can be executed as follows.
 
 ```bash
-python model_compile.py --onnx_path {path_to_onnx_model} --calib_data_path {path_to_calibration_dataset} --save_path {path_to_save_model}
+python model_compile.py --onnx-path {path_to_onnx_model} --calib-data-path {path_to_calibration_dataset} --save-path {path_to_save_model}
 ```
 
 **What it does:**
@@ -137,9 +143,9 @@ python model_compile.py --onnx_path {path_to_onnx_model} --calib_data_path {path
 
 **Parameters:**
 
-- `--onnx_path`: Path to the ONNX model
-- `--calib_data_path`: Path to the calibration data
-- `--save_path`: Path to save the MXQ model
+- `--onnx-path`: Path to the ONNX model
+- `--calib-data-path`: Path to the calibration data
+- `--save-path`: Path to save the MXQ model
 
 **Output:**
 
@@ -148,7 +154,7 @@ python model_compile.py --onnx_path {path_to_onnx_model} --calib_data_path {path
 For example, the command is as follows:
 
 ```bash
-python model_compile.py --onnx_path ./resnet50.onnx --calib_data_path ./imagenet-1k-selected --save_path ./resnet50.mxq 
+python model_compile.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq 
 ```
 
 After executing the above command, the compiled model will be saved as `resnet50.mxq` in the current directory.

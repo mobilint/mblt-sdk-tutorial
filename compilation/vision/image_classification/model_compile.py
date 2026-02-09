@@ -11,19 +11,19 @@ from qbcompiler import (
 if __name__ == "__main__":
     parser = ArgumentParser(description="Compile ResNet-50 ONNX model to MXQ model")
     parser.add_argument(
-        "--onnx_path",
+        "--onnx-path",
         type=str,
         default="./resnet50.onnx",
         help="Path to the ONNX model",
     )
     parser.add_argument(
-        "--calib_data_path",
+        "--calib-data-path",
         type=str,
         default="./imagenet-1k-selected",
         help="Path to the calibration data",
     )
     parser.add_argument(
-        "--save_path",
+        "--save-path",
         type=str,
         default="./resnet50.mxq",
         help="Path to save the MXQ model",

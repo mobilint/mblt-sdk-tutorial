@@ -56,12 +56,12 @@ def main(mxq_path, embedding_weight_path):
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument(
-        "--mxq_path",
+        "--mxq-path",
         type=str,
         default="../../../compilation/transformers/llm/Llama-3.2-1B-Instruct.mxq",
     )
     parser.add_argument(
-        "--embedding_weight_path",
+        "--embedding-weight-path",
         type=str,
         default="../../../compilation/transformers/llm/embedding.pt",
     )

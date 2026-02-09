@@ -30,7 +30,7 @@
 예제 추론 스크립트를 실행하려면 다음 명령어를 사용하십시오:
 
 ```bash
-python inference_mxq.py --mxq_path ../../../compilation/transformers/llm/Llama-3.2-1B-Instruct.mxq --embedding_weight_path ../../../compilation/transformers/llm/embedding.pt
+python inference_mxq.py --mxq-path ../../../compilation/transformers/llm/Llama-3.2-1B-Instruct.mxq --embedding-weight-path ../../../compilation/transformers/llm/embedding.pt
 ```
 
 ### 스크립트 세부 설명
@@ -42,8 +42,8 @@ python inference_mxq.py --mxq_path ../../../compilation/transformers/llm/Llama-3
 
 ### 파라미터 (Parameters)
 
-- `--mxq_path`: 컴파일된 `.mxq` 모델 파일의 경로입니다.
-- `--embedding_weight_path`: 임베딩 가중치 파일(`.pt`)의 경로입니다.
+- `--mxq-path`: 컴파일된 `.mxq` 모델 파일의 경로입니다.
+- `--embedding-weight-path`: 임베딩 가중치 파일(`.pt`)의 경로입니다.
 - **참고**: 모델이 내부적으로 많은 계산을 NPU로 오프로드하므로 스크립트에서 장치는 명시적으로 `'cpu'`로 설정됩니다. GPU를 사용하지 **마십시오**.
 
 ### 예상 출력 (Expected Output)

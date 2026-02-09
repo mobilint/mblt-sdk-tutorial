@@ -28,10 +28,10 @@
 
 ```bash
 python prepare_model.py \
-    --encoder_mxq ../../../compilation/transformers/stt/compilation/compiled/whisper-small_encoder.mxq \
-    --decoder_mxq ../../../compilation/transformers/stt/compilation/compiled/whisper-small_decoder.mxq \
-    --output_folder ./whisper-small-mxq \
-    --base_model openai/whisper-small
+    --encoder-mxq ../../../compilation/transformers/stt/compilation/compiled/whisper-small_encoder.mxq \
+    --decoder-mxq ../../../compilation/transformers/stt/compilation/compiled/whisper-small_decoder.mxq \
+    --output-folder ./whisper-small-mxq \
+    --base-model openai/whisper-small
 ```
 
 이 스크립트는 다음 작업을 수행합니다:
@@ -47,7 +47,7 @@ python prepare_model.py \
 ```bash
 python inference_mxq.py \
     --audio /path/to/audio.wav \
-    --model_folder ./whisper-small-mxq
+    --model-folder ./whisper-small-mxq
 ```
 
 ## 사용 옵션 (Usage Options)
@@ -57,7 +57,7 @@ python inference_mxq.py \
 오디오 파일을 전사하려면:
 
 ```bash
-python inference_mxq.py --audio audio.wav --model_folder ./whisper-small-mxq
+python inference_mxq.py --audio audio.wav --model-folder ./whisper-small-mxq
 ```
 
 ### 언어 지정 (Specify Language)
@@ -65,7 +65,7 @@ python inference_mxq.py --audio audio.wav --model_folder ./whisper-small-mxq
 소스 언어를 지정하려면 (예: 영어):
 
 ```bash
-python inference_mxq.py --audio audio.wav --model_folder ./whisper-small-mxq --language en
+python inference_mxq.py --audio audio.wav --model-folder ./whisper-small-mxq --language en
 ```
 
 ### 영어로 번역 (Translation to English)
@@ -73,7 +73,7 @@ python inference_mxq.py --audio audio.wav --model_folder ./whisper-small-mxq --l
 음성 오디오를 영어로 번역하려면:
 
 ```bash
-python inference_mxq.py --audio audio.wav --model_folder ./whisper-small-mxq --task translate
+python inference_mxq.py --audio audio.wav --model-folder ./whisper-small-mxq --task translate
 ```
 
 ### 파이프라인 API 사용 (Use Pipeline API)
@@ -81,7 +81,7 @@ python inference_mxq.py --audio audio.wav --model_folder ./whisper-small-mxq --t
 Hugging Face 파이프라인 API를 사용하려면 (긴 오디오 파일에 권장):
 
 ```bash
-python inference_mxq.py --audio audio.wav --model_folder ./whisper-small-mxq --use_pipeline
+python inference_mxq.py --audio audio.wav --model-folder ./whisper-small-mxq --use-pipeline
 ```
 
 ## 커맨드 라인 인자 (Command Line Arguments)
@@ -90,20 +90,20 @@ python inference_mxq.py --audio audio.wav --model_folder ./whisper-small-mxq --u
 
 | 인자 | 기본값 | 설명 |
 |----------|---------|-------------|
-| `--encoder_mxq` | `../../../compilation/transformers/stt/compilation/compiled/whisper-small_encoder.mxq` | 컴파일된 인코더 MXQ 파일 경로 |
-| `--decoder_mxq` | `../../../compilation/transformers/stt/compilation/compiled/whisper-small_decoder.mxq` | 컴파일된 디코더 MXQ 파일 경로 |
-| `--output_folder` | `./whisper-small-mxq` | 준비된 모델의 저장 폴더 |
-| `--base_model` | `openai/whisper-small` | 기본 구성에 사용되는 Hugging Face 모델 ID |
+| `--encoder-mxq` | `../../../compilation/transformers/stt/compilation/compiled/whisper-small_encoder.mxq` | 컴파일된 인코더 MXQ 파일 경로 |
+| `--decoder-mxq` | `../../../compilation/transformers/stt/compilation/compiled/whisper-small_decoder.mxq` | 컴파일된 디코더 MXQ 파일 경로 |
+| `--output-folder` | `./whisper-small-mxq` | 준비된 모델의 저장 폴더 |
+| `--base-model` | `openai/whisper-small` | 기본 구성에 사용되는 Hugging Face 모델 ID |
 
 ### `inference_mxq.py`
 
 | 인자 | 기본값 | 설명 |
 |----------|---------|-------------|
 | `--audio` | `../../../compilation/transformers/stt/data/audio_files/en_us_0000.wav` | 입력 오디오 파일 경로 |
-| `--model_folder` | `./whisper-small-mxq` | 준비된 모델 폴더 경로 |
+| `--model-folder` | `./whisper-small-mxq` | 준비된 모델 폴더 경로 |
 | `--language` | `None` (자동 감지) | 소스 언어 코드 (예: `en`, `ko`, `ja`) |
 | `--task` | `transcribe` | 수행할 작업: `transcribe` (전사) 또는 `translate` (번역) |
-| `--use_pipeline` | `False` | 설정 시, 수동 추론 대신 Hugging Face 파이프라인 API 사용 |
+| `--use-pipeline` | `False` | 설정 시, 수동 추론 대신 Hugging Face 파이프라인 API 사용 |
 
 ## 지원 언어 (Supported Languages)
 
@@ -147,4 +147,4 @@ Whisper는 99개 이상의 언어를 지원합니다. 주요 언어 코드는 �
 
 - 오디오 파일은 자동으로 16kHz로 리샘플링됩니다.
 - 모델은 최대 30초 단위의 오디오 청크를 처리합니다.
-- 30초보다 긴 오디오 파일의 경우, 청킹(chunking)을 자동으로 처리해주는 파이프라인 API (`--use_pipeline`) 사용을 권장합니다.
+- 30초보다 긴 오디오 파일의 경우, 청킹(chunking)을 자동으로 처리해주는 파이프라인 API (`--use-pipeline`) 사용을 권장합니다.

@@ -71,7 +71,7 @@ def preprocess_yolo(img_path: str, img_size=(640, 640)):
 예제 추론 스크립트를 실행하려면 다음 명령어를 사용하십시오:
 
 ```bash
-python inference_mxq.py --model_path ../../../compilation/vision/instance_segmentation/yolo11m-seg.mxq --image_path ../rc/cr7.jpg --output_path tmp/cr7.jpg --conf_thres 0.25 --iou_thres 0.45
+python inference_mxq.py --model-path ../../../compilation/vision/instance_segmentation/yolo11m-seg.mxq --image-path ../rc/cr7.jpg --output-path tmp/cr7.jpg --conf-thres 0.25 --iou_thres 0.45
 ```
 
 ### 스크립트 세부 설명
@@ -84,11 +84,11 @@ python inference_mxq.py --model_path ../../../compilation/vision/instance_segmen
 
 ### 파라미터 (Parameters)
 
-- `--model_path`: 컴파일된 `.mxq` 모델 파일의 경로입니다.
-- `--image_path`: 입력 이미지 파일의 경로입니다.
-- `--output_path`: (선택 사항) 출력 이미지가 저장될 경로입니다. 지정하지 않으면 현재 디렉토리에 `output.jpg`로 저장됩니다.
-- `--conf_thres`: 감지 결과를 필터링하기 위한 신뢰도 임계값입니다 (기본값: `0.25`).
-- `--iou_thres`: NMS를 위한 IoU (Intersection over Union) 임계값입니다 (기본값: `0.45`).
+- `--model-path`: 컴파일된 `.mxq` 모델 파일의 경로입니다.
+- `--image-path`: 입력 이미지 파일의 경로입니다.
+- `--output-path`: (선택 사항) 출력 이미지가 저장될 경로입니다. 지정하지 않으면 현재 디렉토리에 `output.jpg`로 저장됩니다.
+- `--conf-thres`: 감지 결과를 필터링하기 위한 신뢰도 임계값입니다 (기본값: `0.25`).
+- `--iou-thres`: NMS를 위한 IoU (Intersection over Union) 임계값입니다 (기본값: `0.45`).
 
 ### 예상 출력 (Expected Output)
 

@@ -1,8 +1,8 @@
 # Object Detection Model Compilation
 
-This tutorial provides detailed instructions for compiling object detection models using the Mobilint qbcompiler.
+This tutorial provides comprehensive instructions for compiling object detection models using the Mobilint `qbcompiler`.
 
-In this tutorial, we will use the [YOLO11m](https://docs.ultralytics.com/models/yolo11/) model, which is pretrained on the COCO dataset developed by Ultralytics. This model is an object detection model that can be used to detect objects in images.
+We will use the [YOLO11m](https://docs.ultralytics.com/models/yolo11/) model, pretrained on the COCO dataset by Ultralytics. This model is designed for object detection, capable of identifying and localizing multiple objects within an image.
 
 ## Prerequisites
 
@@ -19,11 +19,11 @@ pip install ultralytics aiohttp aiofiles
 
 ## Overview
 
-The compilation process consists of three main steps:
+The compilation workflow follows three primary steps:
 
-1. **Model Preparation**: Download the model and export it to ONNX format
-2. **Calibration Dataset Generation**: Create calibration data from COCO dataset
-3. **Model Compilation**: Convert the model to `.mxq` format using calibration data
+1. **Model Preparation**: Download the model and export it to ONNX format.
+2. **Calibration Dataset Preparation**: Create a representative calibration dataset from COCO.
+3. **Model Compilation**: Convert the model to the `.mxq` format using the calibration data.
 
 ## Step 1: Model Preparation
 
@@ -35,9 +35,7 @@ yolo export model=yolo11m.pt format=onnx # Export the model to ONNX format
 
 After execution, the exported ONNX model is saved as `yolo11m.onnx` in the current directory.
 
-## Step 2: Calibration Dataset Preparation
-
-A calibration dataset is a set of images that represent the typical input distribution of the model. Since the YOLO11m model is trained on the [COCO dataset](https://cocodataset.org/#download), so we need to prepare the calibration dataset.
+The calibration dataset consists of images that represent the model's typical input distribution. Since YOLO11m is trained on the [COCO dataset](https://cocodataset.org/#download), we will use COCO samples for calibration.
 
 Before using the dataset, sign up for an account on [HuggingFace](https://huggingface.co/). Then, log in to HuggingFace using the following command and replace <your_huggingface_token> with your actual HuggingFace token:
 
@@ -47,17 +45,16 @@ hf auth login --token <your_huggingface_token>
 
 If you are not sure about your HuggingFace token, you can find it in your [HuggingFace account settings](https://huggingface.co/settings/tokens).
 
-You may download the files using `prepare_coco.py`, which automatically read the list of available files listed in the dataset, proceed random selection and download files into `coco-selected` directory.
+Use the `prepare_coco.py` script to automate the process. This script reads URLs from the COCO dataset, performs a random selection, and downloads the images into the `coco-selected` directory.
 
 ```bash
 python prepare_coco.py
 ```
 
-**What it does:**
-
-- Downloads the dataset of URLs from HuggingFace
-- Randomly select images and construct the calibration dataset
-- Save the calibration dataset into `coco-selected` directory
+**Action:**
+- Downloads COCO image URLs from HuggingFace.
+- Randomly selects images to construct the calibration dataset.
+- Saves the images to the `coco-selected` directory.
 
 **Output:**
 
@@ -65,13 +62,9 @@ python prepare_coco.py
 
 The selected image dataset is the calibration dataset we will use.
 
-## Step 3: Model Compilation
+Before running the compilation, verify the required preprocessing steps. YOLO models typically use the `LetterBox` operation, as detailed on the [Ultralytics GitHub](https://github.com/ultralytics/ultralytics).
 
-Before running the model compilation code, you need to verify the preprocessing steps required for calibration. The preprocessing operation of the YOLO model is available on [Ultralytics GitHub](https://github.com/ultralytics/ultralytics). he preprocessing operations that the model use is defined as `LetterBox` operation. 
-
-After the calibration dataset and the model are prepared, we can compile the model.
-
-We designed the code to perform preprocessing inside the compilation API and fuse some operations into the MXQ model to maximize NPU usage.
+The Mobilint compilation API performs these preprocessing steps internally and fuses operations directly into the MXQ model to maximize NPU efficiency.
 
 In `model_compile.py`, we define the preprocessing pipeline as follows. This pipeline is used in calibration and will fuse the normalization module into the deep learning model.
 
@@ -96,7 +89,7 @@ Also, we define the following preprocessing configurations and quantization conf
 
 ```python
 input_process_config = InputProcessConfig(
-    uint8_input=Uint8InputConfig(apply=True, inputs=[]),
+    uint8_input=Uint8InputConfig(apply=True, inputs=[]), # uint8 input
     image_channels=3,
     preprocessing=preprocessing_config,
 )
@@ -113,7 +106,7 @@ quantization_config = QuantizationConfig.from_kwargs(
 After configuring the settings, the code can be executed as follows.
 
 ```bash
-python model_compile.py --onnx_path {path_to_onnx_model} --calib_data_path {path_to_calibration_dataset} --save_path {path_to_save_model}
+python model_compile.py --onnx-path {path_to_onnx_model} --calib-data-path {path_to_calibration_dataset} --save-path {path_to_save_model}
 ```
 
 **What this does:**
@@ -124,9 +117,9 @@ python model_compile.py --onnx_path {path_to_onnx_model} --calib_data_path {path
 
 **Parameters:**
 
-- `--onnx_path`: Path to the ONNX model
-- `--calib_data_path`: Path to the calibration data
-- `--save_path`: Path to save the MXQ model
+- `--onnx-path`: Path to the ONNX model
+- `--calib-data-path`: Path to the calibration data
+- `--save-path`: Path to save the MXQ model
 
 **Output:**
 
@@ -135,7 +128,7 @@ python model_compile.py --onnx_path {path_to_onnx_model} --calib_data_path {path
 The example command is as follows:
 
 ```bash
-python model_compile.py --onnx_path ./yolo11m.onnx --calib_data_path ./coco-selected --save_path ./yolo11m.mxq
+python model_compile.py --onnx-path ./yolo11m.onnx --calib-data-path ./coco-selected --save-path ./yolo11m.mxq
 ```
 
 After executing the above command, the compiled model will be saved as `yolo11m.mxq` in the current directory.

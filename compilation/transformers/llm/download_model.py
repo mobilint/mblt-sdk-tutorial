@@ -4,7 +4,7 @@ import torch
 from transformers import AutoModelForCausalLM
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--repo_id", type=str, default="meta-llama/Llama-3.2-1B-Instruct")
+parser.add_argument("--repo-id", type=str, default="meta-llama/Llama-3.2-1B-Instruct")
 parser.add_argument("--embedding", type=str, default="./embedding.pt")
 args = parser.parse_args()
 

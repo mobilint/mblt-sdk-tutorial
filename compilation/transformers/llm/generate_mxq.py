@@ -7,14 +7,14 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "--model_path", type=str, default="meta-llama/Llama-3.2-1B-Instruct"
+    "--model-path", type=str, default="meta-llama/Llama-3.2-1B-Instruct"
 )
 parser.add_argument(
-    "--calib_data_path",
+    "--calib-data-path",
     type=str,
     default="./calib/datas/meta-llama-Llama-3.2-1B-Instruct/en",
 )
-parser.add_argument("--save_path", type=str, default="./Llama-3.2-1B-Instruct.mxq")
+parser.add_argument("--save-path", type=str, default="./Llama-3.2-1B-Instruct.mxq")
 args = parser.parse_args()
 
 hf_config = {

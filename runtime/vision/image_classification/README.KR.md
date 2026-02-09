@@ -67,7 +67,7 @@ output = np.exp(output) / np.sum(np.exp(output)) # softmax
 예제 추론 스크립트를 실행하려면 다음 명령어를 사용하십시오:
 
 ```bash
-python inference_mxq.py --mxq_path ../../../compilation/vision/image_classification/resnet50.mxq --image_path ../rc/volcano.jpg
+python inference_mxq.py --mxq-path ../../../compilation/vision/image_classification/resnet50.mxq --image-path ../rc/volcano.jpg
 ```
 
 ### 스크립트 세부 설명

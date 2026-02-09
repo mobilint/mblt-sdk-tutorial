@@ -154,7 +154,7 @@ def main():
         help="Path to the audio file to transcribe",
     )
     parser.add_argument(
-        "--model_folder",
+        "--model-folder",
         type=str,
         default="./whisper-small-mxq",
         help="Path to the folder containing compiled MXQ models",
@@ -173,7 +173,7 @@ def main():
         help="Task: 'transcribe' for transcription, 'translate' for translation to English",
     )
     parser.add_argument(
-        "--use_pipeline",
+        "--use-pipeline",
         action="store_true",
         help="Use pipeline API instead of manual inference",
     )

@@ -1,8 +1,8 @@
 # 이미지 분류 모델 컴파일
 
-이 튜토리얼은 Mobilint qbcompiler 컴파일러를 사용하여 이미지 분류 모델을 컴파일하는 방법에 대한 자세한 지침을 제공합니다.
+본 튜토리얼은 Mobilint `qbcompiler`를 사용하여 이미지 분류 모델을 컴파일하는 상세 가이드를 제공합니다.
 
-이 튜토리얼에서는 PyTorch에서 개발한 ImageNet 데이터셋으로 사전 학습된 [ResNet-50](https://docs.pytorch.org/vision/main/models/generated/torchvision.models.resnet50.html) 모델을 사용합니다. 이 모델은 이미지를 1000개의 클래스로 분류할 수 있는 간단한 이미지 분류 모델입니다.
+여기에서는 PyTorch에서 제공하는 ImageNet-1K 사전 학습 모델인 [ResNet-50](https://docs.pytorch.org/vision/main/models/generated/torchvision.models.resnet50.html)을 사용합니다. 이 모델은 이미지를 1,000개의 클래스로 분류하는 표준적인 이미지 분류 모델입니다.
 
 ## 사전 요구사항
 
@@ -13,11 +13,11 @@
 
 ## 개요
 
-컴파일 프로세스는 세 가지 주요 단계로 구성됩니다:
+컴파일 과정은 크게 세 단계로 진행됩니다:
 
-1. **모델 준비**: 모델을 다운로드하고 ONNX 형식으로 내보내기
-2. **캘리브레이션 데이터셋 생성**: ImageNet 데이터셋에서 캘리브레이션 데이터 생성
-3. **모델 컴파일**: 캘리브레이션 데이터를 사용하여 모델을 `.mxq` 형식으로 변환
+1. **모델 준비**: 모델을 다운로드하고 ONNX 형식으로 내보냅니다.
+2. **캘리브레이션 데이터셋 준비**: ImageNet 데이터셋에서 대표 샘플을 추출하여 캘리브레이션 데이터를 생성합니다.
+3. **모델 컴파일**: 캘리브레이션 데이터를 활용해 모델을 `.mxq` 형식으로 변환합니다.
 
 또한 다음 Python 패키지를 설치해야 합니다:
 
@@ -36,9 +36,11 @@ from torchvision.models import resnet50, ResNet50_Weights
 # 사전 학습된 가중치 사용:
 model = resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
 model.eval()
-# 모델의 입력 형태에 따라 더미 입력 생성
+
+# 모델의 입력 형태에 맞춘 더미 입력 생성
 input = torch.randn(1, 3, 224, 224)
-# onnx로 내보내기
+
+# ONNX로 내보내기
 torch.onnx.export(model, input, "resnet50.onnx")
 ```
 
@@ -78,9 +80,13 @@ python prepare_imagenet.py
 
 ## Step 3: 모델 컴파일
 
-모델 컴파일 코드를 실행하기 전, 캘리브레이션에 필요한 전처리 단계를 확인해야 합니다. 전처리 정보는 원본 [ResNet-50](https://docs.pytorch.org/vision/main/models/generated/torchvision.models.resnet50.html) 페이지에서 확인할 수 있습니다. 모델이 사용하는 전처리 작업은 다음과 같습니다: 이미지의 짧은 쪽을 256픽셀로 맞추는 양선형 보간 리사이징, 224x224 픽셀로 중앙 자르기(center crop), [0, 1] 범위로 이미지 스케일링, 그리고 평균 [0.485, 0.456, 0.406] 및 표준편차 [0.229, 0.224, 0.225]를 사용한 정규화입니다.
+모델을 컴파일하기 전, 해당 모델에 필요한 전처리 단계를 확인해야 합니다. [ResNet-50 공식 문서](https://docs.pytorch.org/vision/main/models/generated/torchvision.models.resnet50.html)에 따르면 모델의 입력 조건은 다음과 같습니다:
+- 이미지의 짧은 쪽을 256픽셀로 리사이징 (Bilinear interpolation)
+- 224x224 픽셀로 중앙 자르기 (Center crop)
+- [0, 1] 범위로 픽셀 값 스케일링
+- 평균 `[0.485, 0.456, 0.406]` 및 표준편차 `[0.229, 0.224, 0.225]`를 사용한 정규화
 
-우리는 컴파일 API 내부에서 전처리를 수행하고 일부 작업을 MXQ 모델에 병합하여 NPU 사용을 극대화하도록 코드를 설계했습니다.
+Mobilint 컴파일 API는 이러한 전처리를 내부적으로 수행하며, 정규화와 같은 작업을 MXQ 모델에 통합(fuse)하여 NPU 연산 효율을 극대화하도록 설계되었습니다.
 
 `model_compile.py`에서 전처리 파이프라인을 다음과 같이 정의합니다. 이 파이프라인은 캘리브레이션에 사용되며 정규화 모듈을 딥러닝 모델에 병합합니다.
 
@@ -93,7 +99,7 @@ preprocess_pipeline = [
         "mean": [0.485, 0.456, 0.406],
         "std": [0.229, 0.224, 0.225],
         "scaleToUint8": True,  # [0, 255] -> [0, 1]
-        "fuseIntoFirstLayer": True,
+        "fuseIntoFirstLayer": True, # MXQ 내부에 병합
     },
 ]  # preprocessing operations for resnet 50
 
@@ -126,7 +132,7 @@ quantization_config = QuantizationConfig.from_kwargs(
 설정을 구성한 후, 코드는 다음과 같이 실행할 수 있습니다.
 
 ```bash
-python model_compile.py --onnx_path {path_to_onnx_model} --calib_data_path {path_to_calibration_dataset} --save_path {path_to_save_model}
+python model_compile.py --onnx-path {path_to_onnx_model} --calib-data-path {path_to_calibration_dataset} --save-path {path_to_save_model}
 ```
 
 **작업 내용:**
@@ -137,9 +143,9 @@ python model_compile.py --onnx_path {path_to_onnx_model} --calib_data_path {path
 
 **매개변수:**
 
-- `--onnx_path`: ONNX 모델 경로
-- `--calib_data_path`: 캘리브레이션 데이터 경로
-- `--save_path`: MXQ 모델을 저장할 경로
+- `--onnx-path`: ONNX 모델 경로
+- `--calib-data-path`: 캘리브레이션 데이터 경로
+- `--save-path`: MXQ 모델을 저장할 경로
 
 **출력:**
 
@@ -148,7 +154,7 @@ python model_compile.py --onnx_path {path_to_onnx_model} --calib_data_path {path
 예를 들어, 명령은 다음과 같습니다:
 
 ```bash
-python model_compile.py --onnx_path ./resnet50.onnx --calib_data_path ./imagenet-1k-selected --save_path ./resnet50.mxq 
+python model_compile.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq 
 ```
 
 위 명령을 실행하면 컴파일된 모델이 현재 디렉토리에 `resnet50.mxq`로 저장됩니다.

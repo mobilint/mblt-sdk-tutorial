@@ -10,10 +10,10 @@ from torchvision.transforms import InterpolationMode
 if __name__ == "__main__":
     parser = ArgumentParser(description="Run inference with compiled model")
     parser.add_argument(
-        "--mxq_path", type=str, required=True, help="Path to the compiled MXQ model"
+        "--mxq-path", type=str, required=True, help="Path to the compiled MXQ model"
     )
     parser.add_argument(
-        "--image_path", type=str, required=True, help="Path to the input image"
+        "--image-path", type=str, required=True, help="Path to the input image"
     )
     args = parser.parse_args()
 
