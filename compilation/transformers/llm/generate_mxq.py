@@ -28,7 +28,7 @@ EXP_PRESETS = {
         "sws": {
             "apply": False,
         },
-        "et":{},
+        "et": {},
     },
     "w4": {
         "bit": {
@@ -47,7 +47,7 @@ EXP_PRESETS = {
             "out": True,
             "ffn": True,
         },
-        "et":{
+        "et": {
             "norm_conv_apply": True,
             "qk_apply": True,
             "ud_apply": True,
@@ -76,7 +76,7 @@ EXP_PRESETS = {
             "out": True,
             "ffn": True,
         },
-        "et":{
+        "et": {
             "norm_conv_apply": True,
             "qk_apply": True,
             "ud_apply": True,
