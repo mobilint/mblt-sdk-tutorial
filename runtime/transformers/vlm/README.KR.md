@@ -27,7 +27,7 @@
 - **필수 종속성 설치**:
 
   ```bash
-  pip install transformers==4.54.0 torch pillow
+  pip install torch pillow transformers==4.54.0
   ```
 
 ## 필수 파일 (Required Files)

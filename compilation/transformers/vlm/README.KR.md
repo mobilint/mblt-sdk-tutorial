@@ -4,11 +4,6 @@
 
 이 튜토리얼에서는 Qwen에서 개발한 최첨단 비전-언어 모델인 [Qwen2-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct) 모델을 사용합니다.
 
-> **중요한 주의사항:**
->
-> 이 튜토리얼의 코드는 equivalent transformation 지원이 포함된 **qbcompiler 버전 >= 0.12**가 필요하며, 이는 가까운 미래에 출시될 예정입니다. 현재 버전(v0.11.0.1)은 MXQ 컴파일 스크립트에서 사용되는 equivalent transformation 기능을 아직 지원하지 않으며, 현재 qbcompiler 버전으로는 컴파일이 실패합니다.
->
-
 ## 개요
 
 VLM 컴파일 과정은 세 가지 주요 단계로 구성됩니다:
@@ -26,7 +21,7 @@ VLM 컴파일 과정은 세 가지 주요 단계로 구성됩니다:
 시작하기 전에 다음이 있는지 확인하세요:
 
 - Python 3.8 이상
-- qbcompiler SDK 컴파일러 설치 (버전 >= 0.12 필요)
+- qbcompiler SDK 컴파일러 설치 (버전 >= 1.0.1 필요)
 - (선택사항) 캘리브레이션 및 컴파일을 위한 CUDA 지원 GPU
 - 충분한 디스크 공간 (모델 + 캘리브레이션 데이터용 약 20GB)
 

@@ -4,11 +4,6 @@ This tutorial provides detailed instructions for compiling Vision Language Model
 
 In this tutorial, we will use the [Qwen2-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct) model, a state-of-the-art vision-language model developed by Qwen.
 
-> **Important Disclaimer:**
->
-> The code in this tutorial requires **qbcompiler version >= 0.12** with equivalent transformation support, which will be available in a near-future release. The current version (v0.11.0.1) does not yet support the equivalent transformation features used in the MXQ compilation scripts, and compilation will fail with the current qbcompiler version.
->
-
 ## Overview
 
 The VLM compilation process consists of three main stages:
@@ -26,7 +21,7 @@ After compilation, you will have all necessary files in the `mxq/` directory rea
 Before starting, ensure you have:
 
 - Python 3.8 or higher
-- qbcompiler SDK compiler installed (version >= 0.12 required)
+- qbcompiler SDK compiler installed (version >= 1.0.1 required)
 - (optional) CUDA-capable GPU for calibration and compilation
 - Sufficient disk space (~20GB for model + calibration data)
 

@@ -14,14 +14,14 @@
 
 ### qbcompiler 컴파일러 설치
 
-Mobilint 릴리즈 페이지에서 qbcompiler 컴파일러(버전 0.12.0.0)를 다운로드하여 설치하세요:
+Mobilint 릴리즈 페이지에서 qbcompiler 컴파일러(버전 1.0.1)를 다운로드하여 설치하세요:
 
 1. [https://dl.mobilint.com/releases?series-id=1](https://dl.mobilint.com/releases?series-id=1)로 이동
-2. qbcompiler 버전 **0.12.0.0**에 해당하는 `.whl` 파일 다운로드
+2. qbcompiler 버전 **1.0.1**에 해당하는 `.whl` 파일 다운로드
 3. wheel 파일 설치:
 
 ```bash
-pip install qbcompiler-0.12.0.0-<your-platform>.whl
+pip install qbcompiler-1.0.1-<your-platform>.whl
 ```
 
 ## 개요
@@ -134,7 +134,7 @@ cd ../compilation
 
 **필요한 패키지:**
 - transformers==4.50.0
-- qbcompiler==0.12.0.0 (사전 요구사항에 설명된 수정 포함)
+- qbcompiler==1.0.1 (사전 요구사항에 설명된 수정 포함)
 
 ### 인코더 컴파일
 

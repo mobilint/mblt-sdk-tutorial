@@ -14,14 +14,14 @@ Before starting, ensure you have the following:
 
 ### Install qbcompiler Compiler
 
-Download and install the qbcompiler compiler (version 0.12.0.0) from the Mobilint release page:
+Download and install the qbcompiler compiler (version 1.0.1) from the Mobilint release page:
 
 1. Go to [https://dl.mobilint.com/releases?series-id=1](https://dl.mobilint.com/releases?series-id=1)
-2. Download the appropriate `.whl` file for qbcompiler version **0.12.0.0**
+2. Download the appropriate `.whl` file for qbcompiler version **1.0.1**
 3. Install the wheel file:
 
 ```bash
-pip install qbcompiler-0.12.0.0-<your-platform>.whl
+pip install qbcompiler-1.0.1-<your-platform>.whl
 ```
 
 ## Overview
@@ -134,7 +134,7 @@ cd ../compilation
 
 **Required packages:**
 - transformers==4.50.0
-- qbcompiler==0.12.0.0 (with modification described in Prerequisites)
+- qbcompiler==1.0.1 (with modification described in Prerequisites)
 
 ### Compile Encoder
 
