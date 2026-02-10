@@ -30,10 +30,8 @@ VLM 컴파일 과정은 세 가지 주요 단계로 구성됩니다:
 컴파일에 필요한 Python 패키지를 설치해야 합니다:
 
 ```bash
-pip install transformers==4.50.0 torch torchvision qwen-vl-utils datasets
+pip install transformers torch torchvision qwen-vl-utils datasets
 ```
-
-참고: runtime/transformers/vlm에서 런타임 코드를 테스트할 때는 transformers==4.54.0이 필요합니다.
 
 ### 캘리브레이션 이미지 다운로드
 

@@ -43,7 +43,7 @@ cd data
 ```
 
 **Required packages:**
-- datasets==3.6.0
+- datasets
 - librosa
 - soundfile
 - openai-whisper

@@ -37,7 +37,7 @@ def load_model_and_processor(model_name: str):
 
     print(f"Loading model and processor from {model_name}...")
     model = Qwen2VLForConditionalGeneration.from_pretrained(
-        model_name, torch_dtype="auto", device_map="auto"
+        model_name, dtype="auto", device_map="auto"
     )
     processor = AutoProcessor.from_pretrained(model_name)
     print("✓ Model and processor loaded successfully")

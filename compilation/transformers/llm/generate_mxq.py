@@ -28,6 +28,7 @@ EXP_PRESETS = {
         "sws": {
             "apply": False,
         },
+        "et":{},
     },
     "w4": {
         "bit": {
@@ -43,8 +44,19 @@ EXP_PRESETS = {
             "query": True,
             "key": True,
             "value": True,
-            "output": True,
+            "out": True,
             "ffn": True,
+        },
+        "et":{
+            "norm_conv_apply": True,
+            "qk_apply": True,
+            "ud_apply": True,
+            "vo_apply": True,
+            "ff_multi_lut_apply": True,
+            "spin_r1_apply": True,
+            "spin_r2_apply": True,
+            "qk_rotation_apply": True,
+            "optimize_ffn_apply": True,
         },
     },
     "w4v8": {
@@ -61,8 +73,19 @@ EXP_PRESETS = {
             "query": True,
             "key": True,
             "value": True,
-            "output": True,
+            "out": True,
             "ffn": True,
+        },
+        "et":{
+            "norm_conv_apply": True,
+            "qk_apply": True,
+            "ud_apply": True,
+            "vo_apply": True,
+            "ff_multi_lut_apply": True,
+            "spin_r1_apply": True,
+            "spin_r2_apply": True,
+            "qk_rotation_apply": True,
+            "optimize_ffn_apply": True,
         },
     },
 }
@@ -104,10 +127,10 @@ if __name__ == "__main__":
         npu_core_ids=[0],  # assigne cluster0, core0
     )
     sws_config = get_search_weight_scale_config(**EXP_PRESETS[args.bit]["sws"])
-    etc_config = get_equivalent_transformation_config()
+    et_config = get_equivalent_transformation_config(**EXP_PRESETS[args.bit]["et"])
 
     adv_quant_config = get_advanced_quantization_config(
-        equivalent_transformation=etc_config,
+        equivalent_transformation=et_config,
         search_weight_scale=sws_config,
     )
 
@@ -128,7 +151,7 @@ if __name__ == "__main__":
     mxq_compile(
         model=args.model_path,
         calib_data_path=args.calib_data_path,
-        save_path=args.save_path.replace(".mxq", f"_{args.bit}.mxq"),
+        save_path=args.save_path,
         backend="torch",
         device="gpu",  # using GPU is recommended
         llm_config=llm_config,
@@ -136,3 +159,5 @@ if __name__ == "__main__":
         advanced_quantization_config=adv_quant_config,
         hf_config=hf_config,
     )
+
+    print("Model compiled successfully.")

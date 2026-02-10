@@ -156,7 +156,7 @@ class LlamaMXQ(LlamaPreTrainedModel, GenerationMixin):
         )
         if inputs_embeds is None:
             inputs_embeds = self.embed_tokens(input_ids)  # (batch, seqlen, hidden_size)
-        inputs_embeds_numpy = inputs_embeds.detach().numpy()
+        inputs_embeds_numpy = inputs_embeds.float().detach().numpy()
 
         if inputs_embeds_numpy.ndim == 3:
             inputs_embeds_numpy = np.expand_dims(

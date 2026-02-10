@@ -3,6 +3,8 @@
 *.ckpt.index
 *.egg-info
 *.h5
+*.jpg
+*.json
 *.keras
 *.log
 *.mblt

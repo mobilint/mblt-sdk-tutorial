@@ -1,8 +1,8 @@
 # Large Language Model Inference
 
-This tutorial provides step-by-step instructions for running inference with compiled large language models (LLMs) using the Mobilint qbruntime.
+This tutorial provides step-by-step instructions for running inference with compiled Large Language Models (LLMs) using the Mobilint qbruntime.
 
-This guide is a continuation of [mblt-sdk-tutorial/compilation/transformers/llm/README.md](file:///workspace/mblt-sdk-tutorial/compilation/transformers/llm/README.md). It is assumed that you have successfully compiled the model and have the following files ready:
+This guide is a continuation of [mblt-sdk-tutorial/compilation/transformers/llm/README.md](../../../compilation/transformers/llm/README.md). It assumes that you have successfully compiled the model and have the following files ready:
 
 - `./Llama-3.2-1B-Instruct.mxq` - Compiled model file
 - `./embedding.pt` - Embedding layer weights (PyTorch format)
@@ -38,7 +38,7 @@ python inference_mxq.py --mxq-path ../../../compilation/transformers/llm/Llama-3
 - **Tokenizer Loading**: Loads the tokenizer from Hugging Face to process text input.
 - **Model Initialization**: Initializes the `LlamaMXQ` model with the compiled `.mxq` file.
 - **Generation**: Generates a response using the NPU-accelerated model.
-- **Output**: Displays the generated text output.
+- **Output**: Displays the generated text.
 
 ### Parameters
 
@@ -49,3 +49,4 @@ python inference_mxq.py --mxq-path ../../../compilation/transformers/llm/Llama-3
 ### Expected Output
 
 The script will print the generated text response based on the input prompt.
+

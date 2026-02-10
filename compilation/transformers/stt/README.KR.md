@@ -82,8 +82,8 @@ cd ../calibration
 ```
 
 **필요한 패키지:**
-- torch==2.7.1
-- transformers==4.50.0
+- torch
+- transformers
 - librosa
 
 ### 캘리브레이션 데이터 생성
