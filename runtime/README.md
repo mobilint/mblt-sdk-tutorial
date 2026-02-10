@@ -31,7 +31,7 @@ Refer to the [Runtime Installation Guide](https://docs.mobilint.com/v0.29/en/ins
 To install the runtime library in a Python environment, use the following command:
 
 ```bash
-pip install qbruntime
+pip install mobilint-qb-runtime
 ```
 
 ### 3. Additional Dependencies

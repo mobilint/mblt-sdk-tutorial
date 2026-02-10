@@ -24,6 +24,7 @@
 *.tflite
 *.torchscript
 *.txt
+*.wav
 *.whl
 *.zip
 *__pycache__*

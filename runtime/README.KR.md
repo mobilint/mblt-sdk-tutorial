@@ -31,7 +31,7 @@ Mobilint `qbruntime` 튜토리얼은 Mobilint NPU가 장착된 추론 PC에서 �
 Python 환경에서 런타임 라이브러리를 설치하려면 다음 명령어를 사용하십시오:
 
 ```bash
-pip install qbruntime
+pip install mobilint-qb-runtime
 ```
 
 ### 3. 추가 종속성 (Additional Dependencies)
