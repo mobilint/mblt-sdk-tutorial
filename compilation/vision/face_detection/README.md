@@ -1,6 +1,6 @@
 # Face Detection Model Compilation
 
-This tutorial provides detailed instructions for compiling face detection models using the Mobilint qb compiler.
+This tutorial provides detailed instructions for compiling face detection models using the Mobilint qbcompiler.
 
 In this tutorial, we will use the [YOLO11m-face](https://github.com/YapaLab/yolo-face) model, which is pretrained on the WiderFace dataset.
 
@@ -8,7 +8,7 @@ In this tutorial, we will use the [YOLO11m-face](https://github.com/YapaLab/yolo
 
 Before starting, ensure you have the following installed:
 
-- qubee SDK compiler installed (version >= 0.11 required)
+- qbcompiler SDK compiler installed (version >= 0.11 required)
 
 ## Overview
 

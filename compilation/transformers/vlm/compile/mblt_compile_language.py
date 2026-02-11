@@ -2,7 +2,7 @@
 Qwen2-VL Language Model Compilation to MBLT Format
 
 This module handles the compilation of the Qwen2-VL language model (decoder) to MBLT
-format using the qubee compiler. The language model is patched with Aries 2-compatible
+format using the qbcompiler compiler. The language model is patched with Aries 2-compatible
 transformations and optimizations before compilation.
 
 Key Transformations:
@@ -16,18 +16,18 @@ Key Transformations:
 from typing import Dict, List, Optional, Tuple
 
 import torch
-from qubee.model_dict.common import LayerType
-from qubee.model_dict.parser.backend.fx_hf_extensions.transformers.models.qwen2vl import (
+from qbcompiler.model_dict.common import LayerType
+from qbcompiler.model_dict.parser.backend.fx_hf_extensions.transformers.models.qwen2vl import (
     LanguageModelForQwen2VL,
 )
-from qubee.model_dict.parser.backend.hf.util import (
+from qbcompiler.model_dict.parser.backend.hf.util import (
     DefaultInputsCaptureContainer,
     InputCaptureCtxManager,
 )
-from qubee.model_dict.parser.backend.torch.object_wrapper import set_attention_mask
-from qubee.model_dict.parser.backend.torch.util import wrap_tensor
-from qubee.model_dict.parser.parser import ModelParser
-from qubee.model_dict.parser.transform_operator.util import (
+from qbcompiler.model_dict.parser.backend.torch.object_wrapper import set_attention_mask
+from qbcompiler.model_dict.parser.backend.torch.util import wrap_tensor
+from qbcompiler.model_dict.parser.parser import ModelParser
+from qbcompiler.model_dict.parser.transform_operator.util import (
     check_sequential_pattern_strict_bwd,
 )
 from utils import (
@@ -203,7 +203,7 @@ def compile_language_model(
     1. Captures language model inputs during a sample generation
     2. Marks sequence length dimensions as dynamic
     3. Applies architectural patches (cached RoPE, KV cache, last-query slicing)
-    4. Compiles the model using qubee ModelParser
+    4. Compiles the model using qbcompiler ModelParser
     5. Configures dynamic shapes for attention operators
     6. Serializes to MBLT binary format
     7. Validates output by comparing with original model
@@ -299,9 +299,11 @@ def compile_language_model(
     print(f"   ✓ Pre-computed RoPE for max_seq_len=16384")
 
     # ========================================================================
-    # STEP 4: COMPILE WITH QUBEE PARSER
+    # STEP 4: COMPILE WITH qbcompiler PARSER
     # ========================================================================
-    print(f"\n[4/7] Compiling to MBLT with qubee parser (target: {target_device})...")
+    print(
+        f"\n[4/7] Compiling to MBLT with qbcompiler parser (target: {target_device})..."
+    )
 
     # Specify expected output format
     output_meta = {
@@ -336,7 +338,7 @@ def compile_language_model(
     # ========================================================================
     print("\n[5/7] Configuring dynamic shapes for attention operators...")
 
-    # Extract ModelDict and WeightDict using qubee's official API
+    # Extract ModelDict and WeightDict using qbcompiler's official API
     md, wd = parser.get_md_wd(body_only=False)
 
     # Special case: This attention operation should NOT be dynamic

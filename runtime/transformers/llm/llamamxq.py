@@ -1,8 +1,8 @@
 import math
 from typing import List, Optional, Tuple, Union
 
-import maccel
 import numpy as np
+import qbruntime
 import torch
 from torch import nn
 from transformers.cache_utils import Cache, StaticCache
@@ -26,10 +26,10 @@ class LlamaMXQ(LlamaPreTrainedModel, GenerationMixin):
         self.padding_idx = config.pad_token_id
         self.vocab_size = config.vocab_size
 
-        self.acc = maccel.Accelerator(0)  # LLM allows only 1 accelerator
-        mc = maccel.ModelConfig()  # LLM allows only 1 core
+        self.acc = qbruntime.Accelerator(0)  # LLM allows only 1 accelerator
+        mc = qbruntime.ModelConfig()  # LLM allows only 1 core
         mc.set_single_core_mode(1)
-        self.mxq_model = maccel.Model(mxq_path, mc)
+        self.mxq_model = qbruntime.Model(mxq_path, mc)
         self.mxq_model.launch(self.acc)
         self.mxq_path = mxq_path
         self.reset_cache()
@@ -54,7 +54,7 @@ class LlamaMXQ(LlamaPreTrainedModel, GenerationMixin):
 
     def reset_cache(self):
         self.current_cache_position = 0
-        self.mxq_model.reset_cache_memory()
+        self.mxq_model.dump_cache_memory()
 
     def can_generate(self):
         return True
@@ -154,26 +154,14 @@ class LlamaMXQ(LlamaPreTrainedModel, GenerationMixin):
             if return_dict is not None
             else self.config.use_return_dict  # True by default
         )
-
         if inputs_embeds is None:
             inputs_embeds = self.embed_tokens(input_ids)  # (batch, seqlen, hidden_size)
-
-        inputs_embeds_numpy = inputs_embeds.to(torch.float32).detach().numpy()
+        inputs_embeds_numpy = inputs_embeds.float().detach().numpy()
 
         if inputs_embeds_numpy.ndim == 3:
             inputs_embeds_numpy = np.expand_dims(
                 inputs_embeds_numpy, 1
             )  # (batch, 1, seqlen,  hidden_size)
-
-        # if cache_position is None:
-        #    cache_position = torch.arange(
-        #        0,
-        #        inputs_embeds_numpy.shape[2],
-        #        dtype=torch.long,
-        #        device=inputs_embeds.device,
-        #    )  # [0, 1, 2, ..., seqlen-1]
-        #
-        # inputs_embeds_numpy = inputs_embeds_numpy[:, :, cache_position.tolist(), :]
 
         seq_len = inputs_embeds_numpy.shape[2]
         assert (
@@ -193,7 +181,6 @@ class LlamaMXQ(LlamaPreTrainedModel, GenerationMixin):
                 self.current_cache_position,
             )
             self.current_cache_position += seq_end - seq_start
-
         out_logits = tmp_logits[0][0, 0, -1:, :]
         out_logits = torch.tensor(np.array([out_logits]), dtype=torch.float32)
         logits_all = [out_logits]
@@ -209,7 +196,6 @@ class LlamaMXQ(LlamaPreTrainedModel, GenerationMixin):
             out_logits = tmp_logits[0][0, 0, -1:, :]
             out_logits = torch.tensor(np.array([out_logits]), dtype=torch.float32)
             logits_all.append(out_logits)
-
         logits = torch.cat(logits_all, dim=1)
         # -------------------------------------------------------------------------------------------
         loss = None

@@ -3,6 +3,8 @@
 *.ckpt.index
 *.egg-info
 *.h5
+*.jpg
+*.json
 *.keras
 *.log
 *.mblt
@@ -24,12 +26,14 @@
 *.tflite
 *.torchscript
 *.txt
+*.wav
 *.whl
 *.zip
 *__pycache__*
 build/
 dist/
 .vscode/
+coco-*/
 imagenet-1k*/
 tmp/
 val2017/

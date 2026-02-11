@@ -1,55 +1,95 @@
-# 객체 탐지 모델 추론
+# 객체 탐지 모델 추론 (Object Detection Model Inference)
 
-이 튜토리얼은 Mobilint qb 런타임을 사용하여 컴파일된 객체 탐지 모델로 추론을 실행하는 방법에 대한 자세한 안내를 제공합니다.
+이 튜토리얼은 Mobilint qbruntime을 사용하여 컴파일된 객체 탐지 모델로 추론을 실행하는 방법에 대한 단계별 지침을 제공합니다.
 
-이 가이드는 `mblt-sdk-tutorial/compilation/vision/object_detection/README.md`에서 이어집니다. 모델 컴파일이 성공적으로 완료되었고 다음 파일이 준비되어 있다고 가정합니다:
+이 가이드는 [mblt-sdk-tutorial/compilation/vision/object_detection/README.md](file:///workspace/mblt-sdk-tutorial/compilation/vision/object_detection/README.md)에서 이어지는 내용입니다. 모델 컴파일을 성공적으로 마쳤으며 다음 파일이 준비되어 있다고 가정합니다:
 
 - `./yolo11m.mxq` - 컴파일된 모델 파일
 
-## 사전 요구사항
+## 사전 요구 사항 (Prerequisites)
 
-추론을 실행하기 전에 다음이 준비되어 있는지 확인하세요:
+추론을 실행하기 전에 다음 구성 요소가 설치되어 있고 준비되었는지 확인하십시오:
 
-- maccel 런타임 라이브러리 (NPU 가속기 접근 제공)
+- `qbruntime` 라이브러리 (NPU 가속기 액세스용)
 - 컴파일된 `.mxq` 모델 파일
 - Python 패키지: `opencv-python`, `numpy`, `torch`
 
-## 개요
+## 개요 (Overview)
 
-추론 프로세스는 `inference_mxq.py` 스크립트에 구현되어 있습니다. 이 스크립트는 다음을 수행하는 방법을 보여줍니다:
+추론 로직은 `inference_mxq.py` 스크립트에 구현되어 있습니다. 이 스크립트는 다음 워크플로우를 보여줍니다:
 
-- maccel 런타임을 사용하여 컴파일된 `.mxq` 모델 로드
-- 입력 이미지 전처리 (리사이즈, 패딩, 정규화)
-- NPU 가속기에서 추론 실행
-- 출력 후처리 (바운딩 박스 좌표로 변환, 비최대 억제 적용)
-- 결과 시각화
+1.  **모델 로드**: `qbruntime`을 통해 컴파일된 `.mxq` 모델을 로드합니다.
+2.  **전처리**: 입력 이미지를 준비합니다 (예: 레터박싱을 포함한 리사이즈).
+3.  **추론**: NPU 가속기에서 모델을 실행합니다.
+4.  **후처리**: 모델 출력을 처리합니다 (바운딩 박스 좌표 디코딩, Non-Maximum Suppression 적용).
+5.  **시각화**: 결과를 원본 이미지에 그립니다.
 
-후처리에 포함되어야 하는 연산을 분석하기 위해 컴파일 과정에서 생성된 `.mblt` 파일을 [Mobilint Netron](https://netron.mobilint.com/)에 업로드하여 확인할 수 있습니다.
+후처리에 필요한 연산을 더 잘 이해하려면 컴파일 과정에서 생성된 `.mblt` 파일을 [Mobilint Netron](https://netron.mobilint.com/)을 사용하여 검사해 볼 수 있습니다.
 
-## 추론 실행
+## 추론 실행 (Running Inference)
 
-예제 추론 스크립트를 실행하려면:
+`inference_mxq.py` 스크립트는 세부적인 단계로 추론을 수행합니다.
 
-```bash
-python inference_mxq.py --model_path ../../../compilation/vision/object_detection/yolo11m.mxq --image_path ../rc/cr7.jpg --output_path tmp/cr7.jpg --conf_thres 0.25 --iou_thres 0.45
+먼저, NPU 가속기와 모델 설정을 초기화합니다.
+
+```python
+acc = qbruntime.Accelerator(0)
+mc = qbruntime.ModelConfig()
+mc.set_single_core_mode(1)
+mxq_model = qbruntime.Model(args.mxq_path, mc)
+mxq_model.launch(acc)
 ```
 
-**이 명령이 수행하는 작업:**
+다음으로, 입력 이미지를 로드하고 전처리합니다. 컴파일 과정에서 정규화 연산이 MXQ 모델에 융합(fused)되었으므로, 입력 이미지는 `UInt8` 형식을 유지해야 합니다.
 
-- 컴파일된 `.mxq` 모델을 NPU 가속기에 로드
-- 입력 이미지를 로드하고 전처리 (YOLO 전처리: 종횡비 유지하며 640x640으로 리사이즈, 회색 테두리로 패딩, [0, 1] 범위로 정규화)
-- NPU 가속기에서 추론 실행
-- 출력 후처리 (원시 예측값을 바운딩 박스 좌표로 변환, 신뢰도 임계값으로 탐지 결과 필터링, 비최대 억제 적용)
-- 이미지에 바운딩 박스와 레이블을 그려 결과 시각화
+```python
+def preprocess_yolo(img_path: str, img_size=(640, 640)):
+    # 참고: https://github.com/ultralytics/ultralytics/blob/main/ultralytics/data/augment.py#L1535
+    img = cv2.imread(img_path, cv2.IMREAD_COLOR)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    h0, w0 = img.shape[:2]  # 원본 높이 및 너비
+    r = min(img_size[0] / h0, img_size[1] / w0)  # 스케일 비율
+    new_unpad = int(round(w0 * r)), int(round(h0 * r))
 
-**매개변수:**
+    if (w0, h0) != new_unpad:  # 리사이즈
+        img = cv2.resize(img, new_unpad, interpolation=cv2.INTER_LINEAR)
 
-- `--model_path`: 컴파일된 `.mxq` 모델 파일 경로
-- `--image_path`: 입력 이미지 경로
-- `--output_path`: 출력 이미지를 저장할 경로 (선택사항, 기본값: 입력 이미지와 같은 디렉토리의 `output.jpg`)
-- `--conf_thres`: 탐지 결과 필터링을 위한 신뢰도 임계값 (기본값: 0.25)
-- `--iou_thres`: 비최대 억제를 위한 IoU 임계값 (기본값: 0.45)
+    dh, dw = img_size[0] - new_unpad[1], img_size[1] - new_unpad[0]  # 너비 및 높이 패딩
+    dw /= 2  # 양쪽 패딩 분할
+    dh /= 2  # 이미지 중앙 정렬
+    top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
+    left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
+    img = cv2.copyMakeBorder(
+        img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(114, 114, 114)
+    )  # 테두리 패딩 추가
 
-**예상 출력:**
+    return img
+```
 
-스크립트는 탐지 결과를 신뢰도 점수와 클래스 레이블과 함께 표시하고, 바운딩 박스가 그려진 출력 이미지를 `tmp/` 디렉토리에 `cr7.jpg`라는 이름으로 저장합니다.
+마지막으로, 전처리된 입력으로 모델을 실행하고 후처리를 적용하여 결과를 해석합니다.
+
+예제 추론 스크립트를 실행하려면 다음 명령어를 사용하십시오:
+
+```bash
+python inference_mxq.py --model-path ../../../compilation/vision/object_detection/yolo11m.mxq --image-path ../rc/cr7.jpg --output-path tmp/cr7.jpg --conf-thres 0.25 --iou-thres 0.45
+```
+
+### 스크립트 세부 설명
+
+- **모델 실행 (Model Execution)**: `.mxq` 파일을 NPU에 로드합니다.
+- **전처리 (Preprocessing)**: 종횡비를 유지하며 이미지를 640x640 크기로 리사이즈하고(레터박싱), 회색 테두리로 패딩을 추가하며, 데이터를 적절한 형식으로 유지합니다.
+- **추론 (Inference)**: NPU에서 모델의 순전파(forward pass)를 실행합니다.
+- **후처리 (Postprocessing)**: 원시 출력(raw output)을 바운딩 박스로 디코딩하고, 신뢰도 점수로 필터링하며, Non-Maximum Suppression (NMS)을 적용합니다.
+- **시각화 (Visualization)**: 감지된 바운딩 박스와 클래스 라벨을 출력 이미지 위에 겹쳐 그립니다.
+
+### 파라미터 (Parameters)
+
+- `--model-path`: 컴파일된 `.mxq` 모델 파일의 경로입니다.
+- `--image-path`: 입력 이미지 파일의 경로입니다.
+- `--output-path`: (선택 사항) 출력 이미지가 저장될 경로입니다. 지정하지 않으면 현재 디렉토리에 `output.jpg`로 저장됩니다.
+- `--conf-thres`: 감지 결과를 필터링하기 위한 신뢰도 임계값입니다 (기본값: `0.25`).
+- `--iou-thres`: NMS를 위한 IoU (Intersection over Union) 임계값입니다 (기본값: `0.45`).
+
+### 예상 출력 (Expected Output)
+
+스크립트는 감지 결과(라벨 및 신뢰도 점수)를 콘솔에 출력하고, 바운딩 박스가 그려진 이미지를 `tmp/cr7.jpg`에 저장합니다.

@@ -2,8 +2,8 @@ import os
 from argparse import ArgumentParser
 
 import cv2
-import maccel
 import numpy as np
+import qbruntime
 from postprocess import YoloPosePostProcessAnchorless
 from visualize import YoloVisualizer
 
@@ -27,7 +27,6 @@ def preprocess_yolo(img_path: str, img_size=(640, 640)):
     img = cv2.copyMakeBorder(
         img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(114, 114, 114)
     )  # add border
-    img = (img / 255).astype(np.float32)
 
     return img
 
@@ -35,25 +34,25 @@ def preprocess_yolo(img_path: str, img_size=(640, 640)):
 if __name__ == "__main__":
     parser = ArgumentParser(description="Run inference with compiled model")
     parser.add_argument(
-        "--model_path", type=str, required=True, help="Path to the compiled MXQ model"
+        "--model-path", type=str, required=True, help="Path to the compiled MXQ model"
     )
     parser.add_argument(
-        "--image_path", type=str, required=True, help="Path to the input image"
+        "--image-path", type=str, required=True, help="Path to the input image"
     )
     parser.add_argument(
-        "--output_path", type=str, default=None, help="Path to the output image"
+        "--output-path", type=str, default=None, help="Path to the output image"
     )
     parser.add_argument(
-        "--conf_thres", type=float, default=0.25, help="Confidence threshold"
+        "--conf-thres", type=float, default=0.25, help="Confidence threshold"
     )
-    parser.add_argument("--iou_thres", type=float, default=0.45, help="IoU threshold")
+    parser.add_argument("--iou-thres", type=float, default=0.45, help="IoU threshold")
 
     args = parser.parse_args()
 
-    acc = maccel.Accelerator()
-    mc = maccel.ModelConfig()
+    acc = qbruntime.Accelerator()
+    mc = qbruntime.ModelConfig()
     mc.set_single_core_mode(1)
-    model = maccel.Model(args.model_path, mc)
+    model = qbruntime.Model(args.model_path, mc)
     model.launch(acc)
 
     postprocess = YoloPosePostProcessAnchorless(args.conf_thres, args.iou_thres)

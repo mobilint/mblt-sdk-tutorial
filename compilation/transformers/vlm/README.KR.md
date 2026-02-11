@@ -1,13 +1,8 @@
 # 비전 언어 모델 (VLM) 컴파일
 
-이 튜토리얼은 Mobilint qubee 컴파일러를 사용하여 비전 언어 모델(VLM)을 컴파일하는 방법에 대한 상세한 지침을 제공합니다.
+이 튜토리얼은 Mobilint qbcompiler 컴파일러를 사용하여 비전 언어 모델(VLM)을 컴파일하는 방법에 대한 상세한 지침을 제공합니다.
 
 이 튜토리얼에서는 Qwen에서 개발한 최첨단 비전-언어 모델인 [Qwen2-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct) 모델을 사용합니다.
-
-> **중요한 주의사항:**
->
-> 이 튜토리얼의 코드는 equivalent transformation 지원이 포함된 **qubee 버전 >= 0.12**가 필요하며, 이는 가까운 미래에 출시될 예정입니다. 현재 버전(v0.11.0.1)은 MXQ 컴파일 스크립트에서 사용되는 equivalent transformation 기능을 아직 지원하지 않으며, 현재 qubee 버전으로는 컴파일이 실패합니다.
->
 
 ## 개요
 
@@ -26,7 +21,7 @@ VLM 컴파일 과정은 세 가지 주요 단계로 구성됩니다:
 시작하기 전에 다음이 있는지 확인하세요:
 
 - Python 3.8 이상
-- qubee SDK 컴파일러 설치 (버전 >= 0.12 필요)
+- qbcompiler SDK 컴파일러 설치 (버전 >= 1.0.1 필요)
 - (선택사항) 캘리브레이션 및 컴파일을 위한 CUDA 지원 GPU
 - 충분한 디스크 공간 (모델 + 캘리브레이션 데이터용 약 20GB)
 
@@ -35,10 +30,8 @@ VLM 컴파일 과정은 세 가지 주요 단계로 구성됩니다:
 컴파일에 필요한 Python 패키지를 설치해야 합니다:
 
 ```bash
-pip install transformers==4.50.0 torch torchvision qwen-vl-utils datasets
+pip install transformers torch torchvision qwen-vl-utils datasets
 ```
-
-참고: runtime/transformers/vlm에서 런타임 코드를 테스트할 때는 transformers==4.54.0이 필요합니다.
 
 ### 캘리브레이션 이미지 다운로드
 
@@ -168,7 +161,7 @@ python mblt_compile_language.py
   - **마지막 쿼리 슬라이싱**: 디코드 단계를 위해 최종 디코더 레이어 최적화
   - **상태 저장 KV 캐시 래퍼**: 효율적인 자기 회귀 생성 활성화
   - **동적 형태 처리**: 가변 시퀀스 길이 지원
-- PyTorch FX 추적을 사용하여 qubee의 ModelParser로 모델 컴파일
+- PyTorch FX 추적을 사용하여 qbcompiler의 ModelParser로 모델 컴파일
 - 어텐션 연산자에 대한 동적 형태 구성
 - MBLT 바이너리 형식으로 직렬화
 - 원본 모델과 비교하여 출력 검증
@@ -203,7 +196,7 @@ python mblt_compile_vision.py
   - **분할 QKV 프로젝션**: 더 나은 병렬화를 위해 Query, Key, Value 프로젝션 분리
   - **사전 계산된 RoPE 임베딩**: 런타임 삼각 함수 연산 제거
   - **병합된 패치화 연산**: 메모리 전송 감소
-- PyTorch FX 추적을 사용하여 qubee의 ModelParser로 모델 컴파일
+- PyTorch FX 추적을 사용하여 qbcompiler의 ModelParser로 모델 컴파일
 - 모든 입력 상수에 대해 데이터 형식을 NHWC(Aries 2 친화적)로 설정
 - MBLT 바이너리 형식으로 직렬화
 - 원본 모델과 비교하여 출력 검증
@@ -241,7 +234,7 @@ python mxq_compile_language.py
 - 입력 임베딩에 대해 16비트 활성화 구성: `inputs_embeds/reshape`
 - 언어 모델에 대해 단일 코어 컴파일 사용
 - LLM 특화 최적화 활성화
-- **회전 행렬 생성** 위치: `/tmp/qubee/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
+- **회전 행렬 생성** 위치: `/tmp/qbcompiler/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
   - 이 회전 행렬은 **비전 인코더 MXQ 컴파일에 필요합니다**
 
 **주요 구성:**
@@ -255,7 +248,7 @@ python mxq_compile_language.py
 **출력 파일:**
 
 - `./mxq/Qwen2-VL-2B-Instruct_text_model.mxq`: Aries 2 배포 준비가 된 양자화된 모델
-- `/tmp/qubee/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`: 전역 회전 행렬 (비전 인코더에 필요)
+- `/tmp/qbcompiler/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`: 전역 회전 행렬 (비전 인코더에 필요)
 
 ### Step 3.2: 비전 인코더를 MXQ로 컴파일
 
@@ -271,7 +264,7 @@ python mxq_compile_vision.py
 
 - MBLT 파일 로드: `./mblt/Qwen2-VL-2B-Instruct_vision_transformer.mblt`
 - 캘리브레이션 데이터 로드: `../calibration/calibration_data/vision/npy_files.txt`
-- **회전 행렬 로드** 위치: `/tmp/qubee/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
+- **회전 행렬 로드** 위치: `/tmp/qbcompiler/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
   - 이 행렬은 언어 모델 MXQ 컴파일 중에 생성되었습니다
   - 비전 및 언어 컴포넌트 간의 일관된 양자화를 보장합니다
 - 등가 변환을 사용한 고급 양자화 적용:
@@ -285,7 +278,7 @@ python mxq_compile_vision.py
 - 활성화 16비트 레이어: `["model_merger_fc2"]`
 - 추론 스키마: `multi` (다중 코어 실행)
 - 등가 변환: 헤드 출력 채널 회전 (언어 모델 회전 행렬 사용)
-- 회전 행렬 경로: `/tmp/qubee/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
+- 회전 행렬 경로: `/tmp/qbcompiler/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
 
 **회전 행렬이 필요한 이유:**
 비전 인코더의 출력은 언어 모델의 입력 공간과 올바르게 정렬되어야 합니다. 언어 모델 양자화 중 생성된 회전 행렬은 비전 특징과 텍스트 임베딩이 동일한 양자화된 공간에 존재하도록 보장하여, 추론 중 비전 및 언어 컴포넌트가 결합될 때 정확도를 유지합니다.
@@ -336,7 +329,7 @@ python get_safetensors.py
 - HuggingFace에서 `model-00001-of-00002.safetensors` 다운로드 (임베딩 가중치 포함)
 - `model.embed_tokens.weight` 텐서 추출
 - 언어 모델 MXQ 컴파일의 회전 행렬 적용:
-  - 회전 행렬 로드 위치: `/tmp/qubee/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
+  - 회전 행렬 로드 위치: `/tmp/qbcompiler/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
   - 임베딩 텐서에 회전 행렬을 곱하여 양자화된 공간과 정렬
 - 회전된 임베딩 텐서를 `./mxq/model.safetensors`에 저장
 
@@ -500,7 +493,7 @@ python get_safetensors.py
 비전 인코더 MXQ 컴파일이 회전 행렬 누락 오류로 실패하는 경우:
 
 ```bash
-FileNotFoundError: /tmp/qubee/spinWeight/qwen2vl_language/R1/global_rotation.pth
+FileNotFoundError: /tmp/qbcompiler/spinWeight/qwen2vl_language/R1/global_rotation.pth
 ```
 
 **해결 방법:** 먼저 `mxq_compile_language.py`를 실행하여 회전 행렬을 생성하세요.
@@ -566,7 +559,7 @@ python download_images.py
 문제나 질문이 있는 경우:
 
 - 위의 문제 해결 섹션을 확인하세요
-- qubee SDK 문서를 검토하세요
+- qbcompiler SDK 문서를 검토하세요
 - 상세한 오류 로그와 함께 Mobilint 지원팀에 문의하세요
 
 ---

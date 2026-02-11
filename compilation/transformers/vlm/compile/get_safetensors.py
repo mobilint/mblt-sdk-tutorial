@@ -32,7 +32,7 @@ with safe_open(SOURCE_FILE, framework="pt") as f:
 
 # Apply rotation matrix
 head_out_ch_rotation_matrix_path = (
-    "/tmp/qubee/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth"
+    "/tmp/qbcompiler/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth"
 )
 head_out_ch_rotation_matrix = torch.jit.load(
     head_out_ch_rotation_matrix_path, map_location="cpu"

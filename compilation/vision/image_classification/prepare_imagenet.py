@@ -20,8 +20,8 @@ if __name__ == "__main__":
 
     for sample in dataset:
         if sample["label"] in labels:
-            image = sample["image"]
-            image.save(f"imagenet-1k-selected/{sample['label']}.jpg")
+            image = sample["image"].convert("RGB")
+            image.save(f"imagenet-1k-selected/{sample['label']}.JPEG")
             labels.remove(sample["label"])
             pbar.update(1)
 

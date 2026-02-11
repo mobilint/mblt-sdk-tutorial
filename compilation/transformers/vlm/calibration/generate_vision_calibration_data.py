@@ -22,10 +22,10 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 import torch
-from qubee.model_dict.parser.backend.fx_hf_extensions.transformers.models.qwen2vl import (
+from qbcompiler.model_dict.parser.backend.fx_hf_extensions.transformers.models.qwen2vl import (
     repreprocess_pixel_values,
 )
-from qubee.model_dict.parser.backend.hf.util import (
+from qbcompiler.model_dict.parser.backend.hf.util import (
     DefaultInputsCaptureContainer,
     InputCaptureCtxManager,
 )
@@ -37,7 +37,7 @@ def load_model_and_processor(model_name: str):
 
     print(f"Loading model and processor from {model_name}...")
     model = Qwen2VLForConditionalGeneration.from_pretrained(
-        model_name, torch_dtype="auto", device_map="auto"
+        model_name, dtype="auto", device_map="auto"
     )
     processor = AutoProcessor.from_pretrained(model_name)
     print("✓ Model and processor loaded successfully")

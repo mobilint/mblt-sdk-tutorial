@@ -6,9 +6,9 @@ Separated from encoder compilation for efficiency
 
 import os
 
-import qubee
+import qbcompiler
 import torch
-from qubee import get_llm_config, mblt_compile, mxq_compile
+from qbcompiler import get_llm_config, mblt_compile, mxq_compile
 from transformers import AutoModelForSpeechSeq2Seq
 
 
@@ -22,7 +22,7 @@ def compile_decoder(calib_path, output_dir="./compiled"):
     os.makedirs(output_dir, exist_ok=True)
 
     model = AutoModelForSpeechSeq2Seq.from_pretrained(
-        "openai/whisper-small", torch_dtype=torch.float32, low_cpu_mem_usage=True
+        "openai/whisper-small", dtype=torch.float32, low_cpu_mem_usage=True
     )
     model = model.eval().cpu()
 

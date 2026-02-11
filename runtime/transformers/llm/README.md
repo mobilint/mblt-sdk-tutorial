@@ -1,47 +1,52 @@
-# Large Language Model Runtime Guide
+# Large Language Model Inference
 
-This tutorial provides detailed instructions for running inference with compiled large language models using the Mobilint qb runtime.
+This tutorial provides step-by-step instructions for running inference with compiled Large Language Models (LLMs) using the Mobilint qbruntime.
 
-This guide continues from `mblt-sdk-tutorial/compilation/transformers/llm/README.md`. We assume you have successfully compiled the model and have the following files ready:
+This guide is a continuation of [mblt-sdk-tutorial/compilation/transformers/llm/README.md](../../../compilation/transformers/llm/README.md). It assumes that you have successfully compiled the model and have the following files ready:
 
 - `./Llama-3.2-1B-Instruct.mxq` - Compiled model file
-- `./embedding.pt` - Embedding layer weights
+- `./embedding.pt` - Embedding layer weights (PyTorch format)
 
 ## Prerequisites
 
-Before running inference, ensure you have:
+Before running inference, ensure you have the following components installed and available:
 
-- maccel runtime library (provides NPU accelerator access)
+- `qbruntime` library (to access the NPU accelerator)
 - Compiled `.mxq` model file
-- Embedding weights file
+- Embedding weights file (`.pt`)
+- Python packages: `torch`, `transformers`
 
 ## Overview
 
-The inference process uses a custom `LlamaMXQ` model class that:
+The inference process uses a custom `LlamaMXQ` model class that integrates the NPU accelerator with the Hugging Face ecosystem. The workflow is as follows:
 
-1. Loads the compiled `.mxq` model onto the Mobilint NPU via maccel accelerator
-2. Uses CPU-based embedding layer for token-to-vector conversion
-3. Processes prompts through the NPU-accelerated transformer layers
-4. Generates text using standard HuggingFace generation utilities
-
----
+1.  **Initialization**: Load the compiled `.mxq` model onto the Mobilint NPU via the `qbruntime` accelerator.
+2.  **Embedding**: Use a CPU-based embedding layer to convert input tokens into vectors.
+3.  **Inference**: Process prompts through the NPU-accelerated transformer layers.
+4.  **Generation**: Generate text using standard Hugging Face generation utilities.
 
 ## Running Inference
 
-To run the example inference script:
+To run the example inference script, use the following command:
 
 ```bash
-python inference_mxq.py --mxq_path ../../../compilation/transformers/llm/Llama-3.2-1B-Instruct.mxq --embedding_weight_path ../../../compilation/transformers/llm/embedding.pt
+python inference_mxq.py --mxq-path ../../../compilation/transformers/llm/Llama-3.2-1B-Instruct.mxq --embedding-weight-path ../../../compilation/transformers/llm/embedding.pt
 ```
 
-**What this does:**
+### Script Breakdown
 
-- Loads the tokenizer from HuggingFace
-- Initializes the `LlamaMXQ` model with the compiled `.mxq` file
-- Generates a response using the NPU-accelerated model
-- Displays the generated text output
+- **Tokenizer Loading**: Loads the tokenizer from Hugging Face to process text input.
+- **Model Initialization**: Initializes the `LlamaMXQ` model with the compiled `.mxq` file.
+- **Generation**: Generates a response using the NPU-accelerated model.
+- **Output**: Displays the generated text.
 
-**Important Configuration:**
+### Parameters
 
-- Set the `MODEL_NAME` to an appropriate model id
-- Device is set to `'cpu'` - Do NOT use GPU as the model runs on NPU
+- `--mxq-path`: Path to the compiled `.mxq` model file.
+- `--embedding-weight-path`: Path to the embedding weights file (`.pt`).
+- **Note**: The device is explicitly set to `'cpu'` in the script because the model offloads heavy computations to the NPU internally. Do **not** use GPU.
+
+### Expected Output
+
+The script will print the generated text response based on the input prompt.
+

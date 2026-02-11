@@ -83,7 +83,7 @@ def prepare_model_folder(
     # Extract and save embedding weights from the base model
     print(f"Extracting embedding weights from {base_model}...")
     base_model_obj = WhisperForConditionalGeneration.from_pretrained(
-        base_model, torch_dtype=torch.float32
+        base_model, dtype=torch.float32
     )
 
     # Get decoder embedding weights and positional embeddings
@@ -121,25 +121,25 @@ def main():
         description="Prepare Model Folder for Whisper MXQ Inference"
     )
     parser.add_argument(
-        "--encoder_mxq",
+        "--encoder-mxq",
         type=str,
         default="../../../compilation/transformers/stt/compilation/compiled/whisper-small_encoder.mxq",
         help="Path to the compiled encoder MXQ file",
     )
     parser.add_argument(
-        "--decoder_mxq",
+        "--decoder-mxq",
         type=str,
         default="../../../compilation/transformers/stt/compilation/compiled/whisper-small_decoder.mxq",
         help="Path to the compiled decoder MXQ file",
     )
     parser.add_argument(
-        "--output_folder",
+        "--output-folder",
         type=str,
         default="./whisper-small-mxq",
         help="Output folder to create with all necessary files",
     )
     parser.add_argument(
-        "--base_model",
+        "--base-model",
         type=str,
         default="openai/whisper-small",
         help="HuggingFace model ID to get base configuration from",
