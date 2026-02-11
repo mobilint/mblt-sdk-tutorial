@@ -7,7 +7,7 @@ Separated from decoder compilation for efficiency
 import os
 
 import torch
-from qbcompiler import get_llm_config, mblt_compile, mxq_compile
+from qbcompiler import mblt_compile, mxq_compile
 from transformers import AutoModelForSpeechSeq2Seq
 
 
@@ -23,7 +23,7 @@ def compile_encoder(calib_path, output_dir="./compiled"):
     # Load Whisper model
     print("Loading Whisper model...")
     model = AutoModelForSpeechSeq2Seq.from_pretrained(
-        "openai/whisper-small", torch_dtype=torch.float32, low_cpu_mem_usage=True
+        "openai/whisper-small", dtype=torch.float32, low_cpu_mem_usage=True
     )
     model = model.eval().cpu()
 
@@ -31,7 +31,7 @@ def compile_encoder(calib_path, output_dir="./compiled"):
     mblt_compile(
         model=model,
         mblt_save_path=mblt_path,
-        backend="hf",
+        backend="torch",
         target="encoder",
         device="cpu",
     )

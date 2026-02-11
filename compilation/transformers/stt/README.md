@@ -190,7 +190,7 @@ cd ../compilation
 # Compile encoder
 python compile_encoder.py
 
-# Compile decoder (requires qbcompiler modification - see Prerequisites)
+# Compile decoder 
 python compile_decoder.py
 ```
 

@@ -83,7 +83,7 @@ def prepare_model_folder(
     # Extract and save embedding weights from the base model
     print(f"Extracting embedding weights from {base_model}...")
     base_model_obj = WhisperForConditionalGeneration.from_pretrained(
-        base_model, torch_dtype=torch.float32
+        base_model, dtype=torch.float32
     )
 
     # Get decoder embedding weights and positional embeddings
