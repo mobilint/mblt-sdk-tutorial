@@ -62,7 +62,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--mxq-path",
         type=str,
-        default="../../../compilation/transformers/llm/Llama-3.2-1B-Instruct_w8.mxq",
+        default="../../../compilation/transformers/llm/Llama-3.2-1B-Instruct.mxq",
     )
     parser.add_argument(
         "--embedding-weight-path",

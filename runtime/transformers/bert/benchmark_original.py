@@ -4,8 +4,12 @@ from scipy.stats import pearsonr, spearmanr
 from tqdm import tqdm
 from transformers import BertModel, BertTokenizer
 
-tokenizer = BertTokenizer.from_pretrained("sentence-transformers/msmarco-bert-base-dot-v5", trust_remote_code=True)
-model = BertModel.from_pretrained("sentence-transformers/msmarco-bert-base-dot-v5", trust_remote_code=True)
+tokenizer = BertTokenizer.from_pretrained(
+    "sentence-transformers-testing/stsb-bert-tiny-safetensors", trust_remote_code=True
+)
+model = BertModel.from_pretrained(
+    "sentence-transformers-testing/stsb-bert-tiny-safetensors", trust_remote_code=True
+)
 model.eval()
 
 

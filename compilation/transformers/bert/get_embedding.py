@@ -1,7 +1,9 @@
 import torch
 from transformers import BertModel
 
-model = BertModel.from_pretrained("sentence-transformers/msmarco-bert-base-dot-v5", trust_remote_code=True)
+model = BertModel.from_pretrained(
+    "sentence-transformers-testing/stsb-bert-tiny-safetensors", trust_remote_code=True
+)
 
 word_embeddings = model.embeddings.word_embeddings.weight
 token_type_embeddings = model.embeddings.token_type_embeddings.weight

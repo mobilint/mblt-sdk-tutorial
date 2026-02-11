@@ -1,5 +1,6 @@
 import argparse
 import os
+import random
 
 import numpy as np
 import torch
@@ -12,7 +13,7 @@ def generate_calibration(
     tokenizer_path: str,
     weight_path: str,
     output_dir: str = "./calib",
-    max_calib: int = 128,
+    max_calib: int = 256,
 ):
 
     print(f"Loading tokenizer from: {tokenizer_path}")
@@ -37,11 +38,12 @@ def generate_calibration(
         return
 
     # choose calibration from every step.
-    step = len(dataset) // max_calib
+
+    # randomly select  max_calib data
+    dataset = random.sample(dataset, max_calib)
+
     cur_num_calib = 0
     for i, text in enumerate(tqdm(dataset)):
-        if i % step != 0:
-            continue
 
         try:
             token = tokenizer(text, return_tensors="pt")
@@ -71,10 +73,14 @@ def main():
     parser = argparse.ArgumentParser(
         description="Generate calibration datasets from Wikipedia for LLM models"
     )
-    parser.add_argument("--tokenizer_path", type=str, default="sentence-transformers/msmarco-bert-base-dot-v5")
-    parser.add_argument("--weight_path", type=str, default="./weight_dict.pth")
-    parser.add_argument("--output_dir", type=str, default="./calib")
-    parser.add_argument("--max_calib", type=int, default=128)
+    parser.add_argument(
+        "--tokenizer-path",
+        type=str,
+        default="sentence-transformers-testing/stsb-bert-tiny-safetensors",
+    )
+    parser.add_argument("--weight-path", type=str, default="./weight_dict.pth")
+    parser.add_argument("--output-dir", type=str, default="./calib")
+    parser.add_argument("--max-calib", type=int, default=256)
 
     args = parser.parse_args()
 

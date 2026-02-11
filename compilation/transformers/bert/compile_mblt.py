@@ -5,10 +5,13 @@ from transformers import BertModel, BertTokenizer
 
 if __name__ == "__main__":
     tokenizer = BertTokenizer.from_pretrained(
-        "sentence-transformers/msmarco-bert-base-dot-v5",
+        "https://huggingface.co/sentence-transformers-testing/stsb-bert-tiny-safetensors",
         trust_remote_code=True,
     )
-    model = BertModel.from_pretrained("sentence-transformers/msmarco-bert-base-dot-v5", trust_remote_code=True)
+    model = BertModel.from_pretrained(
+        "sentence-transformers-testing/stsb-bert-tiny-safetensors",
+        trust_remote_code=True,
+    )
     model.eval()
 
     inputs = tokenizer("Hello, my dog is cute", return_tensors="pt")
@@ -22,7 +25,7 @@ if __name__ == "__main__":
 
     mblt_compile(
         model=model,
-        mblt_save_path="msmarco-bert-base-dot-v5.mblt",
+        mblt_save_path="stsb-bert-tiny-safetensors.mblt",
         backend="torch",
         feed_dict=feed_dict,
         cpu_offload=True,
