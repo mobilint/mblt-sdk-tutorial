@@ -1,6 +1,6 @@
 # Large Language Model Compilation
 
-This tutorial provides detailed instructions for compiling Large Language Models (LLMs) using the Mobilint qubee compiler. The compilation process converts a standard transformer model into an optimized `.mxq` format that runs efficiently on Mobilint NPU hardware.
+This tutorial provides detailed instructions for compiling Large Language Models (LLMs) using the Mobilint qbcompiler. The compilation process converts a standard transformer model into an optimized `.mxq` format that runs efficiently on Mobilint NPU hardware.
 
 In this tutorial, we will use the [Llama-3.2-1B-Instruct](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct) model, a 1B parameter language model developed by Meta.
 
@@ -8,7 +8,7 @@ In this tutorial, we will use the [Llama-3.2-1B-Instruct](https://huggingface.co
 
 Before starting, ensure you have the following installed:
 
-- qubee SDK compiler (version >= 1.0.1 is required)
+- qb SDK compiler (version >= 1.0.1 is required)
 - GPU with CUDA support (recommended to reduce compilation time)
 - Hugging Face account with access to Llama models (if using gated models)
 
@@ -109,7 +109,8 @@ After preparing the model and calibration dataset, compile the model into the `.
 python generate_mxq.py \
   --model_path meta-llama/Llama-3.2-1B-Instruct \
   --calib_data_path ./calib/datas/meta-llama-Llama-3.2-1B-Instruct/en \
-  --save_path ./Llama-3.2-1B-Instruct.mxq
+  --save_path ./Llama-3.2-1B-Instruct_w4v8.mxq \
+  --bit w4v8
 ```
 
 **What this does:**
@@ -140,7 +141,7 @@ After successful compilation, proceed to `mblt-sdk-tutorial/runtime/transformers
 
 ## Extra: Model Compilation with Advanced Quantization
 
-Starting with qubee SDK 1.0.0, we support advanced quantization techniques. This allows for flexible bit allocation and advanced parameter optimization to achieve better performance.
+Starting with qb SDK 1.0.0, we support advanced quantization techniques. This allows for flexible bit allocation and advanced parameter optimization to achieve better performance.
 
 In the `generate_mxq.py` script, we provide pre-configured bit allocations for model layers, such as W4V8 and W4.
 

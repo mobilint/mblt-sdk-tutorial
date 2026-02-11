@@ -96,7 +96,7 @@ input_process_config = InputProcessConfig(
 quantization_config = QuantizationConfig.from_kwargs(
     quantization_method=1,  # 0: per tensor, 1: per channel
     quantization_output=1,  # 0: layer, 1: channel
-    quantization_mode=2,    # maxpercentile
+    quantization_mode=1,    # maxpercentile
     percentile=0.999,
     topk_ratio=0.01,
 )
