@@ -42,7 +42,7 @@ Next, download the model and extract its embedding layer weights. The embedding 
 
 ```bash
 python download_model.py \
-  --repo_id meta-llama/Llama-3.2-1B-Instruct \
+  --repo-id meta-llama/Llama-3.2-1B-Instruct \
   --embedding ./embedding.pt
 ```
 
@@ -54,7 +54,7 @@ python download_model.py \
 
 **Parameters:**
 
-- `--repo_id`: Hugging Face model identifier.
+- `--repo-id`: Hugging Face model identifier.
 - `--embedding`: Output path for the embedding weights file.
 
 ## Step 2: Calibration Dataset Preparation
@@ -63,13 +63,13 @@ Calibration data is essential for quantization during compilation. We generate t
 
 ```bash
 python generate_calib.py \
-  --model_tag meta-llama/Llama-3.2-1B-Instruct \
-  --embedding_path ./embedding.pt \
-  --tokenizer_path meta-llama/Llama-3.2-1B-Instruct \
-  --output_dir ./calib \
-  --min_seqlen 512 \
-  --max_seqlen 2048 \
-  --max_calib 128
+  --model-tag meta-llama/Llama-3.2-1B-Instruct \
+  --embedding-path ./embedding.pt \
+  --tokenizer-path meta-llama/Llama-3.2-1B-Instruct \
+  --output-dir ./calib \
+  --min-seqlen 512 \
+  --max-seqlen 2048 \
+  --max-calib 128
 ```
 
 **What this does:**
@@ -81,13 +81,13 @@ python generate_calib.py \
 
 **Parameters:**
 
-- `--model_tag`: Model identifier (used for naming the output directory).
-- `--embedding_path`: Path to the embedding weights from Step 1.
-- `--tokenizer_path`: Hugging Face tokenizer identifier.
-- `--output_dir`: Base directory for calibration data.
-- `--min_seqlen`: Minimum sequence length (samples shorter than this are skipped).
-- `--max_seqlen`: Maximum sequence length (samples are truncated to this length).
-- `--max_calib`: Number of calibration samples to generate per language.
+- `--model-tag`: Model identifier (used for naming the output directory).
+- `--embedding-path`: Path to the embedding weights from Step 1.
+- `--tokenizer-path`: Hugging Face tokenizer identifier.
+- `--output-dir`: Base directory for calibration data.
+- `--min-seqlen`: Minimum sequence length (samples shorter than this are skipped).
+- `--max-seqlen`: Maximum sequence length (samples are truncated to this length).
+- `--max-calib`: Number of calibration samples to generate per language.
 
 **Output Location:**
 The calibration files will be saved in: `./calib/datas/meta-llama-Llama-3.2-1B-Instruct/en/`
@@ -107,9 +107,9 @@ After preparing the model and calibration dataset, compile the model into the `.
 
 ```bash
 python generate_mxq.py \
-  --model_path meta-llama/Llama-3.2-1B-Instruct \
-  --calib_data_path ./calib/datas/meta-llama-Llama-3.2-1B-Instruct/en \
-  --save_path ./Llama-3.2-1B-Instruct_w4v8.mxq \
+  --model-path meta-llama/Llama-3.2-1B-Instruct \
+  --calib-data-path ./calib/datas/meta-llama-Llama-3.2-1B-Instruct/en \
+  --save-path ./Llama-3.2-1B-Instruct_w4v8.mxq \
   --bit w4v8
 ```
 
@@ -122,9 +122,9 @@ python generate_mxq.py \
 
 **Parameters:**
 
-- `--model_path`: Hugging Face model identifier.
-- `--calib_data_path`: Path to the calibration data directory from Step 2.
-- `--save_path`: Output path for the compiled `.mxq` model.
+- `--model-path`: Hugging Face model identifier.
+- `--calib-data-path`: Path to the calibration data directory from Step 2.
+- `--save-path`: Output path for the compiled `.mxq` model.
 
 **Expected Output:**
 The compiled model will be saved as `./Llama-3.2-1B-Instruct.mxq`.
@@ -149,9 +149,9 @@ You can activate these modes with additional parameters:
 
 ```bash
 python generate_mxq.py \
-  --model_path meta-llama/Llama-3.2-1B-Instruct \
-  --calib_data_path ./calib/datas/meta-llama-Llama-3.2-1B-Instruct/en \
-  --save_path ./Llama-3.2-1B-Instruct.mxq \
+  --model-path meta-llama/Llama-3.2-1B-Instruct \
+  --calib-data-path ./calib/datas/meta-llama-Llama-3.2-1B-Instruct/en \
+  --save-path ./Llama-3.2-1B-Instruct.mxq \
   --bit w4
 ```
 
@@ -169,9 +169,9 @@ Run the following command to rotate the embedding matrix:
 
 ```bash
 python rotate_embedding.py \
-  --embedding_path ./embedding.pt \
-  --rotation_matrix_path ./spinWeight/model/R1/global_rotation.pth \
-  --output_path ./embedding_rotated.pt
+  --embedding-path ./embedding.pt \
+  --rotation-matrix-path ./spinWeight/model/R1/global_rotation.pth \
+  --output-path ./embedding_rotated.pt
 ```
 
 **Note:** If you use `w8` quantization, rotating the embedding matrix is not required. For `w4` and `w4v8` quantization, you **must** use the rotated embedding matrix for inference.
