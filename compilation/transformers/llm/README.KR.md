@@ -15,7 +15,7 @@
 또한, 다음 패키지를 설치해야 합니다.
 
 ```bash
-pip install accelerate datasets
+pip install accelerate datasets transformers==4.54.0
 ```
 
 ## 개요
@@ -167,7 +167,7 @@ python generate_mxq.py \
 다음 명령어를 실행하여 임베딩 행렬을 회전시키십시오.
 
 ```bash
-python rotate_embedding.py \
+python get_rotation_emb.py \
   --embedding-path ./embedding.pt \
   --rotation-matrix-path ./spinWeight/model/R1/global_rotation.pth \
   --output-path ./embedding_rotated.pt

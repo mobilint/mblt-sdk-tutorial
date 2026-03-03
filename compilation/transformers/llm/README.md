@@ -15,7 +15,7 @@ Before starting, ensure you have the following installed:
 Additionally, install the following packages:
 
 ```bash
-pip install accelerate datasets
+pip install accelerate datasets transformers==4.54.0
 ```
 
 ## Overview
@@ -168,7 +168,7 @@ After running `generate_mxq.py` with `w4` or `w4v8` quantization, a rotation mat
 Run the following command to rotate the embedding matrix:
 
 ```bash
-python rotate_embedding.py \
+python get_rotation_emb.py \
   --embedding-path ./embedding.pt \
   --rotation-matrix-path ./spinWeight/model/R1/global_rotation.pth \
   --output-path ./embedding_rotated.pt
