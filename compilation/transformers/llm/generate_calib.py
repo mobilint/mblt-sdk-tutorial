@@ -49,7 +49,7 @@ def generate_calibration(
 
         print(f"Loading Wikipedia dataset for {lang}...")
         try:
-            dataset = load_dataset("wikimedia/wikipedia", subset_name, split="train")[
+            dataset = load_dataset("wikimedia/wikipedia", subset_name, split="train", streaming=True)[
                 "text"
             ]
         except Exception as e:
