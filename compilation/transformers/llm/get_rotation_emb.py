@@ -15,15 +15,15 @@ def save_rotated_embeddings(original_emb_path, rotation_matrix_path, save_emb_pa
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("--original-emb-path", type=str, default="./embedding.pt")
+    parser.add_argument("--embedding-path", type=str, default="./embedding.pt")
     parser.add_argument(
         "--rotation-matrix-path",
         type=str,
         default="./spinWeight/model/R1/global_rotation.pth",
     )
-    parser.add_argument("--save-emb-path", type=str, default="./embedding_rot.pt")
+    parser.add_argument("--output-path", type=str, default="./embedding_rot.pt")
     args = parser.parse_args()
 
     save_rotated_embeddings(
-        args.original_emb_path, args.rotation_matrix_path, args.save_emb_path
+        args.embedding_path, args.rotation_matrix_path, args.output_path
     )
