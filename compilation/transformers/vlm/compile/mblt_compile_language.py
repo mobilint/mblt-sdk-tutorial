@@ -16,9 +16,8 @@ Key Transformations:
 from typing import Dict, List, Optional, Tuple
 
 import torch
-from qbcompiler.model_dict.common import LayerType
 from qbcompiler.model_dict.parser.backend.fx_hf_extensions.transformers.models.qwen2vl import (
-    LanguageModelForQwen2VL,
+    CachedQwen2VLTextRotaryEmbedding,
 )
 from qbcompiler.model_dict.parser.backend.hf.util import (
     DefaultInputsCaptureContainer,
@@ -27,163 +26,12 @@ from qbcompiler.model_dict.parser.backend.hf.util import (
 from qbcompiler.model_dict.parser.backend.torch.object_wrapper import set_attention_mask
 from qbcompiler.model_dict.parser.backend.torch.util import wrap_tensor
 from qbcompiler.model_dict.parser.parser import ModelParser
-from qbcompiler.model_dict.parser.transform_operator.util import (
-    check_sequential_pattern_strict_bwd,
-)
 from utils import (
     prepare_inputs,
     print_compilation_summary,
     serialize_to_mblt,
     validate_compiled_model,
 )
-
-
-def configure_attention_dynamic_shapes(md, except_target_name: str):
-    """
-    Configure dynamic shapes for attention operators in the model graph.
-
-    For language models with variable sequence lengths, attention operator
-    activations need dynamic shape flags. This function identifies attention
-    patterns and marks relevant dimensions as dynamic.
-
-    Args:
-        md: ModelDict containing the compiled graph
-        except_target_name: Name of attention op that should NOT be dynamic
-                           (used for final layer's last-query slicing)
-
-    Returns:
-        Number of attention operators configured
-    """
-    attention_ops_configured = 0
-
-    # Iterate through all subgraphs and operators
-    for sg in md.subgraphs:
-        for op in sg.operators:
-            # Look for MatMul operators that are part of attention
-            # Attention pattern: MatMul(Softmax(MatMul(Q, K) * scale + mask), V)
-            if op.layertype == LayerType.MatMul:
-                left = sg.activations[op.options.inputs[0]]  # Attention scores
-                right = sg.activations[op.options.inputs[1]]  # Value matrix
-
-                # Check if left input comes from Softmax (indicates attention)
-                if left.producer_op.layertype == LayerType.Softmax:
-                    # Try to match attention pattern (backward from Softmax):
-                    # Pattern 1: Softmax ← MultiplyConstant ← StatefulAttentionMaskWrapper ← MultiplyConstant
-                    pat = check_sequential_pattern_strict_bwd(
-                        left.producer_op,
-                        sg,
-                        LayerType.MultiplyConstant,
-                        LayerType.StatefulAttentionMaskWrapper,
-                        LayerType.Softmax,
-                    )
-                    if pat is None:
-                        # Pattern 2: Softmax ← MultiplyConstant (simpler case without mask wrapper)
-                        pat = check_sequential_pattern_strict_bwd(
-                            left.producer_op,
-                            sg,
-                            LayerType.MultiplyConstant,
-                            LayerType.Softmax,
-                        )
-                        if pat is None:
-                            continue  # Not an attention pattern
-
-                    # Determine if this attention should have dynamic sequence length
-                    # The exception is for the final layer's last-query slicing
-                    is_dynamic = except_target_name != op.name
-
-                    # Handle pattern with attention mask wrapper (prefill phase)
-                    if len(pat) == 3:
-                        mc, smw, softmax = pat
-                        mc_inact = sg.activations[mc.options.inputs[0]]
-                        mc_outact = sg.activations[mc.options.outputs[0]]
-                        smw_outact = sg.activations[smw.options.outputs[0]]
-                        softmax_outact = sg.activations[softmax.options.outputs[0]]
-
-                        # Verify all activations are 4D [batch, heads, seq_len, head_dim]
-                        assert (
-                            4
-                            == len(mc_inact.get_act_src_shape())
-                            == len(mc_outact.get_act_src_shape())
-                            == len(smw_outact.get_act_src_shape())
-                            == len(softmax_outact.get_act_src_shape())
-                        )
-
-                        # Get the preceding MatMul (Q @ K^T)
-                        mm0 = mc_inact.producer_op
-                        mm0_left_inact = sg.activations[mm0.options.inputs[0]]  # Q
-                        mm0_right_inact = sg.activations[mm0.options.inputs[1]]  # K^T
-
-                        # Set dynamic flags for attention score matrix (Q @ K^T output)
-                        mc_inact.get_act_src_shape()[2].set_dynamic(
-                            is_dynamic
-                        )  # query_len
-                        mc_inact.get_act_src_shape()[3].set_dynamic(True)  # key_len
-                        mc_inact.shape = mc_inact.get_act_src_shape()[1:]
-
-                        # Set dynamic flags for Query matrix
-                        mm0_left_inact.get_act_src_shape()[2].set_dynamic(is_dynamic)
-                        mm0_left_inact.shape = mm0_left_inact.get_act_src_shape()[1:]
-
-                        # Set dynamic flags for Key matrix (transposed)
-                        mm0_right_inact.get_act_src_shape()[3].set_dynamic(True)
-                        mm0_right_inact.shape = mm0_right_inact.get_act_src_shape()[1:]
-
-                        # Set dynamic flags for intermediate activations
-                        for act in (mc_outact, smw_outact, softmax_outact):
-                            act.get_act_src_shape()[2].set_dynamic(is_dynamic)
-                            act.get_act_src_shape()[3].set_dynamic(True)
-                            act.shape = act.get_act_src_shape()[1:]
-
-                        # Set dynamic flags for final attention output
-                        matmul_outact = sg.activations[op.options.outputs[0]]
-                        matmul_outact.get_act_src_shape()[2].set_dynamic(is_dynamic)
-                        matmul_outact.shape = matmul_outact.get_act_src_shape()[1:]
-
-                        attention_ops_configured += 1
-
-                    # Handle pattern without attention mask wrapper (decode phase)
-                    elif len(pat) == 2:
-                        mc, softmax = pat
-                        mc_inact = sg.activations[mc.options.inputs[0]]
-                        mc_outact = sg.activations[mc.options.outputs[0]]
-                        softmax_outact = sg.activations[softmax.options.outputs[0]]
-
-                        # Verify all activations are 4D
-                        assert (
-                            4
-                            == len(mc_inact.get_act_src_shape())
-                            == len(mc_outact.get_act_src_shape())
-                            == len(softmax_outact.get_act_src_shape())
-                        )
-
-                        # Get the preceding MatMul (Q @ K^T)
-                        mm0 = mc_inact.producer_op
-                        mm0_left_inact = sg.activations[mm0.options.inputs[0]]
-                        mm0_right_inact = sg.activations[mm0.options.inputs[1]]
-
-                        # Set dynamic flags (similar to pattern 1)
-                        mc_inact.get_act_src_shape()[2].set_dynamic(is_dynamic)
-                        mc_inact.get_act_src_shape()[3].set_dynamic(True)
-                        mc_inact.shape = mc_inact.get_act_src_shape()[1:]
-
-                        mm0_left_inact.get_act_src_shape()[2].set_dynamic(is_dynamic)
-                        mm0_left_inact.shape = mm0_left_inact.get_act_src_shape()[1:]
-
-                        mm0_right_inact.get_act_src_shape()[3].set_dynamic(True)
-                        mm0_right_inact.shape = mm0_right_inact.get_act_src_shape()[1:]
-
-                        for act in (mc_outact, softmax_outact):
-                            act.get_act_src_shape()[2].set_dynamic(is_dynamic)
-                            act.get_act_src_shape()[3].set_dynamic(True)
-                            act.shape = act.get_act_src_shape()[1:]
-
-                        matmul_outact = sg.activations[op.options.outputs[0]]
-                        matmul_outact.get_act_src_shape()[2].set_dynamic(is_dynamic)
-                        matmul_outact.shape = matmul_outact.get_act_src_shape()[1:]
-
-                        attention_ops_configured += 1
-
-    return attention_ops_configured
 
 
 def compile_language_model(
@@ -204,9 +52,8 @@ def compile_language_model(
     2. Marks sequence length dimensions as dynamic
     3. Applies architectural patches (cached RoPE, KV cache, last-query slicing)
     4. Compiles the model using qbcompiler ModelParser
-    5. Configures dynamic shapes for attention operators
-    6. Serializes to MBLT binary format
-    7. Validates output by comparing with original model
+    5. Serializes to MBLT binary format
+    6. Validates output by comparing with original model
 
     Args:
         model: Qwen2VLForConditionalGeneration model
@@ -232,12 +79,14 @@ def compile_language_model(
     # ========================================================================
     # STEP 1: CAPTURE LANGUAGE MODEL INPUTS
     # ========================================================================
-    print("\n[1/7] Capturing language model inputs...")
+    print("\n[1/6] Capturing language model inputs...")
 
     inputs_container = DefaultInputsCaptureContainer()
     max_call_limit = 1  # Only capture the first call
 
-    with InputCaptureCtxManager(model.model, max_call_limit, inputs_container) as f:
+    with InputCaptureCtxManager(
+        model.projection, max_call_limit, inputs_container
+    ) as f:
         # Run full generation to capture inputs with vision embeddings merged
         _ = model.generate(**inputs, max_new_tokens=500)
 
@@ -247,7 +96,7 @@ def compile_language_model(
     # ========================================================================
     # STEP 2: WRAP TENSORS AND MARK DYNAMIC DIMENSIONS
     # ========================================================================
-    print("\n[2/7] Configuring dynamic shapes for variable sequence lengths...")
+    print("\n[2/6] Configuring dynamic shapes for variable sequence lengths...")
 
     # Wrap all tensors with metadata
     fd_inputs = {}
@@ -276,22 +125,25 @@ def compile_language_model(
     # ========================================================================
     # STEP 3: CREATE PATCHED LANGUAGE MODEL
     # ========================================================================
-    print("\n[3/7] Applying Aries 2 architectural patches...")
+    print("\n[3/6] Applying Aries 2 architectural patches...")
 
-    # LanguageModelForQwen2VL applies transformations
-    language_model = LanguageModelForQwen2VL(model)
+    target_model = model.projection
+    target_model.language_model.rotary_emb = CachedQwen2VLTextRotaryEmbedding(
+        target_model.language_model.rotary_emb
+    )
 
     # Optionally limit number of layers for faster compilation/testing
     if num_blocks is not None:
         print(f"   ⚠ Limiting to {num_blocks} transformer blocks (for testing)")
-        language_model.model.layers = language_model.model.layers[:num_blocks]
+        target_model.language_model.layers = target_model.language_model.layers[
+            :num_blocks
+        ]
     else:
         print(
-            f"   ✓ Compiling all {len(language_model.model.layers)} transformer blocks"
+            f"   ✓ Compiling all {len(target_model.language_model.layers)} transformer blocks"
         )
-
     # Pre-compute and cache RoPE embeddings for max sequence length
-    language_model.model.rotary_emb.set_rope(feed_dict["position_ids"])
+    target_model.language_model.rotary_emb.set_rope(feed_dict["position_ids"])
 
     print(f"   ✓ Applied CachedQwen2VLRotaryEmbedding (pre-cached RoPE)")
     print(f"   ✓ Applied PatchedQwen2VLSdpaAttention (last-query slicing)")
@@ -302,17 +154,17 @@ def compile_language_model(
     # STEP 4: COMPILE WITH qbcompiler PARSER
     # ========================================================================
     print(
-        f"\n[4/7] Compiling to MBLT with qbcompiler parser (target: {target_device})..."
+        f"\n[4/6] Compiling to MBLT with qbcompiler parser (target: {target_device})..."
     )
 
     # Specify expected output format
     output_meta = {
-        "type": "dict",
-        "keys": ["logits"],
+        "type": "list",
+        "keys": [0],
     }
 
     parser = ModelParser(
-        model=language_model,
+        model=target_model,
         backend="torch",  # PyTorch FX tracing
         target_device=target_device,
         yolo_decode_include=True,
@@ -333,29 +185,12 @@ def compile_language_model(
     print(f"   ✓ FX graph tracing complete")
     print(f"   ✓ Applied {len(parser.model_dict.subgraphs)} graph transformations")
 
-    # ========================================================================
-    # STEP 5: CONFIGURE DYNAMIC SHAPES FOR ATTENTION
-    # ========================================================================
-    print("\n[5/7] Configuring dynamic shapes for attention operators...")
-
-    # Extract ModelDict and WeightDict using qbcompiler's official API
     md, wd = parser.get_md_wd(body_only=False)
-
-    # Special case: This attention operation should NOT be dynamic
-    except_target_name = "fx_patched_fn0_26/slice/matmul/mul/softmax/matmul_0"
-
-    attention_ops_configured = configure_attention_dynamic_shapes(
-        md, except_target_name
-    )
-
-    print(f"   ✓ Configured {attention_ops_configured} attention operators")
-    print(f"   ✓ Set dynamic shapes for Q, K, V matrices")
-    print(f"   ✓ Set exception for final layer: {except_target_name}")
 
     # ========================================================================
     # STEP 6: SERIALIZE TO MBLT FORMAT
     # ========================================================================
-    print("\n[6/7] Serializing to MBLT binary format...")
+    print("\n[5/6] Serializing to MBLT binary format...")
 
     # Serialize using common utility (md and wd already obtained from parser.get_md_wd())
     serialize_to_mblt(
@@ -367,9 +202,9 @@ def compile_language_model(
     )
 
     # ========================================================================
-    # STEP 7: VALIDATION
+    # STEP 6: VALIDATION
     # ========================================================================
-    print("\n[7/7] Validating compiled model...")
+    print("\n[6/6] Validating compiled model...")
 
     inference_values_path, comparison_path = validate_compiled_model(
         parser, model.device, output_path
@@ -412,5 +247,5 @@ if __name__ == "__main__":
         target_device="aries2",
         num_blocks=None,
         ignore_weight=False,
-        debug=True,
+        debug=False,
     )

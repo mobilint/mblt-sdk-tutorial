@@ -228,5 +228,5 @@ if __name__ == "__main__":
         output_path=output_path,
         target_device="aries2",
         ignore_weight=False,
-        debug=True,
+        debug=False,
     )

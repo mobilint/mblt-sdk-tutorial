@@ -1,33 +1,25 @@
-from qbcompiler import (
-    get_advanced_quantization_config,
-    get_bit_config,
-    get_calibration_config,
-    get_equivalent_transformation_config,
-    get_llm_config,
-    get_quantization_config,
-    mxq_compile,
-)
+from qbcompiler import mxq_compile
+from qbcompiler.configs import CompileConfig
 
 mblt_path = "mblt/Qwen2-VL-2B-Instruct_vision_transformer.mblt"
 save_path = "mxq/Qwen2-VL-2B-Instruct_vision_transformer.mxq"
 calib_data_path = "../calibration/calibration_data/vision/npy_files.txt"
 device = "cuda"
 head_out_ch_rotation_matrix_path = (
-    "/tmp/qbcompiler/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth"
+    "./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth"
 )
 
-cal_config = get_calibration_config()
-bit_config = get_bit_config(
-    activation_16bits=["model_merger_fc2"]
-)  # TODO: we will not want this to be 16bits in the future
-quantization_config = get_quantization_config(cal_config, bit_config)
-
-et_config = get_equivalent_transformation_config(
-    head_out_ch_rotation_apply=True,
-    head_out_ch_rotation_matrix_path=head_out_ch_rotation_matrix_path,
+compile_config = CompileConfig.model_validate(
+    {
+        "bit": {"layerOverrides": {"activation16Bits": ["model_merger_fc2"]}},
+        "equivalentTransformation": {
+            "HeadOutChRotation": {
+                "apply": True,
+                "matrixPath": head_out_ch_rotation_matrix_path,
+            },
+        },
+    }
 )
-
-advanced_config = get_advanced_quantization_config(equivalent_transformation=et_config)
 
 mxq_compile(
     mblt_path,
@@ -35,6 +27,5 @@ mxq_compile(
     calib_data_path=calib_data_path,
     device=device,
     inference_scheme="multi",
-    quantization_config=quantization_config,
-    advanced_quantization_config=advanced_config,
+    compile_config=compile_config,
 )

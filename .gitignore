@@ -11,6 +11,7 @@
 *.msgpack
 *.mxq
 *.npz
+*.infer
 *.npy
 *.o
 *.onnx

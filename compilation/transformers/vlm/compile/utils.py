@@ -9,6 +9,12 @@ from typing import Dict, List, Optional, Tuple
 
 import torch
 from qbcompiler.model_dict.common import WeightDict
+from qbcompiler.model_dict.parser.backend.fx_hf_extensions.transformers.models.qwen2vl import (
+    Projection,
+    Qwen2VL_get_image_features,
+    Qwen2VLForConditionalGenerationWrapper,
+    Qwen2VLModel_get_image_feature,
+)
 from qbcompiler.model_dict.serialize import ChainedByteObj, SerializeMeta
 from qwen_vl_utils import process_vision_info
 
@@ -23,13 +29,23 @@ def load_model_and_processor(model_name: str):
     Returns:
         Tuple of (model, processor)
     """
-    from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
+    from transformers import AutoProcessor
 
     print(f"Loading model and processor from {model_name}...")
-    model = Qwen2VLForConditionalGeneration.from_pretrained(
+    model = Qwen2VLForConditionalGenerationWrapper.from_pretrained(
         model_name, dtype="auto", device_map="auto"
     )
     processor = AutoProcessor.from_pretrained(model_name)
+
+    model.projection = Projection(model.language_model, model.lm_head)
+    qwen2vl_model = model.model
+    qwen2vl_model.get_image_feature_class = Qwen2VLModel_get_image_feature(
+        qwen2vl_model
+    )
+    qwen2vl_model.get_image_features = Qwen2VL_get_image_features.__get__(
+        qwen2vl_model, type(qwen2vl_model)
+    )
+
     print("✓ Model and processor loaded successfully")
 
     return model, processor
