@@ -30,7 +30,7 @@ Before starting, ensure you have:
 Install the required Python packages for compilation:
 
 ```bash
-pip install transformers==4.57.1 torch torchvision qwen-vl-utils datasets
+pip install transformers==4.57.1 qwen-vl-utils==0.0.14 accelerate==1.13.0
 ```
 
 ### Download Calibration Images
