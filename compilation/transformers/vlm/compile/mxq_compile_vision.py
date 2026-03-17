@@ -1,3 +1,5 @@
+import os
+
 from qbcompiler import mxq_compile
 from qbcompiler.configs import CompileConfig
 
@@ -8,6 +10,11 @@ device = "cuda"
 head_out_ch_rotation_matrix_path = (
     "./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth"
 )
+
+# Ensure output directory exists
+output_dir = os.path.dirname(os.path.abspath(save_path))
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
 
 compile_config = CompileConfig.model_validate(
     {

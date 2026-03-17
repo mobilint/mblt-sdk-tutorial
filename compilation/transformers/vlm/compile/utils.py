@@ -5,6 +5,7 @@ This module provides common functionality used across vision and language
 model compilation pipelines.
 """
 
+import os
 from typing import Dict, List, Optional, Tuple
 
 import torch
@@ -127,6 +128,11 @@ def serialize_to_mblt(
     meta = SerializeMeta()
     barr = meta.serialize(model_dict, weight_dict, ignore_weight=ignore_weight)
 
+    # Ensure output directory exists
+    output_dir = os.path.dirname(os.path.abspath(output_path))
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
     # Write to file
     with open(output_path, "wb") as f:
         if isinstance(barr, bytes):
@@ -135,8 +141,6 @@ def serialize_to_mblt(
             barr.write(f)
 
     # Get file size from the written file (more reliable than len(barr))
-    import os
-
     file_size = os.path.getsize(output_path)
     file_size_mb = file_size / (1024 * 1024)
 
