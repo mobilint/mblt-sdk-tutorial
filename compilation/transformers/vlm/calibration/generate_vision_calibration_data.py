@@ -250,30 +250,18 @@ def capture_vision_encoder_inputs(
 
     # Extract captured inputs
     pixel_values = inputs_container.captured_args[0][0]
+    grid_thw = inputs_container.captured_kwargs[0].get("grid_thw")[0]
 
     # Convert to float32 if needed (bfloat16 not supported by numpy)
     if pixel_values.dtype == torch.bfloat16:
         pixel_values = pixel_values.float()
 
-    # Reshape to (896, 56, 6) - removed batch dimension
-    # pixel_values shape is typically [num_patches, embedding_dim]
-    # We need to reshape it to the desired format
-    pixel_values_np = pixel_values.cpu().numpy()
+    # Use repreprocess_pixel_values for correct reshape (matches compile pipeline)
+    # Output shape: [gt, 6, H, W] e.g. [2, 6, 896, 56]
+    images = repreprocess_pixel_values(pixel_values, grid_thw)
 
-    # Reshape to (896, 56, 6)
-    # The total size should match: 896 * 56 * 6 = 301,056
-    total_elements = pixel_values_np.size
-    target_shape = (896, 56, 6)
-    target_size = 896 * 56 * 6
-
-    if total_elements >= target_size:
-        # Flatten and take first target_size elements
-        images = pixel_values_np.flatten()[:target_size].reshape(target_shape)
-    else:
-        # Pad if needed
-        images = np.zeros(target_shape, dtype=pixel_values_np.dtype)
-        flat_pv = pixel_values_np.flatten()
-        images.flat[: len(flat_pv)] = flat_pv
+    # Take frame 0 and transpose to (H, W, 6) to match expected output shape (896, 56, 6)
+    images = images[0].permute(1, 2, 0).cpu().numpy()
 
     return {
         "images": images,
