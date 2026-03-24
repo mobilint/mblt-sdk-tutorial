@@ -1,9 +1,8 @@
 from argparse import ArgumentParser
 
 from qbcompiler import (
-    InputProcessConfig,
+    CalibrationConfig,
     PreprocessingConfig,
-    QuantizationConfig,
     Uint8InputConfig,
     mxq_compile,
 )
@@ -50,18 +49,14 @@ if __name__ == "__main__":
         input_configs={},
     )
 
-    input_process_config = InputProcessConfig(
-        uint8_input=Uint8InputConfig(apply=True, inputs=[]),
-        image_channels=3,
-        preprocessing=preprocessing_config,
-    )
-
-    quantization_config = QuantizationConfig.from_kwargs(
-        quantization_method=1,  # 0 for per tensor, 1 for per channel
-        quantization_output=0,  # 0 for layer, 1 for channel
-        quantization_mode=1,  # maxpercentile
-        percentile=0.9999,  # quantization percentile
-        topk_ratio=0.01,  # quantization topk
+    calibration_config = CalibrationConfig(
+        method=1,  # 0 for per tensor, 1 for per channel
+        output=0,  # 0 for layer, 1 for channel
+        mode=1,  # maxpercentile
+        max_percentile={
+            "percentile": 0.9999,  # quantization percentile
+            "topk_ratio": 0.01,  # quantization topk
+        },
     )
 
     mxq_compile(
@@ -73,6 +68,6 @@ if __name__ == "__main__":
         backend="onnx",
         device="gpu",
         inference_scheme="single",  # single core mode
-        input_process_config=input_process_config,
-        quantization_config=quantization_config,
+        preprocessing_config=preprocessing_config,
+        uint8_input_config=Uint8InputConfig(apply=True, inputs=[]),
     )
