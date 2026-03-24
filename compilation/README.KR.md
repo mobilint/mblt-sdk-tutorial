@@ -2,9 +2,11 @@
 
 이 섹션의 튜토리얼은 Mobilint qb 컴파일러를 사용하여 모델을 컴파일하는 방법에 대한 상세한 안내를 제공합니다.
 
+<!-- markdownlint-disable MD033 -->
 <div align="center">
 <img src="../assets/Compiler.avif" width="75%" alt="Compiler Diagram">
 </div>
+<!-- markdownlint-enable MD033 -->
 
 ## 컴파일러 준비 (Compiler Preparation)
 

@@ -20,10 +20,10 @@
 
 추론 과정은 Mobilint NPU 가속기를 Hugging Face 생태계와 통합하는 맞춤형 `LlamaMXQ` 모델 클래스를 사용합니다. 전체 워크플로우는 다음과 같습니다.
 
-1.  **초기화 (Initialization)**: `qbruntime` 가속기를 통해 컴파일된 `.mxq` 모델을 Mobilint NPU에 로드합니다.
-2.  **임베딩 (Embedding)**: CPU 기반 임베딩 레이어를 사용하여 입력 토큰을 벡터로 변환합니다.
-3.  **추론 (Inference)**: NPU 가속 트랜스포머 레이어를 통해 프롬프트를 처리합니다.
-4.  **생성 (Generation)**: 표준 Hugging Face 생성 유틸리티를 사용하여 텍스트를 생성합니다.
+1. **초기화 (Initialization)**: `qbruntime` 가속기를 통해 컴파일된 `.mxq` 모델을 Mobilint NPU에 로드합니다.
+2. **임베딩 (Embedding)**: CPU 기반 임베딩 레이어를 사용하여 입력 토큰을 벡터로 변환합니다.
+3. **추론 (Inference)**: NPU 가속 트랜스포머 레이어를 통해 프롬프트를 처리합니다.
+4. **생성 (Generation)**: 표준 Hugging Face 생성 유틸리티를 사용하여 텍스트를 생성합니다.
 
 ## 추론 실행
 

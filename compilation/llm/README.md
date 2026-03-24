@@ -175,5 +175,3 @@ python get_rotation_emb.py \
 ```
 
 **Note:** If you use `w8` quantization, rotating the embedding matrix is not required. For `w4` and `w4v8` quantization, you **must** use the rotated embedding matrix for inference.
-
-

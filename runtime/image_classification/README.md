@@ -18,10 +18,10 @@ Before running inference, ensure you have the following components installed and
 
 The inference logic is implemented in the `inference_mxq.py` script. This script demonstrates the following workflow:
 
-1.  **Model Loading**: Load the compiled `.mxq` model using `qbruntime`.
-2.  **Preprocessing**: Prepare the input image (resize, center crop).
-3.  **Inference**: Execute the model on the NPU accelerator.
-4.  **Result Display**: Print the top-5 classification results with their associated probabilities.
+1. **Model Loading**: Load the compiled `.mxq` model using `qbruntime`.
+2. **Preprocessing**: Prepare the input image (resize, center crop).
+3. **Inference**: Execute the model on the NPU accelerator.
+4. **Result Display**: Print the top-5 classification results with their associated probabilities.
 
 ## Running Inference
 

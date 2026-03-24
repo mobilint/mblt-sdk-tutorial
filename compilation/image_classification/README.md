@@ -81,6 +81,7 @@ The selected image dataset is the calibration dataset we will use.
 ## Step 3: Model Compilation
 
 Before running the compilation, verify the preprocessing steps required by the model. According to the [official ResNet-50 documentation](https://docs.pytorch.org/vision/main/models/generated/torchvision.models.resnet50.html), the required operations include:
+
 - Resizing the shorter side to 256 pixels (bilinear interpolation)
 - Center cropping to 224x224 pixels
 - Rescaling to the [0, 1] range

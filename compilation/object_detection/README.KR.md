@@ -51,11 +51,13 @@ python prepare_coco.py
 ```
 
 **주요 작업:**
+
 - HuggingFace에서 COCO 이미지 URL 데이터셋 로드
 - 이미지를 랜덤하게 선택하여 캘리브레이션 데이터셋 구성
 - 선택된 이미지를 `coco-selected` 디렉토리에 저장
 
 **결과물:**
+
 - `coco-selected`: 캘리브레이션용 이미지 데이터셋
 
 ## Step 3: 모델 컴파일
@@ -109,11 +111,13 @@ python model_compile.py --onnx-path {path_to_onnx_model} --calib-data-path {path
 ```
 
 **주요 작업:**
+
 - ONNX 모델 로드
 - 캘리브레이션 데이터 로드
 - 모델을 `.mxq` 형식으로 컴파일
 
 **파라미터:**
+
 - `--onnx-path`: ONNX 모델 경로
 - `--calib-data-path`: 캘리브레이션 데이터 경로
 - `--save-path`: MXQ 모델 저장 경로
@@ -123,6 +127,7 @@ python model_compile.py --onnx-path {path_to_onnx_model} --calib-data-path {path
 
 **추론 방식(Inference Scheme):**
 모델의 코어 활용 전략을 지정하는 옵션입니다:
+
 - `single`: 단일 코어 사용
 - `multi`: 다중 코어 분산 처리
 - `global4` / `global8`: 4개 또는 8개 코어를 연합하여 처리
@@ -130,6 +135,7 @@ python model_compile.py --onnx-path {path_to_onnx_model} --calib-data-path {path
 자세한 내용은 [다중 코어 모드](https://docs.mobilint.com/v0.29/en/multicore.html) 문서를 참고하세요.
 
 **실행 예시:**
+
 ```bash
 python model_compile.py --onnx-path ./yolo11m.onnx --calib-data-path ./coco-selected --save-path ./yolo11m.mxq --quant-percentile 0.999 --topk-ratio 0.001 --inference-scheme single
 ```

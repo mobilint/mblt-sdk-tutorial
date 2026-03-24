@@ -43,6 +43,7 @@ cd data
 ```
 
 **필요한 패키지:**
+
 - datasets==3.6.0
 - librosa
 - soundfile
@@ -55,6 +56,7 @@ python download_data.py
 ```
 
 **실행 내용:**
+
 - 17개 언어에 대한 Google/FLEURS 데이터셋의 오디오 샘플 다운로드
 - 전사 및 번역 생성을 위해 Whisper Large V3 로드
 - 오디오 파일을 16kHz 모노 WAV 형식으로 리샘플링하여 저장
@@ -62,11 +64,13 @@ python download_data.py
 - Whisper의 번역 기능을 사용하여 영어 번역 생성
 
 **지원 언어:**
+
 - 아랍어, 중국어(표준어), 독일어, 그리스어, 영어, 스페인어, 프랑스어
 - 인도네시아어, 이탈리아어, 일본어, 한국어, 포르투갈어, 러시아어
 - 타밀어, 태국어, 우르두어, 베트남어
 
 **출력:**
+
 - `audio_files/` - WAV 오디오 파일이 포함된 디렉토리
 - `transcriptions.json` - 각 오디오 파일에 대한 Whisper 전사
 - `translations.json` - 메타데이터가 포함된 영어 번역
@@ -82,6 +86,7 @@ cd ../calibration
 ```
 
 **필요한 패키지:**
+
 - torch
 - transformers
 - librosa
@@ -93,6 +98,7 @@ python create_calibration.py
 ```
 
 **실행 내용:**
+
 - Whisper 인코더용 캘리브레이션 데이터 생성 (멜 스펙트로그램 특징)
 - Whisper 디코더용 캘리브레이션 데이터 생성 (인코더 은닉 상태 + 디코더 임베딩)
 - whisper-small을 사용하여 전사 및 번역을 즉석에서 생성
@@ -100,11 +106,13 @@ python create_calibration.py
 - 다양한 캘리브레이션을 위해 전사(80%)와 번역(20%) 작업을 무작위로 혼합
 
 **인코더 캘리브레이션:**
+
 - HuggingFace Whisper 프로세서를 통해 오디오 파일 처리
 - `[1, 80, 3000]` 형태의 멜 스펙트로그램 특징 추출 (저장을 위해 `[1, 3000, 80]`으로 전치)
 - `.npy` 형식으로 캘리브레이션 파일 저장
 
 **디코더 캘리브레이션:**
+
 - 은닉 상태를 얻기 위해 인코더를 통해 오디오 처리
 - whisper-small 모델을 사용하여 전사 및 번역 생성
 - HuggingFace 프로세서를 사용하여 텍스트 정규화 적용
@@ -113,6 +121,7 @@ python create_calibration.py
 - 인코더와 디코더 은닉 상태 모두 저장
 
 **출력:**
+
 - `encoder/` - 인코더 캘리브레이션 데이터
   - `whisper_encoder_cali.txt` - 캘리브레이션 파일 경로 목록
   - `encoder_calib_*.npy` - 개별 캘리브레이션 샘플
@@ -133,6 +142,7 @@ cd ../compilation
 ```
 
 **필요한 패키지:**
+
 - transformers==4.50.0
 - qbcompiler==1.0.1 (사전 요구사항에 설명된 수정 포함)
 
@@ -143,12 +153,14 @@ python compile_encoder.py
 ```
 
 **실행 내용:**
+
 - HuggingFace에서 Whisper Small 모델 로드
 - 먼저 인코더를 MBLT 형식으로 컴파일
 - 양자화를 위해 인코더 캘리브레이션 데이터 사용
 - `global4` 추론 방식을 사용하여 최종 `.mxq` 형식으로 컴파일
 
 **출력:**
+
 - `compiled/whisper-small_encoder.mblt` - 중간 MBLT 형식
 - `compiled/whisper-small_encoder.mxq` - NPU용 최종 양자화 모델
 
@@ -161,6 +173,7 @@ python compile_decoder.py
 ```
 
 **실행 내용:**
+
 - HuggingFace에서 Whisper Small 모델 로드
 - 먼저 디코더를 MBLT 형식으로 컴파일
 - 전체 시퀀스 길이 캘리브레이션과 함께 디코더 캘리브레이션 데이터 사용 (`use_full_seq_len_calib=True`)
@@ -168,6 +181,7 @@ python compile_decoder.py
 - 최종 `.mxq` 형식으로 컴파일
 
 **출력:**
+
 - `compiled/whisper-small_decoder.mblt` - 중간 MBLT 형식
 - `compiled/whisper-small_decoder.mxq` - NPU용 최종 양자화 모델
 
@@ -199,15 +213,18 @@ python compile_decoder.py
 모든 단계를 완료하면 다음 파일들이 생성됩니다:
 
 ### 데이터 파일
+
 - `data/audio_files/` - FLEURS 데이터셋의 오디오 샘플
 - `data/transcriptions.json` - Whisper 전사
 - `data/translations.json` - 영어 번역
 
 ### 캘리브레이션 파일
+
 - `calibration/encoder/` - 인코더 캘리브레이션 데이터
 - `calibration/decoder/` - 디코더 캘리브레이션 데이터
 
 ### 컴파일된 모델
+
 - `compilation/compiled/whisper-small_encoder.mxq` - NPU용 양자화된 인코더
 - `compilation/compiled/whisper-small_decoder.mxq` - NPU용 양자화된 디코더
 
@@ -238,7 +255,7 @@ ls ../calibration/decoder/whisper_decoder_calib.json
 
 ## 파일 구조
 
-```
+```text
 stt/
 ├── README.md
 ├── data/
@@ -277,6 +294,7 @@ stt/
 ## 지원
 
 문제나 질문이 있는 경우:
+
 - 위의 문제 해결 섹션 확인
 - qbcompiler SDK 문서 검토
 - 상세한 오류 로그와 함께 Mobilint 지원팀에 문의

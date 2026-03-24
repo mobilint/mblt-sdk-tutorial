@@ -43,6 +43,7 @@ cd data
 ```
 
 **Required packages:**
+
 - datasets
 - librosa
 - soundfile
@@ -55,6 +56,7 @@ python download_data.py
 ```
 
 **What this does:**
+
 - Downloads audio samples from Google/FLEURS dataset for 17 languages
 - Loads Whisper Large V3 for generating transcriptions and translations
 - Saves audio files resampled to 16kHz mono WAV format
@@ -62,11 +64,13 @@ python download_data.py
 - Generates English translations using Whisper's translate task
 
 **Supported languages:**
+
 - Arabic, Mandarin Chinese, German, Greek, English, Spanish, French
 - Indonesian, Italian, Japanese, Korean, Portuguese, Russian
 - Tamil, Thai, Urdu, Vietnamese
 
 **Output:**
+
 - `audio_files/` - Directory containing WAV audio files
 - `transcriptions.json` - Whisper transcriptions for each audio file
 - `translations.json` - English translations with metadata
@@ -82,6 +86,7 @@ cd ../calibration
 ```
 
 **Required packages:**
+
 - torch==2.7.1
 - transformers==4.50.0
 - librosa
@@ -93,6 +98,7 @@ python create_calibration.py
 ```
 
 **What this does:**
+
 - Creates calibration data for the Whisper encoder (mel spectrogram features)
 - Creates calibration data for the Whisper decoder (encoder hidden states + decoder embeddings)
 - Generates transcriptions and translations on-the-fly using whisper-small
@@ -100,11 +106,13 @@ python create_calibration.py
 - Randomly mixes transcription (80%) and translation (20%) tasks for diverse calibration
 
 **Encoder Calibration:**
+
 - Processes audio files through HuggingFace Whisper processor
 - Extracts mel spectrogram features with shape `[1, 80, 3000]` (transposed to `[1, 3000, 80]` for saving)
 - Saves calibration files as `.npy` format
 
 **Decoder Calibration:**
+
 - Processes audio through encoder to get hidden states
 - Generates transcriptions and translations using whisper-small model
 - Applies text normalization using HuggingFace processor
@@ -113,6 +121,7 @@ python create_calibration.py
 - Saves both encoder and decoder hidden states
 
 **Output:**
+
 - `encoder/` - Encoder calibration data
   - `whisper_encoder_cali.txt` - List of calibration file paths
   - `encoder_calib_*.npy` - Individual calibration samples
@@ -133,6 +142,7 @@ cd ../compilation
 ```
 
 **Required packages:**
+
 - transformers==4.50.0
 - qbcompiler==1.0.1 (with modification described in Prerequisites)
 
@@ -143,12 +153,14 @@ python compile_encoder.py
 ```
 
 **What this does:**
+
 - Loads Whisper Small model from HuggingFace
 - Compiles encoder to MBLT format first
 - Uses encoder calibration data for quantization
 - Compiles to final `.mxq` format using `global4` inference scheme
 
 **Output:**
+
 - `compiled/whisper-small_encoder.mblt` - Intermediate MBLT format
 - `compiled/whisper-small_encoder.mxq` - Final quantized model for NPU
 
@@ -161,6 +173,7 @@ python compile_decoder.py
 ```
 
 **What this does:**
+
 - Loads Whisper Small model from HuggingFace
 - Compiles decoder to MBLT format first
 - Uses decoder calibration data with full sequence length calibration (`use_full_seq_len_calib=True`)
@@ -168,6 +181,7 @@ python compile_decoder.py
 - Compiles to final `.mxq` format
 
 **Output:**
+
 - `compiled/whisper-small_decoder.mblt` - Intermediate MBLT format
 - `compiled/whisper-small_decoder.mxq` - Final quantized model for NPU
 
@@ -199,15 +213,18 @@ python compile_decoder.py
 After completing all steps, you will have:
 
 ### Data Files
+
 - `data/audio_files/` - Audio samples from FLEURS dataset
 - `data/transcriptions.json` - Whisper transcriptions
 - `data/translations.json` - English translations
 
 ### Calibration Files
+
 - `calibration/encoder/` - Encoder calibration data
 - `calibration/decoder/` - Decoder calibration data
 
 ### Compiled Models
+
 - `compilation/compiled/whisper-small_encoder.mxq` - Quantized encoder for NPU
 - `compilation/compiled/whisper-small_decoder.mxq` - Quantized decoder for NPU
 
@@ -238,7 +255,7 @@ If files are missing, re-run `create_calibration.py` from the calibration folder
 
 ## File Structure
 
-```
+```text
 stt/
 ├── README.md
 ├── data/
@@ -277,6 +294,7 @@ stt/
 ## Support
 
 For issues or questions:
+
 - Check the troubleshooting section above
 - Review qbcompiler SDK documentation
 - Contact Mobilint support with detailed error logs

@@ -18,11 +18,11 @@ Before running inference, ensure you have the following components installed and
 
 The inference logic is implemented in the `inference_mxq.py` script. This script demonstrates the following workflow:
 
-1.  **Model Loading**: Load the compiled `.mxq` model via `qbruntime`.
-2.  **Preprocessing**: Prepare the input image (e.g., resize with letterboxing).
-3.  **Inference**: Execute the model on the NPU accelerator.
-4.  **Postprocessing**: Process the model output (decode bounding box coordinates and segmentation masks, apply non-maximum suppression).
-5.  **Visualization**: Draw bounding boxes, labels, and segmentation masks on the original image.
+1. **Model Loading**: Load the compiled `.mxq` model via `qbruntime`.
+2. **Preprocessing**: Prepare the input image (e.g., resize with letterboxing).
+3. **Inference**: Execute the model on the NPU accelerator.
+4. **Postprocessing**: Process the model output (decode bounding box coordinates and segmentation masks, apply non-maximum suppression).
+5. **Visualization**: Draw bounding boxes, labels, and segmentation masks on the original image.
 
 To better understand which operations are required for postprocessing, you can inspect the `.mblt` file (generated during compilation) using [Mobilint Netron](https://netron.mobilint.com/).
 

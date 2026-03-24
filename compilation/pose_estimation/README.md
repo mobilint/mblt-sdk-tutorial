@@ -52,6 +52,7 @@ python prepare_coco.py
 ```
 
 **Action:**
+
 - Downloads COCO image URLs from HuggingFace.
 - Randomly selects images to construct the calibration dataset.
 - Saves the images to the `coco-selected` directory.

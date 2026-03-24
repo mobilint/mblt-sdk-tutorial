@@ -81,6 +81,7 @@ python prepare_imagenet.py
 ## Step 3: 모델 컴파일
 
 모델을 컴파일하기 전, 해당 모델에 필요한 전처리 단계를 확인해야 합니다. [ResNet-50 공식 문서](https://docs.pytorch.org/vision/main/models/generated/torchvision.models.resnet50.html)에 따르면 모델의 입력 조건은 다음과 같습니다:
+
 - 이미지의 짧은 쪽을 256픽셀로 리사이징 (Bilinear interpolation)
 - 224x224 픽셀로 중앙 자르기 (Center crop)
 - [0, 1] 범위로 픽셀 값 스케일링

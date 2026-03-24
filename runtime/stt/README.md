@@ -15,7 +15,7 @@ Before running inference, ensure you have the following components installed and
 ## Files
 
 | File | Description |
-|------|-------------|
+| ---- | ----------- |
 | `mblt-whisper.py` | Hugging Face-compatible Mobilint Whisper model implementation |
 | `prepare_model.py` | Script to prepare the model directory with necessary configuration files |
 | `inference_mxq.py` | Main inference script for audio transcription and translation |
@@ -35,6 +35,7 @@ python prepare_model.py \
 ```
 
 This script performs the following actions:
+
 - Copies the compiled MXQ files to the specified output folder.
 - Downloads the processor (tokenizer and feature extractor) from Hugging Face.
 - Extracts and saves the embedding weights from the base model.
@@ -89,7 +90,7 @@ python inference_mxq.py --audio audio.wav --model-folder ./whisper-small-mxq --u
 ### `prepare_model.py`
 
 | Argument | Default | Description |
-|----------|---------|-------------|
+| -------- | ------- | ----------- |
 | `--encoder-mxq` | `../../../compilation/transformers/stt/compilation/compiled/whisper-small_encoder.mxq` | Path to the compiled encoder MXQ file |
 | `--decoder-mxq` | `../../../compilation/transformers/stt/compilation/compiled/whisper-small_decoder.mxq` | Path to the compiled decoder MXQ file |
 | `--output-folder` | `./whisper-small-mxq` | Destination folder for the prepared model |
@@ -98,7 +99,7 @@ python inference_mxq.py --audio audio.wav --model-folder ./whisper-small-mxq --u
 ### `inference_mxq.py`
 
 | Argument | Default | Description |
-|----------|---------|-------------|
+| -------- | ------- | ----------- |
 | `--audio` | `../../../compilation/transformers/stt/data/audio_files/en_us_0000.wav` | Path to the input audio file |
 | `--model-folder` | `./whisper-small-mxq` | Path to the prepared model folder |
 | `--language` | `None` (auto-detect) | Source language code (e.g., `en`, `ko`, `ja`) |
@@ -108,6 +109,7 @@ python inference_mxq.py --audio audio.wav --model-folder ./whisper-small-mxq --u
 ## Supported Languages
 
 Whisper supports over 99 languages. Common language codes include:
+
 - `en` - English
 - `ko` - Korean
 - `ja` - Japanese
@@ -120,7 +122,7 @@ Whisper supports over 99 languages. Common language codes include:
 
 The implementation leverages Hugging Face's `AutoModel` classes for seamless integration:
 
-```
+```text
 ┌─────────────────────────────────────────────────────────┐
 │                   inference_mxq.py                      │
 │  (Loads model via AutoModelForSpeechSeq2Seq)            │

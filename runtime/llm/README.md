@@ -20,10 +20,10 @@ Before running inference, ensure you have the following components installed and
 
 The inference process uses a custom `LlamaMXQ` model class that integrates the NPU accelerator with the Hugging Face ecosystem. The workflow is as follows:
 
-1.  **Initialization**: Load the compiled `.mxq` model onto the Mobilint NPU via the `qbruntime` accelerator.
-2.  **Embedding**: Use a CPU-based embedding layer to convert input tokens into vectors.
-3.  **Inference**: Process prompts through the NPU-accelerated transformer layers.
-4.  **Generation**: Generate text using standard Hugging Face generation utilities.
+1. **Initialization**: Load the compiled `.mxq` model onto the Mobilint NPU via the `qbruntime` accelerator.
+2. **Embedding**: Use a CPU-based embedding layer to convert input tokens into vectors.
+3. **Inference**: Process prompts through the NPU-accelerated transformer layers.
+4. **Generation**: Generate text using standard Hugging Face generation utilities.
 
 ## Running Inference
 
@@ -49,4 +49,3 @@ python inference_mxq.py --mxq-path ../../../compilation/transformers/llm/Llama-3
 ### Expected Output
 
 The script will print the generated text response based on the input prompt.
-
