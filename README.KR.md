@@ -1,5 +1,6 @@
 # Mobilint SDK 튜토리얼
 
+<!-- markdownlint-disable MD033 -->
 <div align="center">
 <p>
 <a href="https://www.mobilint.com/" target="_blank">
@@ -7,6 +8,7 @@
 </a>
 </p>
 </div>
+<!-- markdownlint-enable MD033 -->
 
 이 레포지토리는 컴파일러(qbcompiler)와 런타임 소프트웨어(qbruntime) 라이브러리를 포함하는 Mobilint SDK qb를 쉽게 시작할 수 있도록 예제와 설명을 제공합니다.
 
@@ -21,10 +23,12 @@ SDK는 [Mobilint 다운로드 센터](https://dl.mobilint.com/)를 통해 배포
 
 ## 개요
 
+<!-- markdownlint-disable MD033 -->
 <div align="center">
 <img src="./assets/Compiler.avif" width="45%", alt="Compiler Diagram">
 <img src="./assets/Runtime.avif" width="45%", alt="Runtime Diagram">
 </div>
+<!-- markdownlint-enable MD033 -->
 
 Mobilint [SDK qb](https://www.mobilint.com/sdk-qb)는 [컴파일러](compilation/README.md)와 [런타임](runtime/README.md) 두 가지 주요 구성 요소로 구성됩니다.
 
