@@ -38,9 +38,7 @@ from qbcompiler.model_dict.parser.backend.hf.util import (
 def load_model_and_processor(model_name: str):
     """Load Qwen2-VL model and processor from HuggingFace."""
     print(f"Loading model and processor from {model_name}...")
-    model = Qwen2VLForConditionalGeneration.from_pretrained(
-        model_name, dtype="auto", device_map="auto"
-    )
+    model = Qwen2VLForConditionalGeneration.from_pretrained(model_name)
     processor = AutoProcessor.from_pretrained(model_name)
     print("✓ Model and processor loaded successfully")
 
