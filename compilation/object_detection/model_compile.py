@@ -58,4 +58,5 @@ if __name__ == "__main__":
         inference_scheme="single",
         preprocessing_config=preprocessing_config,
         uint8_input_config=Uint8InputConfig(apply=True, inputs=[]),
+        calibration_config=calibration_config,
     )
