@@ -5,8 +5,18 @@ This module provides common functionality used across vision and language
 model compilation pipelines.
 """
 
+import os
+from typing import Dict, List, Optional, Tuple
+
 import torch
 from qbcompiler.model_dict.common import WeightDict
+from transformers import AutoProcessor
+from qbcompiler.model_dict.parser.backend.fx_hf_extensions.transformers.models.qwen2vl import (
+    Projection,
+    Qwen2VL_get_image_features,
+    Qwen2VLForConditionalGenerationWrapper,
+    Qwen2VLModel_get_image_feature,
+)
 from qbcompiler.model_dict.serialize import ChainedByteObj, SerializeMeta
 from qwen_vl_utils import process_vision_info
 
@@ -21,13 +31,21 @@ def load_model_and_processor(model_name: str):
     Returns:
         Tuple of (model, processor)
     """
-    from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
-
     print(f"Loading model and processor from {model_name}...")
-    model = Qwen2VLForConditionalGeneration.from_pretrained(
+    model = Qwen2VLForConditionalGenerationWrapper.from_pretrained(
         model_name, dtype="auto", device_map="auto"
     )
     processor = AutoProcessor.from_pretrained(model_name)
+
+    model.projection = Projection(model.language_model, model.lm_head)
+    qwen2vl_model = model.model
+    qwen2vl_model.get_image_feature_class = Qwen2VLModel_get_image_feature(
+        qwen2vl_model
+    )
+    qwen2vl_model.get_image_features = Qwen2VL_get_image_features.__get__(
+        qwen2vl_model, type(qwen2vl_model)
+    )
+
     print("✓ Model and processor loaded successfully")
 
     return model, processor
@@ -35,10 +53,10 @@ def load_model_and_processor(model_name: str):
 
 def prepare_inputs(
     processor,
-    messages: list[dict],
+    messages: List[Dict],
     model_device: torch.device,
-    image_size: tuple[int, int] | None = None,
-) -> dict:
+    image_size: Optional[Tuple[int, int]] = None,
+) -> Dict:
     """
     Prepare inputs for model inference from messages.
 
@@ -52,7 +70,9 @@ def prepare_inputs(
         Dictionary of processed inputs ready for model.generate()
     """
     # Apply chat template
-    text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    text = processor.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True
+    )
 
     # Process vision inputs (images/videos)
     image_inputs, video_inputs = process_vision_info(messages)
@@ -107,6 +127,11 @@ def serialize_to_mblt(
     meta = SerializeMeta()
     barr = meta.serialize(model_dict, weight_dict, ignore_weight=ignore_weight)
 
+    # Ensure output directory exists
+    output_dir = os.path.dirname(os.path.abspath(output_path))
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
     # Write to file
     with open(output_path, "wb") as f:
         if isinstance(barr, bytes):
@@ -115,14 +140,12 @@ def serialize_to_mblt(
             barr.write(f)
 
     # Get file size from the written file (more reliable than len(barr))
-    import os
-
     file_size = os.path.getsize(output_path)
     file_size_mb = file_size / (1024 * 1024)
 
     print(f"   ✓ Saved to: {output_path}")
     print(f"   ✓ File size: {file_size_mb:.2f} MB")
-    print("   ✓ Format: MBLT (Mobilint Binary Layout)")
+    print(f"   ✓ Format: MBLT (Mobilint Binary Layout)")
 
     return file_size
 
@@ -131,7 +154,7 @@ def validate_compiled_model(
     parser,
     model_device: torch.device,
     output_path: str,
-) -> tuple[str, str]:
+) -> Tuple[str, str]:
     """
     Validate compiled model by running inference and comparing with original.
 
@@ -152,7 +175,9 @@ def validate_compiled_model(
 
     # Run inference and compare with original model
     parser.run_inference_and_compare_output_value(
-        device=(model_device.type if hasattr(model_device, "type") else str(model_device)),
+        device=(
+            model_device.type if hasattr(model_device, "type") else str(model_device)
+        ),
         save_all_inference_outputs=True,
         inference_all_outputs_write_path=inference_values_path,
         compare_result_output_path=comparison_path,
@@ -160,7 +185,7 @@ def validate_compiled_model(
         quantizer_save=True,
     )
 
-    print("   ✓ Validation complete")
+    print(f"   ✓ Validation complete")
     print(f"   ✓ Inference values saved to: {inference_values_path}")
     print(f"   ✓ Comparison results saved to: {comparison_path}")
 
@@ -185,16 +210,16 @@ def print_compilation_summary(
     print("\n" + "=" * 80)
     print(f"{component_name} COMPILATION COMPLETE")
     print("=" * 80)
-    print("\nOutputs:")
+    print(f"\nOutputs:")
     print(f"  - MBLT model: {output_path}")
     print(f"  - Inference values: {inference_values_path}")
     print(f"  - Comparison results: {comparison_path}")
-    print("\nNext steps:")
-    print("  - Compile MBLT → MXQ for Aries 2 deployment")
-    print("  - Load MBLT model for runtime inference")
+    print(f"\nNext steps:")
+    print(f"  - Compile MBLT → MXQ for Aries 2 deployment")
+    print(f"  - Load MBLT model for runtime inference")
 
 
-def create_sample_messages(image_url: str, text_prompt: str) -> list[dict]:
+def create_sample_messages(image_url: str, text_prompt: str) -> List[Dict]:
     """
     Create sample messages for model input.
 
