@@ -4,157 +4,149 @@
 
 이 튜토리얼에서는 BERT 아키텍처를 기반으로 하고 문장 임베딩을 생성하도록 수정된 [Sentence-BERT](https://huggingface.co/sentence-transformers-testing/stsb-bert-tiny-safetensors) 모델을 사용합니다.
 
-## 사전 요구 사항
+## 개요
 
-시작하기 전에 다음이 설치되어 있는지 확인하십시오.
+컴파일 과정은 네 가지 주요 단계로 구성됩니다:
+
+1. **임베딩 가중치 추출**: 미지원 임베딩 레이어를 CPU 측 가중치로 추출
+2. **캘리브레이션 데이터 생성**: 양자화를 위한 캘리브레이션 데이터셋 생성
+3. **MBLT 컴파일**: 모델을 MBLT (Mobilint Binary LayouT) 형식으로 컴파일
+4. **MXQ 컴파일**: 양자화를 적용하여 `.mxq` 형식으로 컴파일
+
+모든 스크립트는 `bert/` 디렉토리에서 실행합니다.
+
+## 사전 준비
 
 - Mobilint qb 컴파일러 (버전 1.0.0 이상 필요)
 - CUDA 지원 GPU (컴파일 시간 단축을 위해 권장)
 
-또한, 다음 패키지를 설치해야 합니다.
+```bash
+pip install -r requirements.txt
+```
+
+## 1단계: 임베딩 가중치 추출
+
+BERT의 복잡한 아키텍처로 인해 일부 입력 임베딩 레이어는 NPU에서 지원되지 않습니다. 따라서 모델에서 임베딩 가중치를 추출하여 CPU 측에서 실행할 수 있도록 `.pth` 파일로 저장합니다.
 
 ```bash
-pip install accelerate datasets
+python get_embedding.py
 ```
 
-## 모델 분석
+**실행 내용:**
 
-BERT의 복잡한 아키텍처로 인해 일부 레이어는 컴파일러에서 지원되지 않을 수 있습니다. 따라서 컴파일 프로세스 전에 모델 분석을 수행해야 합니다.
+- HuggingFace에서 Sentence-BERT 모델 로드
+- 단어, 토큰 타입, 위치 임베딩 및 LayerNorm 가중치 추출
+- 가중치 딕셔너리로 저장
 
-모델 구조를 분석하기 위해 모델을 MBLT 형식으로 변환합니다.
+**출력:**
 
-```python
-from qbcompiler import mblt_compile
-from qbcompiler.model_dict.parser.backend.torch.object_wrapper import set_attention_mask
-from qbcompiler.model_dict.parser.backend.torch.util import wrap_tensor
-from transformers import BertModel, BertTokenizer
+- `./weights/weight_dict.pth` - 추출된 임베딩 가중치
 
-if __name__ == "__main__":
-    tokenizer = BertTokenizer.from_pretrained(
-        "sentence-transformers-testing/stsb-bert-tiny-safetensors",
-        trust_remote_code=True,
-    )
-    model = BertModel.from_pretrained("sentence-transformers-testing/stsb-bert-tiny-safetensors", trust_remote_code=True)
-    model.eval()
+> **팁:** MBLT 컴파일(3단계) 후 [Netron](https://netron.mobilint.com)을 사용하여 모델 아키텍처를 시각화하면 어떤 레이어가 지원되고 어떤 레이어가 CPU로 오프로드되는지 확인할 수 있습니다.
 
-    inputs = tokenizer("Hello, my dog is cute", return_tensors="pt")
+## 2단계: 캘리브레이션 데이터 생성
 
-    feed_dict = {}
-    for k, v in inputs.items():
-        wrapped = wrap_tensor(k, v)
-        wrapped.src_shape[1].set_dynamic()
-        feed_dict[k] = wrapped
-    set_attention_mask(feed_dict["attention_mask"], "padding_mask")
+[STS Benchmark Dataset](https://huggingface.co/datasets/mteb/stsbenchmark-sts)을 사용하여 캘리브레이션 데이터를 생성합니다. 이 데이터는 MXQ 컴파일 시 양자화에 필수적입니다.
 
-    mblt_compile(
-        model=model,
-        mblt_save_path="stsb-bert-tiny-safetensors.mblt",
-        backend="torch",
-        feed_dict=feed_dict,
-        cpu_offload=True,
-    )
+```bash
+python prepare_calib.py
 ```
 
-`compile_mblt.py`를 실행하면 `stsb-bert-tiny-safetensors.mblt` 파일을 얻을 수 있습니다. [Netron](https://netron.mobilint.com)을 사용하여 모델 아키텍처를 시각화할 수 있습니다.
+**실행 내용:**
 
-Netron 시각화 결과에 따르면, 일부 입력 임베딩 레이어는 지원되지 않습니다. 따라서 지원되는 레이어의 입력에 맞추기 위해 캘리브레이션 데이터셋을 준비하고, 지원되지 않는 연산은 Mobilint NPU 외부에서 실행해야 합니다.
+- STS Benchmark 검증 세트에서 문장 로드
+- 추출된 임베딩 가중치(1단계)를 사용하여 토큰화 및 임베딩
+- 임베딩된 텍스트를 캘리브레이션용 NumPy 파일로 저장
 
-## 캘리브레이션 데이터셋 준비
+**출력:**
 
-### 임베딩 가중치 추출
+- `./calibration_data/` - 캘리브레이션 `.npy` 파일이 포함된 디렉토리
 
-Netron에서 볼 수 있듯이 입력 임베딩 부분은 지원되지 않습니다. 따라서 지원되는 레이어의 입력에 맞게 캘리브레이션 데이터셋을 준비해야 합니다. 이를 위해 모델에서 임베딩 가중치를 추출하여 `.pth` 파일로 저장합니다.
+## 3단계: MBLT 컴파일
 
-이 작업은 `get_embedding.py`를 실행하여 수행할 수 있습니다.
+BERT 모델을 MBLT (Mobilint Binary LayouT) 중간 형식으로 컴파일합니다.
 
-```python
-import torch
-
-from transformers import BertModel
-
-model = BertModel.from_pretrained(
-    "sentence-transformers-testing/stsb-bert-tiny-safetensors", trust_remote_code=True
-)
-
-word_embeddings = model.embeddings.word_embeddings.weight
-token_type_embeddings = model.embeddings.token_type_embeddings.weight
-position_embeddings = model.embeddings.position_embeddings.weight
-layernorm_weight = model.embeddings.LayerNorm.weight
-layernorm_bias = model.embeddings.LayerNorm.bias
-
-print(word_embeddings.shape)
-print(token_type_embeddings.shape)
-print(position_embeddings.shape)
-print(layernorm_weight.shape)
-print(layernorm_bias.shape)
-weight_dict = {
-    "word_embeddings": word_embeddings,
-    "token_type_embeddings": token_type_embeddings,
-    "position_embeddings": position_embeddings,
-    "layernorm_weight": layernorm_weight,
-    "layernorm_bias": layernorm_bias,
-}
-
-torch.save(weight_dict, "weight_dict.pth")
+```bash
+python compile_mblt.py
 ```
 
-스크립트를 실행하면 `weight_dict.pth` 파일을 얻을 수 있습니다.
+**실행 내용:**
 
-### 캘리브레이션 데이터 생성
+- HuggingFace에서 Sentence-BERT 모델 로드
+- 시퀀스 길이 차원을 동적으로 설정
+- 어텐션 마스크를 패딩 마스크로 구성
+- 미지원 레이어의 CPU 오프로드와 함께 MBLT 형식으로 컴파일
 
-Massive Text Embedding Benchmark (MTEB)에서 관리하는 [STS Benchmark Dataset](https://huggingface.co/datasets/mteb/stsbenchmark-sts)을 사용하여 캘리브레이션 데이터셋을 생성합니다.
+**출력:**
 
-먼저 데이터셋의 문장을 토큰화하고 이전에 추출한 임베딩 가중치를 사용하여 임베딩합니다. 그런 다음 임베딩된 텍스트를 NumPy 파일로 저장합니다.
+- `./mblt/stsb-bert-tiny-safetensors.mblt` - 중간 MBLT 형식
 
-이 작업은 `prepare_calib.py`를 실행하여 수행할 수 있습니다. 실행 후 `calib` 디렉토리가 생성됩니다.
+## 4단계: MXQ 컴파일
 
-## 모델 컴파일
+캘리브레이션 데이터를 사용하여 최종 `.mxq` 형식으로 양자화 컴파일합니다.
 
-캘리브레이션 데이터셋이 준비되면 Mobilint qb 컴파일러를 사용하여 모델을 컴파일할 수 있습니다.
-
-```python
-from qbcompiler import mxq_compile, QuantizationConfig
-from qbcompiler.model_dict.parser.backend.torch.object_wrapper import set_attention_mask
-from qbcompiler.model_dict.parser.backend.torch.util import wrap_tensor
-
-from transformers import BertModel, BertTokenizer
-
-if __name__ == "__main__":
-    tokenizer = BertTokenizer.from_pretrained(
-        "sentence-transformers-testing/stsb-bert-tiny-safetensors",
-        trust_remote_code=True,
-    )
-    model = BertModel.from_pretrained(
-        "sentence-transformers-testing/stsb-bert-tiny-safetensors", trust_remote_code=True
-    )
-    model.eval()
-
-    inputs = tokenizer("Hello, my dog is cute", return_tensors="pt")
-
-    feed_dict = {}
-    for k, v in inputs.items():
-        wrapped = wrap_tensor(k, v)
-        wrapped.src_shape[1].set_dynamic()
-        feed_dict[k] = wrapped
-    set_attention_mask(feed_dict["attention_mask"], "padding_mask")
-
-    quantization_config = QuantizationConfig.from_kwargs(
-        quantization_method=1,  # 0 for per tensor, 1 for per channel
-        quantization_output=0,  # 0 for layer, 1 for channel
-        quantization_mode=1,  # maxpercentile
-        percentile=0.999,  # quantization percentile
-        topk_ratio=0.01,  # quantization topk
-    )
-
-    mxq_compile(
-        model=model,
-        save_path="stsb-bert-tiny-safetensors.mxq",
-        calib_data_path="./calib",
-        backend="torch",
-        feed_dict=feed_dict,
-        quantization_config=quantization_config,
-    )
-
+```bash
+python compile_mxq.py
 ```
 
-`compile_mxq.py`를 실행하면 `stsb-bert-tiny-safetensors.mxq` 파일을 얻을 수 있습니다.
+**실행 내용:**
+
+- HuggingFace에서 Sentence-BERT 모델 로드
+- MaxPercentile 양자화를 포함한 `CalibrationConfig` 적용:
+  - 방법: WChAMulti (가중치 채널별, 활성화 다중 레이어)
+  - 출력: 레이어별 양자화
+  - Percentile: 0.999, Top-k 비율: 0.01
+- 2단계의 캘리브레이션 데이터를 사용하여 `.mxq` 형식으로 컴파일
+
+**출력:**
+
+- `./mxq/stsb-bert-tiny-safetensors.mxq` - NPU용 최종 양자화 모델
+
+## 파일 구조
+
+```text
+bert/
+├── get_embedding.py
+├── prepare_calib.py
+├── compile_mblt.py
+├── compile_mxq.py
+├── requirements.txt
+├── README.md
+├── README.KR.md
+├── weights/                               # 추출된 임베딩 가중치
+│   └── weight_dict.pth
+├── calibration_data/                      # 캘리브레이션 데이터
+│   └── *.npy
+├── mblt/                                  # 중간 MBLT 모델
+│   └── stsb-bert-tiny-safetensors.mblt
+└── mxq/                                   # 출력 MXQ 모델
+    └── stsb-bert-tiny-safetensors.mxq
+```
+
+## 문제 해결
+
+### 임베딩 가중치 누락
+
+캘리브레이션 시 가중치 누락 오류가 발생하는 경우:
+
+```bash
+ls ./weights/weight_dict.pth
+```
+
+파일이 없으면 `get_embedding.py`를 다시 실행하세요.
+
+### 캘리브레이션 데이터 누락
+
+MXQ 컴파일 시 캘리브레이션 데이터 누락 오류가 발생하는 경우:
+
+```bash
+ls ./calibration_data/
+```
+
+디렉토리가 비어있거나 없으면 `prepare_calib.py`를 다시 실행하세요.
+
+## 참고 자료
+
+- [Sentence-BERT](https://huggingface.co/sentence-transformers-testing/stsb-bert-tiny-safetensors)
+- [STS Benchmark 데이터셋](https://huggingface.co/datasets/mteb/stsbenchmark-sts)
+- [Mobilint 문서](https://docs.mobilint.com)

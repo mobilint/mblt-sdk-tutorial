@@ -1,7 +1,12 @@
-from qbcompiler import QuantizationConfig, mxq_compile
+import os
+
+from qbcompiler import CalibrationConfig, mxq_compile
 from qbcompiler.model_dict.parser.backend.torch.object_wrapper import set_attention_mask
 from qbcompiler.model_dict.parser.backend.torch.util import wrap_tensor
 from transformers import BertModel, BertTokenizer
+
+CALIB_PATH = "./calibration_data"
+MXQ_PATH = "./mxq/stsb-bert-tiny-safetensors.mxq"
 
 if __name__ == "__main__":
     tokenizer = BertTokenizer.from_pretrained(
@@ -23,19 +28,22 @@ if __name__ == "__main__":
         feed_dict[k] = wrapped
     set_attention_mask(feed_dict["attention_mask"], "padding_mask")
 
-    quantization_config = QuantizationConfig.from_kwargs(
-        quantization_method=1,  # 0 for per tensor, 1 for per channel
-        quantization_output=0,  # 0 for layer, 1 for channel
-        quantization_mode=1,  # maxpercentile
-        percentile=0.999,  # quantization percentile
-        topk_ratio=0.01,  # quantization topk
+    calibration_config = CalibrationConfig(
+        method=1,  # WChAMulti: weight per-channel, activation multi-layer
+        output=0,  # Layer: per-layer output quantization
+        mode=1,  # MaxPercentile
+        max_percentile=CalibrationConfig.MaxPercentile(
+            percentile=0.999,
+            topk_ratio=0.01,
+        ),
     )
 
+    os.makedirs(os.path.dirname(MXQ_PATH), exist_ok=True)
     mxq_compile(
         model=model,
-        save_path="stsb-bert-tiny-safetensors.mxq",
-        calib_data_path="./calib",
+        save_path=MXQ_PATH,
+        calib_data_path=CALIB_PATH,
         backend="torch",
         feed_dict=feed_dict,
-        quantization_config=quantization_config,
+        calibration_config=calibration_config,
     )

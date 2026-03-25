@@ -1,5 +1,9 @@
+import os
+
 import torch
 from transformers import BertModel
+
+WEIGHT_PATH = "./weights/weight_dict.pth"
 
 model = BertModel.from_pretrained(
     "sentence-transformers-testing/stsb-bert-tiny-safetensors", trust_remote_code=True
@@ -24,4 +28,5 @@ weight_dict = {
     "layernorm_bias": layernorm_bias,
 }
 
-torch.save(weight_dict, "weight_dict.pth")
+os.makedirs(os.path.dirname(WEIGHT_PATH), exist_ok=True)
+torch.save(weight_dict, WEIGHT_PATH)
