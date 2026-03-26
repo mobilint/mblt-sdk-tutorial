@@ -1,15 +1,21 @@
+"""Apply SpinQuant rotation to embedding weights for 4-bit quantized inference."""
+
 from argparse import ArgumentParser
 
 import torch
 
 
 def save_rotated_embeddings(original_emb_path, rotation_matrix_path, save_emb_path):
+    # Load original embedding weights: [vocab_size, embed_dim]
     emb = torch.load(original_emb_path)
+
+    # Load SpinQuant R1 global rotation matrix (nn.Module, not a plain tensor)
     rot = torch.load(rotation_matrix_path, weights_only=False)
-    rot_list = []
-    for i in rot.parameters():
-        rot_list.append(i)
-    emb = (emb.double() @ rot_list[0].double()).bfloat16()
+    rot_matrix = next(rot.parameters())
+
+    # Apply rotation in float64 for numerical precision, then convert back to bfloat16
+    # Result: rotated embedding [vocab_size, embed_dim] for 4-bit quantized inference
+    emb = (emb.double() @ rot_matrix.double()).bfloat16()
     torch.save(emb, save_emb_path)
 
 

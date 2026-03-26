@@ -1,9 +1,12 @@
-import argparse
+"""Generate calibration datasets from Wikipedia for LLM quantization."""
+
 import os
+from argparse import ArgumentParser
 
 import numpy as np
 import torch
 from datasets import load_dataset
+from tqdm import tqdm
 from transformers import AutoTokenizer
 
 # LANGUAGES = ["en", "de", "fr", "es", "it", "ja", "ko", "zh"]
@@ -47,34 +50,34 @@ def generate_calibration(
         print(f"Output directory: {output_lang_dir}")
 
         print(f"Loading Wikipedia dataset for {lang}...")
-        try:
-            dataset = load_dataset(
-                "wikimedia/wikipedia", subset_name, split="train", streaming=True
-            )["text"]
-        except Exception as e:
-            print(f"Error loading dataset for {lang}: {e}")
-            continue
+        dataset = load_dataset(
+            "wikimedia/wikipedia", subset_name, split="train", streaming=True
+        )
 
+        pbar = tqdm(total=max_calib, desc=f"Calibrating ({lang})")
         cur_num_calib = 0
-        for i, text in enumerate(dataset):
+        for row in dataset:
             if cur_num_calib >= max_calib:
                 break
 
-            try:
-                token_ids = tokenizer(text, return_tensors="pt")["input_ids"].squeeze().to(device)
-            except Exception:
-                print(f"Skipping sentence {i}: tokenization error")
-                continue
+            # Tokenize raw Wikipedia text into token IDs: [seq_len]
+            text = row["text"]
+            token_ids = tokenizer(text, return_tensors="pt")["input_ids"].squeeze().to(device)
 
+            # Skip empty text that produces a scalar tensor after squeeze
             if token_ids.ndim == 0:
                 continue
 
+            # Convert token IDs to dense embeddings via lookup table: [seq_len, embed_dim]
             embedded_text = embedding_layer(token_ids)
+
+            # Reshape to [1, seq_len, embed_dim] (batch dimension required for calibration)
             if embedded_text.ndim == 1:
                 embedded_text = embedded_text.unsqueeze(0).unsqueeze(0)
             elif embedded_text.ndim == 2:
                 embedded_text = embedded_text.unsqueeze(0)
 
+            # Skip sequences shorter than min_seqlen, truncate those exceeding max_seqlen
             seq_len = embedded_text.shape[1]
             if seq_len < min_seqlen:
                 continue
@@ -85,20 +88,17 @@ def generate_calibration(
             np.save(output_path, embedded_text.cpu().numpy())
 
             cur_num_calib += 1
-            if (cur_num_calib % 10) == 0:
-                print(f"  Generated {cur_num_calib}/{max_calib} samples")
+            pbar.update(1)
 
-        print(f"✓ Completed {lang}: {cur_num_calib} samples")
+        pbar.close()
 
     print(f"\n{'=' * 60}")
     print(f"Calibration generation completed for {model_name}")
     print(f"{'=' * 60}")
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Generate calibration datasets from Wikipedia for LLM models"
-    )
+if __name__ == "__main__":
+    parser = ArgumentParser()
     parser.add_argument(
         "--model-tag",
         type=str,
@@ -110,7 +110,7 @@ def main():
         default="./embedding.pt",
     )
     parser.add_argument("--tokenizer-path", type=str, default="meta-llama/Llama-3.2-1B-Instruct")
-    parser.add_argument("--output-dir", type=str, default="./calib")
+    parser.add_argument("--output-dir", type=str, default="./calibration_data")
     parser.add_argument(
         "--min-seqlen",
         type=int,
@@ -142,6 +142,7 @@ def main():
         max_calib=args.max_calib,
     )
 
-
-if __name__ == "__main__":
-    main()
+    # Skip Python finalization to avoid PyGILState_Release crash
+    # caused by lingering PyArrow/aiohttp threads from streaming datasets.
+    # See: https://github.com/huggingface/datasets/issues/7357
+    os._exit(0)
