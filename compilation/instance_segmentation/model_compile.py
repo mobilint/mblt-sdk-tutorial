@@ -55,7 +55,7 @@ if __name__ == "__main__":
         output_subgraph_path=args.onnx_path.replace(".onnx", ".mblt"),
         save_path=args.save_path,
         backend="onnx",
-        inference_scheme="single",
+        inference_scheme="all",  # now support all scheme in one model
         preprocessing_config=preprocessing_config,
         uint8_input_config=Uint8InputConfig(apply=True, inputs=[]),
         calibration_config=calibration_config,

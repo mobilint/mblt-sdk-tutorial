@@ -34,10 +34,23 @@ def preprocess_yolo(img_path: str, img_size=(640, 640)):
 if __name__ == "__main__":
     parser = ArgumentParser(description="Run inference with compiled model")
     parser.add_argument(
-        "--model-path", type=str, required=True, help="Path to the compiled MXQ model"
+        "--model-path",
+        type=str,
+        default="../../compilation/object_detection/yolo11m.mxq",
+        help="Path to the compiled MXQ model",
     )
-    parser.add_argument("--image-path", type=str, required=True, help="Path to the input image")
-    parser.add_argument("--output-path", type=str, default=None, help="Path to the output image")
+    parser.add_argument(
+        "--image-path",
+        type=str,
+        default="../rc/cr7.jpg",
+        help="Path to the input image",
+    )
+    parser.add_argument(
+        "--output-path",
+        type=str,
+        default="./tmp/cr_demo.jpg",
+        help="Path to the output image",
+    )
     parser.add_argument("--conf-thres", type=float, default=0.25, help="Confidence threshold")
     parser.add_argument("--iou-thres", type=float, default=0.45, help="IoU threshold")
 

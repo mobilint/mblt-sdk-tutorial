@@ -9,7 +9,7 @@ We will use the [ResNet-50](https://docs.pytorch.org/vision/main/models/generate
 Before starting, ensure you have the following installed:
 
 - qbcompiler v1.0.0
-- HuggingFace account with access to ImageNet dataset (to use the gated dataset)
+- HuggingFace account with access to the ImageNet dataset (to use the gated dataset)
 
 ## Overview
 
@@ -60,7 +60,7 @@ hf auth login --token <your_huggingface_token>
 
 If you are not sure about your HuggingFace token, you can find it in your [HuggingFace account settings](https://huggingface.co/settings/tokens).
 
-Then, download the dataset from HuggingFace and save it to the `imagenet-1k-selected` directory. This script will select 1 images from each class of the dataset and save 1000 image files to the `imagenet-1k-selected` directory.
+Then, download the dataset from HuggingFace and save it to the `imagenet-1k-selected` directory. This script will select 1 image from each class of the dataset and save 1000 image files to the `imagenet-1k-selected` directory.
 
 ```bash
 python prepare_imagenet.py
@@ -112,22 +112,18 @@ preprocessing_config = PreprocessingConfig(
 )
 ```
 
-Also, we define the following preprocessing configurations and quantization configuration.
+Also, we define the following quantization configuration, which is used to quantize the model.
 
 ```python
-input_process_config = InputProcessConfig(
-    uint8_input=Uint8InputConfig(apply=True, inputs=[]),
-    image_channels=3,
-    preprocessing=preprocessing_config,
-)
-
-quantization_config = QuantizationConfig.from_kwargs(
-    quantization_method=1,  # 0 for per tensor, 1 for per channel
-    quantization_output=0,  # 0 for layer, 1 for channel
-    quantization_mode=1,  # maxpercentile
-    percentile=0.9999,  # quantization percentile
-    topk_ratio=0.01,  # quantization topk
-)
+calibration_config = CalibrationConfig(
+        method=1,  # 0 for per tensor, 1 for per channel
+        output=0,  # 0 for layer, 1 for channel
+        mode=1,  # maxpercentile
+        max_percentile={
+            "percentile": 0.9999,  # quantization percentile
+            "topk_ratio": 0.01,  # quantization topk
+        },
+    )
 ```
 
 After configuring the settings, the code can be executed as follows.

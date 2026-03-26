@@ -1,83 +1,85 @@
-# 자세 추정 모델 컴파일
+# 포즈 추정 모델 컴파일
 
-본 튜토리얼은 Mobilint `qbcompiler`를 사용하여 자세 추정(Pose Estimation) 모델을 컴파일하는 상세 가이드를 제공합니다.
+본 튜토리얼은 모빌린트 `qbcompiler`를 사용하여 포즈 추정 모델을 컴파일하는 방법에 대한 포괄적인 가이드를 제공합니다.
 
-여기에서는 Ultralytics에서 제공하는 COCO 데이터셋 사전 학습 모델인 [YOLO11m-pose](https://docs.ultralytics.com/models/yolo11/)를 사용합니다. 이 모델은 이미지 내 객체의 골격 구조와 자세를 추정하는 자세 추정 모델입니다.
+Ultralytics에서 만든 COCO 데이터셋으로 사전 학습된 [YOLO11m-pose](https://docs.ultralytics.com/models/yolo11/) 모델을 사용할 것입니다. 이 모델은 이미지 내 객체의 골격 포즈를 추정합니다.
 
-## 사전 요구사항
+## 사전 준비
 
 시작하기 전에 다음이 설치되어 있는지 확인하세요:
 
-- qbcompiler SDK 컴파일러 설치 (버전 >= 0.11 필요)
+- qbcompiler v1.0.0
+- COCO 데이터셋에 접근 가능한 HuggingFace 계정 (gated 데이터셋 사용을 위해)
 
-또한 다음 패키지를 설치해야 합니다:
+또한, 다음 패키지들을 설치해야 합니다:
 
 ```bash
-pip install ultralytics
+pip install ultralytics aiohttp aiofiles
 ```
 
 ## 개요
 
-컴파일 과정은 크게 세 단계로 진행됩니다:
+컴파일 워크플로우는 세 가지 주요 단계로 구성됩니다:
 
 1. **모델 준비**: 모델을 다운로드하고 ONNX 형식으로 내보냅니다.
-2. **캘리브레이션 데이터셋 준비**: COCO 데이터셋에서 샘플을 추출하여 캘리브레이션 데이터를 생성합니다.
-3. **모델 컴파일**: 캘리브레이션 데이터를 활용해 모델을 `.mxq` 형식으로 변환합니다.
+2. **캘리브레이션 데이터셋 준비**: COCO에서 대표적인 캘리브레이션 데이터셋을 생성합니다.
+3. **모델 컴파일**: 캘리브레이션 데이터를 사용하여 모델을 `.mxq` 형식으로 변환합니다.
 
-## Step 1: 모델 준비
+## 단계 1: 모델 준비
 
-먼저 모델을 준비해야 합니다. `ultralytics` 라이브러리를 사용하여 사전 훈련된 모델을 다운로드하고 ONNX 형식으로 내보냅니다.
+먼저 모델을 준비해야 합니다. `ultralytics` 라이브러리를 사용하여 사전 학습된 모델을 다운로드하고 ONNX 형식으로 내보냅니다.
 
 ```bash
 yolo export model=yolo11m-pose.pt format=onnx # 모델을 ONNX 형식으로 내보내기
 ```
 
-실행 후, 내보낸 ONNX 모델이 현재 디렉토리에 `yolo11m-pose.onnx`로 저장됩니다.
+실행 후, 내보낸 ONNX 모델은 현재 디렉토리에 `yolo11m-pose.onnx`로 저장됩니다.
 
-## Step 2: 캘리브레이션 데이터셋 준비
+캘리브레이션 데이터셋은 모델의 전형적인 입력 분포를 나타내는 이미지들의 집합으로 구성됩니다. YOLO11m은 [COCO 데이터셋](https://cocodataset.org/#download)을 기반으로 학습되었으므로 캘리브레이션에 COCO 샘플을 사용할 것입니다.
 
-캘리브레이션 데이터셋은 모델의 실제 입력 분포를 대표하는 이미지들로 구성됩니다. YOLO11m-pose 모델은 [COCO 데이터셋](https://cocodataset.org/#download)으로 학습되었으므로, COCO 샘플을 사용하여 캘리브레션을 진행합니다.
-
-HuggingFace 계정이 필요하며, 로그인이 되어 있지 않다면 다음 명령어로 로그인하세요:
+데이터셋을 사용하기 전에 [HuggingFace](https://huggingface.co/)에 가입하세요. 그 다음, 아래 명령어를 사용하여 HuggingFace에 로그인하고 `<your_huggingface_token>`을 실제 HuggingFace 토큰으로 변경하세요:
 
 ```bash
 hf auth login --token <your_huggingface_token>
 ```
 
-제공된 `prepare_coco.py` 스크립트를 사용하면 COCO 데이터셋의 이미지 URL을 읽어 랜덤하게 샘플을 선택하고 `coco-selected` 디렉토리에 자동으로 다운로드합니다.
+HuggingFace 토큰을 모르는 경우, [HuggingFace 계정 설정](https://huggingface.co/settings/tokens)에서 확인할 수 있습니다.
+
+과정을 자동화하기 위해 `prepare_coco.py` 스크립트를 사용합니다. 이 스크립트는 COCO 데이터셋에서 URL을 읽어 무작위로 선택하고, `coco-selected` 디렉토리로 이미지를 다운로드합니다.
 
 ```bash
 python prepare_coco.py
 ```
 
-**주요 작업:**
+**수행 작업:**
 
-- HuggingFace에서 COCO 이미지 URL 데이터셋 로드
-- 이미지를 랜덤하게 선택하여 캘리브레이션 데이터셋 구성
-- 선택된 이미지를 `coco-selected` 디렉토리에 저장
+- HuggingFace에서 COCO 이미지 URL 다운로드
+- 캘리브레이션 데이터셋을 구성하기 위해 이미지를 무작위로 선택
+- `coco-selected` 디렉토리에 이미지 저장
 
-**결과물:**
+**출력:**
 
-- `coco-selected`: 캘리브레이션용 이미지 데이터셋
+- `coco-selected`: 캘리브레이션 데이터셋
 
-## Step 3: 모델 컴파일
+선택한 이미지 데이터셋이 우리가 사용할 캘리브레이션 데이터셋입니다.
 
-컴파일을 진행하기 전, 모델에 필요한 전처리 단계를 확인해야 합니다. YOLO 모델은 주로 `LetterBox` 전처리를 사용하며, 이에 대한 상세 내용은 [Ultralytics GitHub](https://github.com/ultralytics/ultralytics)에서 확인할 수 있습니다.
+컴파일을 실행하기 전에 필요한 전처리 단계를 확인하세요.
 
-Mobilint 컴파일 API는 이러한 전처리 과정을 내부적으로 수행하며, 전처리 연산을 MXQ 모델에 통합(fuse)하여 NPU 연산 효율을 극대화합니다.
+[Ultralytics GitHub](https://github.com/ultralytics/ultralytics)에 자세히 설명되어 있듯이 YOLO 모델은 일반적으로 `LetterBox` 연산을 사용합니다.
 
-`model_compile.py`에서는 다음과 같이 전처리 파이프라인을 정의합니다. 이 설정은 캘리브레이션 과정에서 사용되며, 전처리 모듈이 모델에 통합됩니다.
+모빌린트 컴파일 API는 이러한 전처리 단계를 내부적으로 수행하며, NPU 효율성을 극대화하기 위해 작동을 MXQ 모델에 직접 융합합니다.
+
+`model_compile.py`에서 아래와 같이 전처리 파이프라인을 정의합니다. 이 파이프라인은 캘리브레이션에 사용되며, 정규화 모듈을 딥러닝 모델에 융합할 것입니다.
 
 ```python
 preprocess_pipeline = [
     {
-        "op": "letterbox",
-        "height": 640,
-        "width": 640,
-        "padValue": 114
+    "op": "letterbox",
+    "height": 640,
+    "width": 640,
+    "padValue": 114
     }
 ]
-
 preprocessing_config = PreprocessingConfig(
     apply=True,
     auto_convert_format=True,
@@ -86,58 +88,46 @@ preprocessing_config = PreprocessingConfig(
 )
 ```
 
-또한, 다음과 같이 입력 프로세스 및 양자화 설정을 정의합니다.
+또한, 다음 전처리 구성 및 양자화 구성을 정의합니다.
 
 ```python
-input_process_config = InputProcessConfig(
-    uint8_input=Uint8InputConfig(apply=True, inputs=[]), # uint8 입력 사용
-    image_channels=3,
-    preprocessing=preprocessing_config,
-)
-
-quantization_config = QuantizationConfig.from_kwargs(
-    quantization_method=1,  # 0: per tensor, 1: per channel
-    quantization_output=1,  # 0: layer, 1: channel
-    quantization_mode=1,    # maxpercentile
-    percentile=0.99,
-    topk_ratio=0.05,
-)
+calibration_config = CalibrationConfig(
+        method=1,  # 0: 텐서, 1: 채널
+        output=1,  # 0: 레이어, 1: 채널
+        mode=1,  # maxpercentile
+        max_percentile={
+            "percentile": 0.9999,  # quantization percentile
+            "topk_ratio": 0.01,  # quantization topk
+        },
+    )
 ```
 
-설정이 완료되면 다음과 같은 명령어로 컴파일을 실행할 수 있습니다.
+설정을 구성한 후, 코드를 다음과 같이 실행할 수 있습니다.
 
 ```bash
-python model_compile.py --onnx-path {path_to_onnx_model} --calib-data-path {path_to_calibration_dataset} --save-path {path_to_save_model} --quant-percentile {quantization_percentile} --topk-ratio {topk_ratio} --inference-scheme {inference_scheme}
+python model_compile.py --onnx-path {path_to_onnx_model} --calib-data-path {path_to_calibration_dataset} --save-path {path_to_save_model}
 ```
 
-**주요 작업:**
+**수행 작업:**
 
 - ONNX 모델 로드
 - 캘리브레이션 데이터 로드
-- 모델을 `.mxq` 형식으로 컴파일
+- `.mxq` 형식으로 모델 컴파일
 
 **파라미터:**
 
-- `--onnx-path`: ONNX 모델 경로
-- `--calib-data-path`: 캘리브레이션 데이터 경로
-- `--save-path`: MXQ 모델 저장 경로
-- `--quant-percentile`: 양자화 백분위수
-- `--topk-ratio`: Top-K 비율
-- `--inference-scheme`: 추론 방식 (Core 할당 전략)
+- `--onnx-path`: ONNX 모델의 경로
+- `--calib-data-path`: 캘리브레이션 데이터의 경로
+- `--save-path`: MXQ 모델을 저장할 경로
 
-**추론 방식(Inference Scheme):**
-모델의 코어 활용 전략을 지정하는 옵션입니다:
+**출력:**
 
-- `single`: 단일 코어 사용
-- `multi`: 다중 코어 분산 처리
-- `global4` / `global8`: 4개 또는 8개 코어를 연합하여 처리
+- 컴파일된 모델을 포함하는 `{path_to_save_model}` 파일 경로
 
-자세한 내용은 [다중 코어 모드](https://docs.mobilint.com/v0.29/en/multicore.html) 문서를 참고하세요.
-
-**실행 예시:**
+예시 명령어는 다음과 같습니다:
 
 ```bash
-python model_compile.py --onnx-path ./yolo11m-pose.onnx --calib-data-path ./coco-selected --save-path ./yolo11m-pose.mxq --quant-percentile 0.99 --topk-ratio 0.05 --inference-scheme single
+python model_compile.py --onnx-path ./yolo11m-pose.onnx --calib-data-path ./coco-selected --save-path ./yolo11m-pose.mxq
 ```
 
-위 명령어를 실행하면 현재 디렉토리에 `yolo11m-pose.mxq` 파일이 생성됩니다.
+위의 명령어를 실행한 후, 컴파일된 모델은 현재 디렉토리에 `yolo11m-pose.mxq`로 저장됩니다.

@@ -9,7 +9,7 @@ We will use the [YOLO11m-pose](https://docs.ultralytics.com/models/yolo11/) mode
 Before starting, ensure you have the following installed:
 
 - qbcompiler v1.0.0
-- HuggingFace account with access to COCO dataset (to use the gated dataset)
+- HuggingFace account with access to the COCO dataset (to use the gated dataset)
 
 Also, you need to install the following packages:
 
@@ -89,19 +89,15 @@ preprocessing_config = PreprocessingConfig(
 Also, we define the following preprocessing configurations and quantization configuration.
 
 ```python
-input_process_config = InputProcessConfig(
-    uint8_input=Uint8InputConfig(apply=True, inputs=[]), # uint8 input
-    image_channels=3,
-    preprocessing=preprocessing_config,
-)
-
-quantization_config = QuantizationConfig.from_kwargs(
-    quantization_method=1,  # 0 for per tensor, 1 for per channel
-    quantization_output=1,  # 0 for layer, 1 for channel
-    quantization_mode=1,  # maxpercentile
-    percentile=0.99,
-    topk_ratio=0.05,
-)
+calibration_config = CalibrationConfig(
+        method=1,  # 0 for per tensor, 1 for per channel
+        output=1,  # 0 for layer, 1 for channel
+        mode=1,  # maxpercentile
+        max_percentile={
+            "percentile": 0.9999,  # quantization percentile
+            "topk_ratio": 0.01,  # quantization topk
+        },
+    )
 ```
 
 After configuring the settings, the code can be executed as follows.
