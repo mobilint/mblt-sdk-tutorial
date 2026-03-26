@@ -1,7 +1,7 @@
 from argparse import ArgumentParser
 
 import torch
-from bertmxq import BertMXQModel
+from wrapper.bertmxq import BertMXQModel
 from datasets import load_dataset
 from scipy.stats import pearsonr, spearmanr
 from tqdm import tqdm
@@ -16,12 +16,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--mxq_path",
         type=str,
-        default="../../../compilation/transformers/bert/stsb-bert-tiny-safetensors.mxq",
+        default="../../compilation/bert/mxq/stsb-bert-tiny-safetensors.mxq",
     )
     parser.add_argument(
         "--weight_path",
         type=str,
-        default="../../../compilation/transformers/bert/weight_dict.pth",
+        default="../../compilation/bert/weights/weight_dict.pth",
     )
     args = parser.parse_args()
 
@@ -44,6 +44,9 @@ if __name__ == "__main__":
 
     original_score = torch.Tensor(original_score)
     inference_score = torch.Tensor(inference_score)
-    ## Compute Pearson and Spearman correlation
-    print("Pearson:", pearsonr(original_score, inference_score))
-    print("Spearman:", spearmanr(original_score, inference_score))
+    pearson = pearsonr(original_score, inference_score)
+    spearman = spearmanr(original_score, inference_score)
+    print(f"\n=== MXQ Model Benchmark Results (STS Benchmark, {len(sts_dataset)} pairs) ===")
+    print(f"Pearson correlation:  {pearson.statistic:.4f} (p={pearson.pvalue:.2e})")
+    print(f"Spearman correlation: {spearman.statistic:.4f} (p={spearman.pvalue:.2e})")
+    print("\nHigher correlation = closer to original model quality (1.0 = perfect match)")

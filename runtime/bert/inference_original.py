@@ -23,6 +23,7 @@ model.eval()
 if __name__ == "__main__":
     # dummy corpus STS
 
+    print("Cosine Similarity (range: -1 to 1, higher = more similar)\n")
     for dummy_pair in dummy_corpus:
         with torch.no_grad():
             s1 = model(tokenizer(dummy_pair[0], return_tensors="pt")["input_ids"])
@@ -30,4 +31,4 @@ if __name__ == "__main__":
             similarity = torch.nn.functional.cosine_similarity(
                 s1["pooler_output"], s2["pooler_output"], dim=1
             )
-        print(similarity)
+        print(f"  {similarity.item():.4f}  |  \"{dummy_pair[0]}\" vs \"{dummy_pair[1]}\"")

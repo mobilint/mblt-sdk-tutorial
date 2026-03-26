@@ -35,6 +35,9 @@ if __name__ == "__main__":
 
     original_score = torch.Tensor(original_score)
     inference_score = torch.Tensor(inference_score)
-    ## Compute Pearson and Spearman correlation
-    print("Pearson:", pearsonr(original_score, inference_score))
-    print("Spearman:", spearmanr(original_score, inference_score))
+    pearson = pearsonr(original_score, inference_score)
+    spearman = spearmanr(original_score, inference_score)
+    print(f"\n=== Original Model Benchmark Results (STS Benchmark, {len(sts_dataset)} pairs) ===")
+    print(f"Pearson correlation:  {pearson.statistic:.4f} (p={pearson.pvalue:.2e})")
+    print(f"Spearman correlation: {spearman.statistic:.4f} (p={spearman.pvalue:.2e})")
+    print("\nHigher correlation = better alignment with human similarity judgments")
