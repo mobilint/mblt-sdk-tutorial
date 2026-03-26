@@ -229,7 +229,7 @@ python mxq_compile_language.py
 - 캘리브레이션 데이터 로드: `./calibration_data/language/npy_files.txt`
 - 등가 변환을 사용한 고급 양자화 적용
 - 입력 임베딩에 대해 16비트 활성화 구성: `inputs_embeds/reshape`
-- NPU 추론 스키마: `single`
+- NPU 추론 스키마: `all`
 - **회전 행렬 생성** 위치: `./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
   - 이 회전 행렬은 **비전 인코더 MXQ 컴파일에 필요합니다**
 
@@ -237,7 +237,7 @@ python mxq_compile_language.py
 
 - 캘리브레이션 모드: 1 (표준 캘리브레이션, `CompileConfig` 기본값)
 - 활성화 16비트 레이어: `["inputs_embeds/reshape"]`
-- 추론 스키마: `single`
+- 추론 스키마: `all`
 - 등가 변환: QK, UD (학습 포함), SPIN R1, SPIN R2
 
 **출력 파일:**
@@ -271,7 +271,7 @@ python mxq_compile_vision.py
 
 - 캘리브레이션 출력 모드: 1 (표준 출력 캘리브레이션, `CompileConfig` 기본값)
 - 활성화 16비트 레이어: `["model_merger_fc2"]`
-- 추론 스키마: `multi` (다중 코어 실행)
+- 추론 스키마: `all`
 - 등가 변환: 헤드 출력 채널 회전 (언어 모델 회전 행렬 사용)
 - 회전 행렬 경로: `./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
 

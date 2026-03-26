@@ -83,7 +83,7 @@ python compile_encoder.py
 ```
 
 - HuggingFace에서 Whisper Small 모델 로드
-- 인코더를 MBLT 형식으로 컴파일 후 `single` 추론 방식으로 `.mxq` 변환
+- 인코더를 MBLT 형식으로 컴파일 후 `all` 추론 방식으로 `.mxq` 변환
 
 **출력:**
 

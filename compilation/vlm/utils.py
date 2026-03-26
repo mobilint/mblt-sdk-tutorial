@@ -32,9 +32,10 @@ def load_model_and_processor(model_name: str):
         Tuple of (model, processor)
     """
     print(f"Loading model and processor from {model_name}...")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = Qwen2VLForConditionalGenerationWrapper.from_pretrained(
-        model_name, dtype="auto", device_map="auto"
-    )
+        model_name,
+    ).to(device)
     processor = AutoProcessor.from_pretrained(model_name)
 
     model.projection = Projection(model.language_model, model.lm_head)

@@ -83,7 +83,7 @@ python compile_encoder.py
 ```
 
 - Loads Whisper Small model from HuggingFace
-- Compiles encoder to MBLT format, then to `.mxq` using `single` inference scheme
+- Compiles encoder to MBLT format, then to `.mxq` using `all` inference scheme
 
 **Output:**
 

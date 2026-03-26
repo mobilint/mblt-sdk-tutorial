@@ -44,12 +44,14 @@ def download_fleurs_data(output_dir=".", languages=FLEURS_LANGUAGES, num_samples
 
         try:
             dataset = load_dataset(
-                "google/fleurs", lang, split="validation", trust_remote_code=True
+                "google/fleurs", lang, split="validation",
+                trust_remote_code=True, streaming=True,
             )
-            n_samples = min(num_samples_per_lang, len(dataset))
 
-            for i in tqdm(range(n_samples), desc=f"  {lang}", unit="file", leave=False):
-                sample = dataset[i]
+            i = 0
+            for sample in dataset:
+                if i >= num_samples_per_lang:
+                    break
 
                 audio_filename = f"{lang}_{i:04d}.wav"
                 audio_path = os.path.join(audio_dir, audio_filename)
@@ -62,6 +64,7 @@ def download_fleurs_data(output_dir=".", languages=FLEURS_LANGUAGES, num_samples
 
                 sf.write(audio_path, audio, 16000)
                 total_downloaded += 1
+                i += 1
 
         except Exception as e:
             tqdm.write(f"Error downloading {lang}: {e}")
@@ -77,3 +80,8 @@ if __name__ == "__main__":
     audio_dir = download_fleurs_data()
     print("\nData download complete!")
     print(f"Audio files: {audio_dir}")
+
+    # Skip Python finalization to avoid PyGILState_Release crash
+    # caused by lingering PyArrow/aiohttp threads from streaming datasets.
+    # See: https://github.com/huggingface/datasets/issues/7357
+    os._exit(0)

@@ -237,7 +237,7 @@ python mxq_compile_language.py
 
 - Calibration mode: 1 (standard calibration, `CompileConfig` default)
 - Activation 16-bit layers: `["inputs_embeds/reshape"]`
-- Inference scheme: `single`
+- Inference scheme: `all`
 - Equivalent transformations: QK, UD (with learning), SPIN R1, SPIN R2
 
 **Output files:**
@@ -271,7 +271,7 @@ python mxq_compile_vision.py
 
 - Calibration output mode: 1 (standard output calibration, `CompileConfig` default)
 - Activation 16-bit layers: `["model_merger_fc2"]`
-- Inference scheme: `multi` (multi-core execution)
+- Inference scheme: `all`
 - Equivalent transformations: Head output channel rotation (using language model rotation matrix)
 - Rotation matrix path: `./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
 
