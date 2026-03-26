@@ -48,7 +48,7 @@ def compile_decoder(calib_path, mblt_path=MBLT_PATH, mxq_path=MXQ_PATH):
         calib_data_path=calib_path,
         save_path=mxq_path,
         device=device,
-        inference_scheme="single",
+        inference_scheme="all",
         llm_config=llm_config,
     )
     print(f"Decoder compiled: {mxq_path}")

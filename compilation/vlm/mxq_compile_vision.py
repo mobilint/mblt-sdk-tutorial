@@ -34,6 +34,6 @@ mxq_compile(
     save_path=save_path,
     calib_data_path=calib_data_path,
     device=device,
-    inference_scheme="multi",
+    inference_scheme="all",
     compile_config=compile_config,
 )
