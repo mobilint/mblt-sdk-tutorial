@@ -40,6 +40,7 @@ coco-*/
 imagenet-1k*/
 tmp/
 val2017/
+.omc
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
