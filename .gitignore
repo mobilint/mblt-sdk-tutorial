@@ -41,6 +41,8 @@ imagenet-1k*/
 tmp/
 val2017/
 .omc
+.bak
+test_bash_script
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
