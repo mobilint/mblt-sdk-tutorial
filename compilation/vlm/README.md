@@ -30,7 +30,7 @@ Before starting, ensure you have:
 Install the required Python packages for compilation:
 
 ```bash
-pip install transformers torch torchvision qwen-vl-utils datasets
+pip install transformers==4.57.1 qwen-vl-utils==0.0.14 accelerate==1.13.0
 ```
 
 ### Download Calibration Images
@@ -38,7 +38,6 @@ pip install transformers torch torchvision qwen-vl-utils datasets
 The calibration process uses images from the COCO dataset. A download script is provided to automatically fetch 100 images:
 
 ```bash
-cd calibration
 python download_images.py
 ```
 
@@ -64,7 +63,6 @@ Calibration data is essential for quantization, as it helps the compiler underst
 Generate calibration data for the language model (decoder):
 
 ```bash
-cd calibration
 python generate_language_calibration_data.py \
     --model-name Qwen/Qwen2-VL-2B-Instruct \
     --output-dir ./calibration_data/language \
@@ -148,7 +146,6 @@ MBLT (Mobilint Binary LayouT) is an intermediate format that represents the mode
 Compile the language model (decoder) to MBLT format:
 
 ```bash
-cd ../compile
 python mblt_compile_language.py
 ```
 
@@ -229,26 +226,24 @@ python mxq_compile_language.py
 **What it does:**
 
 - Loads the MBLT file: `./mblt/Qwen2-VL-2B-Instruct_text_model.mblt`
-- Loads calibration data from: `../calibration/calibration_data/language/npy_files.txt`
+- Loads calibration data from: `./calibration_data/language/npy_files.txt`
 - Applies advanced quantization with equivalent transformations
 - Configures 16-bit activations for input embeddings: `inputs_embeds/reshape`
-- Uses single-core compilation for language model
-- Enables LLM-specific optimizations
-- **Generates rotation matrix** at: `/tmp/qbcompiler/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
+- NPU inference scheme: `single`
+- **Generates rotation matrix** at: `./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
   - This rotation matrix is **required for vision encoder MXQ compilation**
 
 **Key configurations:**
 
-- Calibration mode: 1 (standard calibration)
+- Calibration mode: 1 (standard calibration, `CompileConfig` default)
 - Activation 16-bit layers: `["inputs_embeds/reshape"]`
-- Inference scheme: `single` (single-core execution)
-- Single-core compile: `True` (optimized for language models)
+- Inference scheme: `all`
 - Equivalent transformations: QK, UD (with learning), SPIN R1, SPIN R2
 
 **Output files:**
 
 - `./mxq/Qwen2-VL-2B-Instruct_text_model.mxq`: Quantized model ready for Aries 2 deployment
-- `/tmp/qbcompiler/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`: Global rotation matrix (needed for vision encoder)
+- `./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`: Global rotation matrix (needed for vision encoder)
 
 ### Step 3.2: Compile Vision Encoder to MXQ
 
@@ -263,8 +258,8 @@ python mxq_compile_vision.py
 **What it does:**
 
 - Loads the MBLT file: `./mblt/Qwen2-VL-2B-Instruct_vision_transformer.mblt`
-- Loads calibration data from: `../calibration/calibration_data/vision/npy_files.txt`
-- **Loads rotation matrix** from: `/tmp/qbcompiler/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
+- Loads calibration data from: `./calibration_data/vision/npy_files.txt`
+- **Loads rotation matrix** from: `./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
   - This matrix was generated during language model MXQ compilation
   - It ensures consistent quantization between vision and language components
 - Applies advanced quantization with equivalent transformations:
@@ -274,11 +269,11 @@ python mxq_compile_vision.py
 
 **Key configurations:**
 
-- Calibration output mode: 1 (standard output calibration)
+- Calibration output mode: 1 (standard output calibration, `CompileConfig` default)
 - Activation 16-bit layers: `["model_merger_fc2"]`
-- Inference scheme: `multi` (multi-core execution)
+- Inference scheme: `all`
 - Equivalent transformations: Head output channel rotation (using language model rotation matrix)
-- Rotation matrix path: `/tmp/qbcompiler/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
+- Rotation matrix path: `./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
 
 **Why the rotation matrix is needed:**
 The vision encoder's output must be properly aligned with the language model's input space. The rotation matrix generated during language model quantization ensures that the vision features and text embeddings live in the same quantized space, maintaining accuracy when vision and language components are combined during inference.
@@ -304,7 +299,6 @@ python get_config.py
 **What it does:**
 
 - Downloads `config.json` from the HuggingFace model repository
-- Creates a `./mxq/` directory for inference files
 - Modifies the config to point to the compiled MXQ model files:
   - Sets `mxq_path` to `"Qwen2-VL-2B-Instruct_text_model.mxq"`
   - Sets `vision_config.mxq_path` to `"Qwen2-VL-2B-Instruct_vision_transformer.mxq"`
@@ -316,9 +310,9 @@ python get_config.py
   - Enables `tie_word_embeddings`
 - Saves the modified config to `./mxq/config.json`
 
-#### Get Model Embeddings
+#### Get Rotated Token Embedding Weight
 
-Next, download and prepare the embedding weights with proper rotation:
+Next, download and prepare the token embedding weight (`model.embed_tokens.weight`) with rotation:
 
 ```bash
 python get_safetensors.py
@@ -326,27 +320,29 @@ python get_safetensors.py
 
 **What it does:**
 
-- Downloads `model-00001-of-00002.safetensors` from HuggingFace (contains embedding weights)
-- Extracts the `model.embed_tokens.weight` tensor
+- Downloads `model-00001-of-00002.safetensors` from HuggingFace
+- Extracts the token embedding weight (`model.embed_tokens.weight`) — the lookup table that maps token IDs to hidden state vectors
 - Applies the rotation matrix from the language model MXQ compilation:
-  - Loads rotation matrix from: `/tmp/qbcompiler/spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
-  - Multiplies the embedding tensor with the rotation matrix to align with quantized space
-- Saves the rotated embedding tensor to `./mxq/model.safetensors`
+  - Loads rotation matrix from: `./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
+  - Multiplies the token embedding weight with the rotation matrix to align with quantized space
+- Saves the result to `./mxq/model.safetensors`
 
-**Why embedding rotation is needed:**
-The embedding layer needs to be rotated with the same rotation matrix used during language model quantization. This ensures that the input embeddings are in the same quantized space as the rest of the language model, maintaining accuracy and consistency throughout the inference pipeline.
+**Why token embedding rotation is needed:**
+During MXQ compilation, the `SpinR1` equivalent transformation rotates the language model's internal weights into a transformed space. However, the token embedding layer is not included in MXQ compilation — it runs as a CPU lookup at inference time. Therefore, the token embedding weight must be pre-rotated with the same rotation matrix so that its output vectors match the quantized model's input space.
+
+**Note:** The output filename `model.safetensors` is required by HuggingFace's `PreTrainedModel.from_pretrained()` convention. Despite the generic name, this file contains **only the rotated token embedding weight**, not the full model weights.
 
 **Output files:**
 
 - `./mxq/config.json`: Modified model configuration pointing to MXQ files
-- `./mxq/model.safetensors`: Rotated embedding weights aligned with quantized model
+- `./mxq/model.safetensors`: Rotated token embedding weight (`model.embed_tokens.weight`)
 
 **Important:** After running these scripts, you will have all 4 files needed for inference in the `./mxq/` directory:
 
 1. `Qwen2-VL-2B-Instruct_text_model.mxq` (compiled language model)
 2. `Qwen2-VL-2B-Instruct_vision_transformer.mxq` (compiled vision encoder)
 3. `config.json` (model configuration)
-4. `model.safetensors` (rotated embeddings)
+4. `model.safetensors` (rotated token embedding weight)
 
 No additional file copying is required!
 
@@ -356,7 +352,6 @@ Here's the complete sequence of commands to compile the full VLM:
 
 ```bash
 # Stage 1: Calibration Data Generation
-cd /workspace/mblt-sdk-tutorial/compilation/transformers/vlm/calibration
 
 # Download calibration images from COCO dataset
 python download_images.py
@@ -375,7 +370,6 @@ python generate_vision_calibration_data.py \
     --num-samples 100
 
 # Stage 2: MBLT Compilation
-cd ../compile
 
 # Compile language model to MBLT
 python mblt_compile_language.py
@@ -390,7 +384,7 @@ python mxq_compile_language.py
 # Then compile vision encoder (uses rotation matrix from language model)
 python mxq_compile_vision.py
 
-# Prepare inference configuration files (config.json and model.safetensors)
+# Prepare inference files (config.json and rotated token embedding)
 python get_config.py
 python get_safetensors.py
 
@@ -441,7 +435,7 @@ Original Model (HF) + Calibration Images
                    (Modified with MXQ paths)
 
 [get_safetensors.py] -> model.safetensors
-                        (Embedding weights with rotation applied)
+                        (Rotated token embedding weight)
 ```
 
 ### Key Dependencies
@@ -450,7 +444,7 @@ Original Model (HF) + Calibration Images
 2. Always run `mxq_compile_language.py` **before** `mxq_compile_vision.py`
 3. Both MBLT files can be compiled independently, but MXQ files must follow the order above
 4. `get_safetensors.py` requires the rotation matrix from language model MXQ compilation
-5. All 4 output files (2 MXQ models, config.json, model.safetensors) must be in the same directory for deployment
+5. All 4 output files (2 MXQ models, config.json, model.safetensors) must be in the same directory
 
 ## Output Summary
 
@@ -461,21 +455,21 @@ After completing all stages, you will have:
 - `calibration_data/language/`: Language model calibration samples with metadata
 - `calibration_data/vision/`: Vision encoder calibration samples with metadata
 
-### MBLT Models (Hardware-Agnostic) - in `compile/mblt/`
+### MBLT Models (Hardware-Agnostic) - in `mblt/`
 
 - `Qwen2-VL-2B-Instruct_text_model.mblt`: Language model in MBLT format
 - `Qwen2-VL-2B-Instruct_vision_transformer.mblt`: Vision encoder in MBLT format
 
-### MXQ Models and Deployment Files - in `compile/mxq/`
+### MXQ Models and Deployment Files - in `mxq/`
 
 All files needed for deployment are in this single directory:
 
 - `Qwen2-VL-2B-Instruct_text_model.mxq`: Quantized language model
 - `Qwen2-VL-2B-Instruct_vision_transformer.mxq`: Quantized vision encoder
 - `config.json`: Model configuration with MXQ paths
-- `model.safetensors`: Rotated embedding weights
+- `model.safetensors`: Rotated token embedding weight (`model.embed_tokens.weight`)
 
-### Validation Files - in `compile/`
+### Validation Files - in `mblt/`
 
 - `*.infer`: Inference values for validation
 - `*.json`: Comparison results with original models
@@ -493,7 +487,7 @@ All files needed for deployment are in this single directory:
 If vision encoder MXQ compilation fails with a missing rotation matrix error:
 
 ```bash
-FileNotFoundError: /tmp/qbcompiler/spinWeight/qwen2vl_language/R1/global_rotation.pth
+FileNotFoundError: ./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth
 ```
 
 **Solution:** Run `mxq_compile_language.py` first to generate the rotation matrix.
@@ -502,7 +496,7 @@ FileNotFoundError: /tmp/qbcompiler/spinWeight/qwen2vl_language/R1/global_rotatio
 
 Ensure the calibration data paths in the MXQ compile scripts match your actual calibration data location:
 
-- Language: `../calibration/calibration_data/language/npy_files.txt`
+- Language: `./calibration_data/language/npy_files.txt`
 - Vision: Update the path in `mxq_compile_vision.py` if your data is elsewhere
 
 ### Model Download Issues
@@ -520,7 +514,6 @@ FileNotFoundError: No images found in images/ directory
 **Solution:** Run the image download script:
 
 ```bash
-cd calibration
 python download_images.py
 ```
 
@@ -533,13 +526,13 @@ After completing all compilation stages, the `./mxq/` directory contains all 4 f
 1. **Qwen2-VL-2B-Instruct_text_model.mxq** - Compiled language model
 2. **Qwen2-VL-2B-Instruct_vision_transformer.mxq** - Compiled vision encoder
 3. **config.json** - Model configuration with MXQ paths
-4. **model.safetensors** - Rotated embedding weights
+4. **model.safetensors** - Rotated token embedding weight (`model.embed_tokens.weight`)
 
 These files are ready for deployment on Aries 2 hardware using the Mobilint runtime.
 
 ## Next Steps: Running Inference
 
-To run inference with your compiled models, see the [Runtime Inference Tutorial](../../../runtime/transformers/vlm/README.md).
+To run inference with your compiled models, see the [Runtime Inference Tutorial](../../runtime/vlm/README.md).
 
 The runtime tutorial demonstrates how to:
 

@@ -12,7 +12,7 @@ from transformers import AutoTokenizer
 def generate_calibration(
     tokenizer_path: str,
     weight_path: str,
-    output_dir: str = "./calib",
+    output_dir: str = "./calibration_data",
     max_calib: int = 256,
 ):
     print(f"Loading tokenizer from: {tokenizer_path}")
@@ -72,8 +72,8 @@ def main():
         type=str,
         default="sentence-transformers-testing/stsb-bert-tiny-safetensors",
     )
-    parser.add_argument("--weight-path", type=str, default="./weight_dict.pth")
-    parser.add_argument("--output-dir", type=str, default="./calib")
+    parser.add_argument("--weight-path", type=str, default="./weights/weight_dict.pth")
+    parser.add_argument("--output-dir", type=str, default="./calibration_data")
     parser.add_argument("--max-calib", type=int, default=256)
 
     args = parser.parse_args()

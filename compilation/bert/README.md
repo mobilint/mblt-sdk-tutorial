@@ -4,157 +4,149 @@ This tutorial provides detailed instructions for compiling a BERT model using th
 
 In this tutorial, we will use the [Sentence-BERT](https://huggingface.co/sentence-transformers-testing/stsb-bert-tiny-safetensors) model, which is based on the BERT architecture and modified to generate sentence embeddings.
 
-## Prerequisites
+## Overview
 
-Before starting, ensure you have the following installed:
+The compilation process consists of four main steps:
+
+1. **Embedding Weight Extraction**: Extract unsupported embedding layers as CPU-side weights
+2. **Calibration Data Generation**: Create calibration datasets for quantization
+3. **MBLT Compilation**: Compile the model to MBLT (Mobilint Binary LayouT) format
+4. **MXQ Compilation**: Apply quantization and compile to `.mxq` format for deployment
+
+All scripts are run from the `bert/` directory.
+
+## Prerequisites
 
 - Mobilint qb Compiler (version >= 1.0.0 required)
 - GPU with CUDA support (recommended for reducing compilation time)
 
-Additionally, you need to install the following packages:
+```bash
+pip install -r requirements.txt
+```
+
+## Step 1: Extract Embedding Weights
+
+Due to its complex architecture, some input embedding layers of BERT are not supported by the NPU. Therefore, we extract the embedding weights from the model and save them as a `.pth` file for CPU-side execution.
 
 ```bash
-pip install accelerate datasets
+python get_embedding.py
 ```
 
-## Model Analysis
+**What this does:**
 
-Due to its complex architecture, some layers of BERT may not be supported by the compiler. Therefore, model analysis should be performed before the compilation process.
+- Loads the Sentence-BERT model from HuggingFace
+- Extracts word, token type, position embeddings and LayerNorm weights
+- Saves them as a weight dictionary
 
-To analyze the model structure, we convert the model to the MBLT format.
+**Output:**
 
-```python
-from qbcompiler import mblt_compile
-from qbcompiler.model_dict.parser.backend.torch.object_wrapper import set_attention_mask
-from qbcompiler.model_dict.parser.backend.torch.util import wrap_tensor
-from transformers import BertModel, BertTokenizer
+- `./weights/weight_dict.pth` - Extracted embedding weights
 
-if __name__ == "__main__":
-    tokenizer = BertTokenizer.from_pretrained(
-        "sentence-transformers-testing/stsb-bert-tiny-safetensors",
-        trust_remote_code=True,
-    )
-    model = BertModel.from_pretrained("sentence-transformers-testing/stsb-bert-tiny-safetensors", trust_remote_code=True)
-    model.eval()
+> **Tip:** You can visualize the model architecture using [Netron](https://netron.mobilint.com) after MBLT compilation (Step 3) to see which layers are supported and which are offloaded to CPU.
 
-    inputs = tokenizer("Hello, my dog is cute", return_tensors="pt")
+## Step 2: Generate Calibration Data
 
-    feed_dict = {}
-    for k, v in inputs.items():
-        wrapped = wrap_tensor(k, v)
-        wrapped.src_shape[1].set_dynamic()
-        feed_dict[k] = wrapped
-    set_attention_mask(feed_dict["attention_mask"], "padding_mask")
+Generate calibration data using the [STS Benchmark Dataset](https://huggingface.co/datasets/mteb/stsbenchmark-sts). This data is essential for quantization during MXQ compilation.
 
-    mblt_compile(
-        model=model,
-        mblt_save_path="stsb-bert-tiny-safetensors.mblt",
-        backend="torch",
-        feed_dict=feed_dict,
-        cpu_offload=True,
-    )
+```bash
+python prepare_calib.py
 ```
 
-After running `compile_mblt.py`, you will obtain a `stsb-bert-tiny-safetensors.mblt` file. You can visualize the model architecture using [Netron](https://netron.mobilint.com).
+**What this does:**
 
-Based on the Netron visualization, some input embedding layers are not supported. Therefore, we need to prepare a calibration dataset to match the input of the supported layers and execute unsupported operations outside of the Mobilint NPU.
+- Loads sentences from the STS Benchmark validation set
+- Tokenizes and embeds them using the extracted embedding weights (Step 1)
+- Saves embedded text as NumPy files for calibration
 
-## Calibration Dataset Preparation
+**Output:**
 
-### Extracting Embedding Weights
+- `./calibration_data/` - Directory containing calibration `.npy` files
 
-As shown in Netron, the input embedding section is not supported. Therefore, we need to prepare a calibration dataset to match the input of the supported layers. To achieve this, we extract the embedding weights from the model and save them as a `.pth` file.
+## Step 3: Compile to MBLT
 
-This can be done by running `get_embedding.py`.
+Compile the BERT model to MBLT (Mobilint Binary LayouT) intermediate format.
 
-```python
-import torch
-
-from transformers import BertModel
-
-model = BertModel.from_pretrained(
-    "sentence-transformers-testing/stsb-bert-tiny-safetensors", trust_remote_code=True
-)
-
-word_embeddings = model.embeddings.word_embeddings.weight
-token_type_embeddings = model.embeddings.token_type_embeddings.weight
-position_embeddings = model.embeddings.position_embeddings.weight
-layernorm_weight = model.embeddings.LayerNorm.weight
-layernorm_bias = model.embeddings.LayerNorm.bias
-
-print(word_embeddings.shape)
-print(token_type_embeddings.shape)
-print(position_embeddings.shape)
-print(layernorm_weight.shape)
-print(layernorm_bias.shape)
-weight_dict = {
-    "word_embeddings": word_embeddings,
-    "token_type_embeddings": token_type_embeddings,
-    "position_embeddings": position_embeddings,
-    "layernorm_weight": layernorm_weight,
-    "layernorm_bias": layernorm_bias,
-}
-
-torch.save(weight_dict, "weight_dict.pth")
+```bash
+python compile_mblt.py
 ```
 
-After running the script, you will get a `weight_dict.pth` file.
+**What this does:**
 
-### Preparing the Calibration Dataset
+- Loads the Sentence-BERT model from HuggingFace
+- Sets sequence length dimension as dynamic
+- Configures attention mask as padding mask
+- Compiles to MBLT format with CPU offload for unsupported layers
 
-We will generate the calibration dataset using the [STS Benchmark Dataset](https://huggingface.co/datasets/mteb/stsbenchmark-sts), which is managed by the Massive Text Embedding Benchmark (MTEB).
+**Output:**
 
-First, we tokenize the sentences from the dataset and embed them using the previously extracted embedding weights. Then, we save the embedded text as NumPy files.
+- `./mblt/stsb-bert-tiny-safetensors.mblt` - Intermediate MBLT format
 
-This can be done by running `prepare_calib.py`. This will create a `calib` directory.
+## Step 4: Compile to MXQ
 
-## Model Compilation
+Compile the model to final `.mxq` format with quantization using the calibration data.
 
-With the calibration dataset ready, we can compile the model using the Mobilint qb Compiler.
-
-```python
-from qbcompiler import mxq_compile, QuantizationConfig
-from qbcompiler.model_dict.parser.backend.torch.object_wrapper import set_attention_mask
-from qbcompiler.model_dict.parser.backend.torch.util import wrap_tensor
-
-from transformers import BertModel, BertTokenizer
-
-if __name__ == "__main__":
-    tokenizer = BertTokenizer.from_pretrained(
-        "sentence-transformers-testing/stsb-bert-tiny-safetensors",
-        trust_remote_code=True,
-    )
-    model = BertModel.from_pretrained(
-        "sentence-transformers-testing/stsb-bert-tiny-safetensors", trust_remote_code=True
-    )
-    model.eval()
-
-    inputs = tokenizer("Hello, my dog is cute", return_tensors="pt")
-
-    feed_dict = {}
-    for k, v in inputs.items():
-        wrapped = wrap_tensor(k, v)
-        wrapped.src_shape[1].set_dynamic()
-        feed_dict[k] = wrapped
-    set_attention_mask(feed_dict["attention_mask"], "padding_mask")
-
-    quantization_config = QuantizationConfig.from_kwargs(
-        quantization_method=1,  # 0 for per tensor, 1 for per channel
-        quantization_output=0,  # 0 for layer, 1 for channel
-        quantization_mode=1,  # maxpercentile
-        percentile=0.999,  # quantization percentile
-        topk_ratio=0.01,  # quantization topk
-    )
-
-    mxq_compile(
-        model=model,
-        save_path="stsb-bert-tiny-safetensors.mxq",
-        calib_data_path="./calib",
-        backend="torch",
-        feed_dict=feed_dict,
-        quantization_config=quantization_config,
-    )
-
+```bash
+python compile_mxq.py
 ```
 
-After running `compile_mxq.py`, you will obtain a `stsb-bert-tiny-safetensors.mxq` file.
+**What this does:**
+
+- Loads the Sentence-BERT model from HuggingFace
+- Applies `CalibrationConfig` with MaxPercentile quantization:
+  - Method: WChAMulti (weight per-channel, activation multi-layer)
+  - Output: per-layer quantization
+  - Percentile: 0.999, Top-k ratio: 0.01
+- Compiles to `.mxq` format using calibration data from Step 2
+
+**Output:**
+
+- `./mxq/stsb-bert-tiny-safetensors.mxq` - Final quantized model for NPU
+
+## File Structure
+
+```text
+bert/
+├── get_embedding.py
+├── prepare_calib.py
+├── compile_mblt.py
+├── compile_mxq.py
+├── requirements.txt
+├── README.md
+├── README.KR.md
+├── weights/                               # Extracted embedding weights
+│   └── weight_dict.pth
+├── calibration_data/                      # Calibration data
+│   └── *.npy
+├── mblt/                                  # Intermediate MBLT model
+│   └── stsb-bert-tiny-safetensors.mblt
+└── mxq/                                   # Output MXQ model
+    └── stsb-bert-tiny-safetensors.mxq
+```
+
+## Troubleshooting
+
+### Missing Embedding Weights
+
+If calibration fails due to missing weights:
+
+```bash
+ls ./weights/weight_dict.pth
+```
+
+If the file is missing, re-run `get_embedding.py`.
+
+### Missing Calibration Data
+
+If MXQ compilation fails due to missing calibration data:
+
+```bash
+ls ./calibration_data/
+```
+
+If the directory is empty or missing, re-run `prepare_calib.py`.
+
+## References
+
+- [Sentence-BERT](https://huggingface.co/sentence-transformers-testing/stsb-bert-tiny-safetensors)
+- [STS Benchmark Dataset](https://huggingface.co/datasets/mteb/stsbenchmark-sts)
+- [Mobilint Documentation](https://docs.mobilint.com)

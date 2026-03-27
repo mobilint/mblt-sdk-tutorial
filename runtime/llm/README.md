@@ -1,51 +1,167 @@
-# Large Language Model Inference
+# Large Language Model (LLM) Runtime Inference
 
-This tutorial provides step-by-step instructions for running inference with compiled Large Language Models (LLMs) using the Mobilint qbruntime.
+This tutorial provides instructions for running inference with the compiled Llama-3.2-1B-Instruct model on Mobilint NPU hardware.
 
-This guide is a continuation of [mblt-sdk-tutorial/compilation/transformers/llm/README.md](../../../compilation/transformers/llm/README.md). It assumes that you have successfully compiled the model and have the following files ready:
+In this tutorial, we will use the [Llama-3.2-1B-Instruct](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct) model compiled in the [compilation tutorial](../../compilation/llm/README.md). **You must complete the compilation tutorial first** to have the following files ready:
 
-- `./Llama-3.2-1B-Instruct.mxq` - Compiled model file
-- `./embedding.pt` - Embedding layer weights (PyTorch format)
-
-## Prerequisites
-
-Before running inference, ensure you have the following components installed and available:
-
-- `qbruntime` library (to access the NPU accelerator)
-- Compiled `.mxq` model file
-- Embedding weights file (`.pt`)
-- Python packages: `torch`, `transformers`
+- `compilation/llm/Llama-3.2-1B-Instruct.mxq` - Compiled model
+- `compilation/llm/embedding.pt` - Embedding layer weights
 
 ## Overview
 
-The inference process uses a custom `LlamaMXQ` model class that integrates the NPU accelerator with the Hugging Face ecosystem. The workflow is as follows:
+This tutorial provides two inference methods:
 
-1. **Initialization**: Load the compiled `.mxq` model onto the Mobilint NPU via the `qbruntime` accelerator.
-2. **Embedding**: Use a CPU-based embedding layer to convert input tokens into vectors.
-3. **Inference**: Process prompts through the NPU-accelerated transformer layers.
-4. **Generation**: Generate text using standard Hugging Face generation utilities.
+| | Method A: mblt-model-zoo (Recommended) | Method B: Local wrapper |
+|---|---|---|
+| Script | `inference_mblt_model_zoo.py` | `inference_mxq.py` |
+| Requires Step 1 | Yes (`prepare_model.py`) | No (loads directly from compilation output) |
+| NPU management | Automatic (via mblt-model-zoo) | Manual (via `qbruntime` directly) |
+| API | HuggingFace `AutoModelForCausalLM` | Custom `LlamaMXQ` class |
+| NPU core mode config | `config.json` | Hardcoded in wrapper |
 
-## Running Inference
+**Method A** uses [mblt-model-zoo](https://docs.mobilint.com/model-zoo) to provide a simple inference experience with HuggingFace-compatible API. Compiled MXQ models can be loaded with a single line (`AutoModelForCausalLM.from_pretrained()`) — just like standard HuggingFace models. NPU core allocation, KV cache, and resource management are handled automatically.
 
-To run the example inference script, use the following command:
+**Method B** uses a local wrapper class that directly calls `qbruntime`, without depending on mblt-model-zoo for model loading.
+
+All scripts are run from the `runtime/llm/` directory.
+
+## Prerequisites
 
 ```bash
-python inference_mxq.py --mxq-path ../../../compilation/transformers/llm/Llama-3.2-1B-Instruct.mxq --embedding-weight-path ../../../compilation/transformers/llm/embedding.pt
+pip install -r requirements.txt
 ```
 
-### Script Breakdown
+## Step 1: Prepare Model Folder
 
-- **Tokenizer Loading**: Loads the tokenizer from Hugging Face to process text input.
-- **Model Initialization**: Initializes the `LlamaMXQ` model with the compiled `.mxq` file.
-- **Generation**: Generates a response using the NPU-accelerated model.
-- **Output**: Displays the generated text.
+Copy the compiled MXQ files and download the required config and tokenizer from HuggingFace.
 
-### Parameters
+```bash
+python prepare_model.py \
+    --mxq-path ../../compilation/llm/Llama-3.2-1B-Instruct.mxq \
+    --embedding-path ../../compilation/llm/embedding.pt \
+    --output-folder ./llama-mxq \
+    --model-id mobilint/Llama-3.2-1B-Instruct
+```
 
-- `--mxq-path`: Path to the compiled `.mxq` model file.
-- `--embedding-weight-path`: Path to the embedding weights file (`.pt`).
-- **Note**: The device is explicitly set to `'cpu'` in the script because the model offloads heavy computations to the NPU internally. Do **not** use GPU.
+**What this does:**
 
-### Expected Output
+- Copies the compiled MXQ file to the output folder
+- Copies embedding weights as `model.safetensors`
+- Downloads config.json and tokenizer from HuggingFace
+- Adds NPU core allocation settings (`target_cores`) to config.json
 
-The script will print the generated text response based on the input prompt.
+**Output:**
+
+- `./llama-mxq/` - Prepared model folder ready for inference
+
+## Step 2: Run Inference
+
+Two inference methods are available:
+
+### Method A: Using mblt-model-zoo (Recommended)
+
+Uses mblt-model-zoo's official Llama implementation to load MXQ models via the HuggingFace `AutoModel` API. Requires `prepare_model.py` (Step 1) to be run first.
+
+```bash
+python inference_mblt_model_zoo.py \
+    --model-folder ./llama-mxq \
+    --model-id mobilint/Llama-3.2-1B-Instruct
+```
+
+**Additional options:**
+
+```bash
+# Custom prompt
+python inference_mblt_model_zoo.py --model-folder ./llama-mxq --model-id mobilint/Llama-3.2-1B-Instruct --prompt "What is quantum computing?"
+
+# Longer generation
+python inference_mblt_model_zoo.py --model-folder ./llama-mxq --model-id mobilint/Llama-3.2-1B-Instruct --max-new-tokens 512
+```
+
+### Method B: Using local wrapper
+
+Uses a local wrapper class (`wrapper/llama_model.py`) that directly calls `qbruntime`. Does not require `prepare_model.py` — loads directly from compilation output.
+
+```bash
+python inference_mxq.py \
+    --mxq-path ../../compilation/llm/Llama-3.2-1B-Instruct.mxq \
+    --embedding-weight-path ../../compilation/llm/embedding.pt
+```
+
+**Additional options:**
+
+```bash
+# Custom prompt
+python inference_mxq.py --prompt "What is quantum computing?"
+
+# Longer generation
+python inference_mxq.py --max-new-tokens 512
+```
+
+## NPU Inference Modes
+
+The NPU supports multiple core modes for different performance characteristics. The core mode is configured in `config.json` (generated by `prepare_model.py`).
+
+| Mode | Description | config.json fields |
+|------|-------------|-------------------|
+| `single` | Each core runs inference independently. Default mode. | `target_cores: ["0:0"]` |
+| `multi` | Multiple cores collaborate on a single inference. | `core_mode: "multi"`, `target_clusters: [0]` |
+| `global4` | 4 cores (1 cluster) run in global mode. | `core_mode: "global4"`, `target_clusters: [0]` |
+| `global8` | 8 cores (2 clusters) run in global mode. Maximum throughput. | `core_mode: "global8"`, `target_clusters: [0, 1]` |
+
+## Command Line Arguments
+
+### `prepare_model.py`
+
+| Argument | Default | Description |
+| -------- | ------- | ----------- |
+| `--mxq-path` | `../../compilation/llm/Llama-3.2-1B-Instruct.mxq` | Path to the compiled MXQ file |
+| `--embedding-path` | `../../compilation/llm/embedding.pt` | Path to the embedding weight file |
+| `--output-folder` | `./llama-mxq` | Destination folder for the prepared model |
+| `--model-id` | `mobilint/Llama-3.2-1B-Instruct` | HuggingFace model ID for config and tokenizer download |
+
+### `inference_mblt_model_zoo.py`
+
+| Argument | Default | Description |
+| -------- | ------- | ----------- |
+| `--model-folder` | `./llama-mxq` | Path to the prepared model folder |
+| `--model-id` | `mobilint/Llama-3.2-1B-Instruct` | HuggingFace model ID for tokenizer download |
+| `--prompt` | `"Explain the concept of NPU..."` | User prompt for the model |
+| `--max-new-tokens` | `256` | Maximum number of new tokens to generate |
+
+### `inference_mxq.py`
+
+| Argument | Default | Description |
+| -------- | ------- | ----------- |
+| `--mxq-path` | `../../compilation/llm/Llama-3.2-1B-Instruct.mxq` | Path to the compiled MXQ file |
+| `--embedding-weight-path` | `../../compilation/llm/embedding.pt` | Path to the embedding weight file |
+| `--prompt` | `"Explain the concept of NPU..."` | User prompt for the model |
+| `--max-new-tokens` | `256` | Maximum number of new tokens to generate |
+
+## File Structure
+
+```text
+llm/
+├── prepare_model.py              # Step 1: Prepare model folder
+├── inference_mblt_model_zoo.py   # Step 2: Method A (mblt-model-zoo)
+├── inference_mxq.py              # Step 2: Method B (local wrapper)
+├── wrapper/
+│   └── llama_model.py            # Local wrapper for qbruntime
+└── llama-mxq/                    # Output from Step 1
+    ├── config.json               # Model config with NPU core allocation
+    ├── model.safetensors         # Embedding weights
+    ├── Llama-3.2-1B-Instruct.mxq
+    └── ...
+```
+
+## Notes
+
+- The embedding layer runs on CPU while transformer layers run on NPU
+- Text generation uses HuggingFace's standard `generate()` API with streaming output
+
+## References
+
+- [Compilation Tutorial](../../compilation/llm/README.md)
+- [Llama-3.2-1B-Instruct Model Card](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct)
+- [mblt-model-zoo Documentation](https://docs.mobilint.com/model-zoo)
+- [Mobilint Documentation](https://docs.mobilint.com)

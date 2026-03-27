@@ -16,11 +16,19 @@ calibration_data/vision/
 └── npy_files.txt            # List of all .npy file paths (absolute paths)
 """
 
+import glob
 import json
 import os
+import traceback
+from typing import Dict, List, Tuple
 
 import numpy as np
 import torch
+from qwen_vl_utils import process_vision_info
+from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
+from qbcompiler.model_dict.parser.backend.fx_hf_extensions.transformers.models.qwen2vl import (
+    repreprocess_pixel_values,
+)
 from qbcompiler.model_dict.parser.backend.hf.util import (
     DefaultInputsCaptureContainer,
     InputCaptureCtxManager,
@@ -29,12 +37,8 @@ from qbcompiler.model_dict.parser.backend.hf.util import (
 
 def load_model_and_processor(model_name: str):
     """Load Qwen2-VL model and processor from HuggingFace."""
-    from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
-
     print(f"Loading model and processor from {model_name}...")
-    model = Qwen2VLForConditionalGeneration.from_pretrained(
-        model_name, dtype="auto", device_map="auto"
-    )
+    model = Qwen2VLForConditionalGeneration.from_pretrained(model_name)
     processor = AutoProcessor.from_pretrained(model_name)
     print("✓ Model and processor loaded successfully")
 
@@ -43,15 +47,15 @@ def load_model_and_processor(model_name: str):
 
 def prepare_inputs(
     processor,
-    messages: list[dict],
+    messages: List[Dict],
     model_device: torch.device,
-    image_size: tuple[int, int] = (224, 224),
-) -> dict:
+    image_size: Tuple[int, int] = (224, 224),
+) -> Dict:
     """Prepare inputs for model inference from messages."""
-    from qwen_vl_utils import process_vision_info
-
     # Apply chat template
-    text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    text = processor.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True
+    )
 
     # Process vision inputs
     image_inputs, video_inputs = process_vision_info(messages)
@@ -75,7 +79,7 @@ def prepare_inputs(
     return inputs
 
 
-def create_diverse_samples() -> list[dict]:
+def create_diverse_samples() -> List[Dict]:
     """
     Create diverse calibration samples covering various scenarios.
     Uses ALL local images from images/ folder with diverse prompts.
@@ -93,19 +97,15 @@ def create_diverse_samples() -> list[dict]:
     Returns:
         List of sample configurations with local image paths and prompts
     """
-    import glob
-
     # Base path for local images
     base_path = "./images"
 
-    # Get all PNG images in the folder
     image_files = sorted(glob.glob(f"{base_path}/*.jpg"))
 
     if not image_files:
-        raise FileNotFoundError(f"No PNG images found in {base_path}")
+        raise FileNotFoundError(f"No JPG images found in {base_path}")
 
-    # Define diverse prompt templates that work for general images
-    # These are cycled through to ensure calibration diversity
+    # (task_type, prompt_text) — task_type is used as a label in sample_name for metadata only
     prompt_templates = [
         ("short_answer", "What is the main subject of this image?"),
         (
@@ -182,6 +182,7 @@ def create_diverse_samples() -> list[dict]:
         prompt_type, prompt_text = prompt_templates[template_idx]
 
         # Extract filename for naming
+        filename = os.path.basename(image_path)
         sample_name = f"{prompt_type}_{idx:03d}"
 
         samples.append(
@@ -199,8 +200,8 @@ def create_diverse_samples() -> list[dict]:
 def capture_vision_encoder_inputs(
     model,
     processor,
-    sample_config: dict,
-) -> dict[str, np.ndarray]:
+    sample_config: Dict,
+) -> Dict[str, np.ndarray]:
     """
     Capture vision encoder inputs for a single sample.
 
@@ -237,36 +238,24 @@ def capture_vision_encoder_inputs(
     inputs_container = DefaultInputsCaptureContainer()
     max_call_limit = 1
 
-    with InputCaptureCtxManager(model.visual, max_call_limit, inputs_container) as _:
+    with InputCaptureCtxManager(model.visual, max_call_limit, inputs_container) as f:
         # Run short generation to trigger vision encoder
         _ = model.generate(**inputs, max_new_tokens=20)
 
     # Extract captured inputs
     pixel_values = inputs_container.captured_args[0][0]
+    grid_thw = inputs_container.captured_kwargs[0].get("grid_thw")[0]
 
     # Convert to float32 if needed (bfloat16 not supported by numpy)
     if pixel_values.dtype == torch.bfloat16:
         pixel_values = pixel_values.float()
 
-    # Reshape to (896, 56, 6) - removed batch dimension
-    # pixel_values shape is typically [num_patches, embedding_dim]
-    # We need to reshape it to the desired format
-    pixel_values_np = pixel_values.cpu().numpy()
+    # Use repreprocess_pixel_values for correct reshape (matches compile pipeline)
+    # Output shape: [gt, 6, H, W] e.g. [2, 6, 896, 56]
+    images = repreprocess_pixel_values(pixel_values, grid_thw)
 
-    # Reshape to (896, 56, 6)
-    # The total size should match: 896 * 56 * 6 = 301,056
-    total_elements = pixel_values_np.size
-    target_shape = (896, 56, 6)
-    target_size = 896 * 56 * 6
-
-    if total_elements >= target_size:
-        # Flatten and take first target_size elements
-        images = pixel_values_np.flatten()[:target_size].reshape(target_shape)
-    else:
-        # Pad if needed
-        images = np.zeros(target_shape, dtype=pixel_values_np.dtype)
-        flat_pv = pixel_values_np.flatten()
-        images.flat[: len(flat_pv)] = flat_pv
+    # Take frame 0 and transpose to (H, W, 6) to match expected output shape (896, 56, 6)
+    images = images[0].permute(1, 2, 0).cpu().numpy()
 
     return {
         "images": images,
@@ -321,13 +310,15 @@ def generate_vision_calibration_data(
 
     # Process each sample
     for i, sample_config in enumerate(sample_configs):
-        print(f"\n[{i + 1}/{len(sample_configs)}] Processing: {sample_config['name']}")
+        print(f"\n[{i+1}/{len(sample_configs)}] Processing: {sample_config['name']}")
         print(f"   Image: {sample_config['image_url']}")
         print(f"   Prompt: {sample_config['prompt']}")
 
         try:
             # Capture inputs
-            captured_data = capture_vision_encoder_inputs(model, processor, sample_config)
+            captured_data = capture_vision_encoder_inputs(
+                model, processor, sample_config
+            )
 
             # Create sample directory
             sample_dir = os.path.join(output_dir, f"sample_{i:03d}")
@@ -350,14 +341,14 @@ def generate_vision_calibration_data(
                     "prompt": sample_config["prompt"],
                     "image_url": sample_config["image_url"],
                     "directory": f"sample_{i:03d}",
-                    "shapes": {key: list(val.shape) for key, val in captured_data.items()},
+                    "shapes": {
+                        key: list(val.shape) for key, val in captured_data.items()
+                    },
                 }
             )
 
         except Exception as e:
             print(f"   ✗ Error processing sample: {e}")
-            import traceback
-
             traceback.print_exc()
             continue
 
@@ -388,27 +379,27 @@ def generate_vision_calibration_data(
     print("\n" + "=" * 80)
     print("VISION CALIBRATION DATA GENERATION COMPLETE")
     print("=" * 80)
-    print("\nSummary:")
+    print(f"\nSummary:")
     print(f"  - Samples collected: {len(metadata['samples'])}")
     print(f"  - Output directory: {output_dir}")
     print(f"  - Total size: {total_size_mb:.2f} MB")
-    print("  - Image size: 224 x 224 (fixed)")
-    print("\nStructure:")
+    print(f"  - Image size: 224 x 224 (fixed)")
+    print(f"\nStructure:")
     print(f"  {output_dir}/")
     for sample in metadata["samples"][:3]:  # Show first 3
         print(f"  ├── {sample['directory']}/")
         print(f"  │   └── images.npy      # {sample['shapes']['images']}")
     if len(metadata["samples"]) > 3:
         print(f"  ├── ... ({len(metadata['samples']) - 3} more samples)")
-    print("  ├── metadata.json")
-    print("  └── npy_files.txt")
-    print("\nUsage:")
-    print("  # Load a sample")
+    print(f"  ├── metadata.json")
+    print(f"  └── npy_files.txt")
+    print(f"\nUsage:")
+    print(f"  # Load a sample")
     print(f"  images = np.load('{output_dir}/sample_000/images.npy')")
-    print("  # Shape: (896, 56, 6)")
-    print("  # Or load all paths from the list")
+    print(f"  # Shape: (896, 56, 6)")
+    print(f"  # Or load all paths from the list")
     print(f"  with open('{output_dir}/npy_files.txt', 'r') as f:")
-    print("      npy_paths = [line.strip() for line in f]")
+    print(f"      npy_paths = [line.strip() for line in f]")
 
     return output_dir
 
