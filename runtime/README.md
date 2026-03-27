@@ -2,9 +2,11 @@
 
 This section provides detailed instructions for running models using the Mobilint runtime library.
 
+<!-- markdownlint-disable MD033 -->
 <div align="center">
 <img src="../assets/Runtime.avif" width="75%", alt="Runtime Diagram">
 </div>
+<!-- markdownlint-enable MD033 -->
 
 ## Runtime Preparation
 

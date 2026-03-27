@@ -2,9 +2,11 @@
 
 이 섹션은 Mobilint 런타임 라이브러리를 사용하여 모델을 실행하는 방법에 대한 자세한 지침을 제공합니다.
 
+<!-- markdownlint-disable MD033 -->
 <div align="center">
 <img src="../assets/Runtime.avif" width="75%", alt="Runtime Diagram">
 </div>
+<!-- markdownlint-enable MD033 -->
 
 ## 런타임 준비 (Runtime Preparation)
 

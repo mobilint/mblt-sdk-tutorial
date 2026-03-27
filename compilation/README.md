@@ -2,10 +2,11 @@
 
 Tutorials in this section provide detailed instructions for compiling models using the Mobilint qbcompiler.
 
+<!-- markdownlint-disable MD033 -->
 <div align="center">
 <img src="../assets/Compiler.avif" width="75%" alt="Compiler Diagram">
 </div>
-
+<!-- markdownlint-enable MD033 -->
 
 ## Compiler Preparation
 
