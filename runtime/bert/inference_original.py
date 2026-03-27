@@ -1,7 +1,7 @@
 import torch
 from transformers import BertModel, BertTokenizer
 
-dummy_corpus = [
+DUMMY_CORPUS = [
     ["A man is eating food.", "A man is eating something."],
     ["A woman is cooking food.", "A man is eating something."],
     [
@@ -11,20 +11,19 @@ dummy_corpus = [
     ["A man is biting a dog.", "A tiger is biting a cat."],
     ["John hit Minsoo.", "Minsoo hit John."],
 ]
-tokenizer = BertTokenizer.from_pretrained(
-    "sentence-transformers/msmarco-bert-base-dot-v5", trust_remote_code=True
-)
-model = BertModel.from_pretrained(
-    "sentence-transformers/msmarco-bert-base-dot-v5", trust_remote_code=True
-)
-model.eval()
 
 
 if __name__ == "__main__":
-    # dummy corpus STS
+    tokenizer = BertTokenizer.from_pretrained(
+        "sentence-transformers-testing/stsb-bert-tiny-safetensors", trust_remote_code=True
+    )
+    model = BertModel.from_pretrained(
+        "sentence-transformers-testing/stsb-bert-tiny-safetensors", trust_remote_code=True
+    )
+    model.eval()
 
     print("Cosine Similarity (range: -1 to 1, higher = more similar)\n")
-    for dummy_pair in dummy_corpus:
+    for dummy_pair in DUMMY_CORPUS:
         with torch.no_grad():
             s1 = model(tokenizer(dummy_pair[0], return_tensors="pt")["input_ids"])
             s2 = model(tokenizer(dummy_pair[1], return_tensors="pt")["input_ids"])

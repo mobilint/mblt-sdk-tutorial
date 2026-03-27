@@ -4,17 +4,14 @@ from scipy.stats import pearsonr, spearmanr
 from tqdm import tqdm
 from transformers import BertModel, BertTokenizer
 
-tokenizer = BertTokenizer.from_pretrained(
-    "sentence-transformers-testing/stsb-bert-tiny-safetensors", trust_remote_code=True
-)
-model = BertModel.from_pretrained(
-    "sentence-transformers-testing/stsb-bert-tiny-safetensors", trust_remote_code=True
-)
-model.eval()
-
-
 if __name__ == "__main__":
-    # whole corpus STS
+    tokenizer = BertTokenizer.from_pretrained(
+        "sentence-transformers-testing/stsb-bert-tiny-safetensors", trust_remote_code=True
+    )
+    model = BertModel.from_pretrained(
+        "sentence-transformers-testing/stsb-bert-tiny-safetensors", trust_remote_code=True
+    )
+    model.eval()
 
     sts_dataset = load_dataset("mteb/stsbenchmark-sts", split="test")
     original_score = []

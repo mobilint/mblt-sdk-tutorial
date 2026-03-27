@@ -1,10 +1,10 @@
 from argparse import ArgumentParser
 
 import torch
-from wrapper.bertmxq import BertMXQModel
+from wrapper.bert_model import BertMXQ
 from transformers import BertTokenizer
 
-dummy_corpus = [
+DUMMY_CORPUS = [
     ["A man is eating food.", "A man is eating something."],
     ["A woman is cooking food.", "A man is eating something."],
     [
@@ -14,12 +14,10 @@ dummy_corpus = [
     ["A man is biting a dog.", "A tiger is biting a cat."],
     ["John hit Minsoo.", "Minsoo hit John."],
 ]
-tokenizer = BertTokenizer.from_pretrained(
-    "sentence-transformers-testing/stsb-bert-tiny-safetensors", trust_remote_code=True
-)
 
 
 if __name__ == "__main__":
+
     parser = ArgumentParser()
     parser.add_argument(
         "--mxq_path",
@@ -33,13 +31,19 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    model = BertMXQModel(args.mxq_path, args.weight_path)
+    tokenizer = BertTokenizer.from_pretrained(
+        "sentence-transformers-testing/stsb-bert-tiny-safetensors", trust_remote_code=True
+    )
+
+    model = BertMXQ(args.mxq_path, args.weight_path)
 
     print("Cosine Similarity (range: -1 to 1, higher = more similar)\n")
-    for dummy_pair in dummy_corpus:
+    for dummy_pair in DUMMY_CORPUS:
         with torch.no_grad():
             s1 = model(**tokenizer(dummy_pair[0], return_tensors="pt"))
             s2 = model(**tokenizer(dummy_pair[1], return_tensors="pt"))
             similarity = torch.nn.functional.cosine_similarity(s1, s2, dim=0)
 
         print(f"  {similarity.item():.4f}  |  \"{dummy_pair[0]}\" vs \"{dummy_pair[1]}\"")
+
+    model.dispose()

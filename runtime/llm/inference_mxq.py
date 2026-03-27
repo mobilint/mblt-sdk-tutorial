@@ -1,16 +1,16 @@
-from argparse import ArgumentParser
+import argparse
 
 import torch
-from llamamxq import LlamaMXQ
+from wrapper.llama_model import LlamaMXQ
 from transformers import AutoConfig, AutoTokenizer, TextStreamer
 
 MODEL_NAME = "meta-llama/Llama-3.2-1B-Instruct"
-config = AutoConfig.from_pretrained(MODEL_NAME)
 
 
-def main(mxq_path, embedding_weight_path):
+def main(mxq_path, embedding_weight_path, prompt, max_new_tokens):
     device = "cpu"  # Do not use gpu since we are using npu.
 
+    config = AutoConfig.from_pretrained(MODEL_NAME)
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, config=config)
     model = LlamaMXQ(
         config=config,
@@ -22,12 +22,9 @@ def main(mxq_path, embedding_weight_path):
     model.to(device)
     model.eval()
 
-    user_prompt = "Explain the concept of NPU, compared to GPU and CPU, in 3 short bullet points."
-
-    # (Optional) If your tokenizer has a chat template, you can use it:
     chat = [
         {"role": "system", "content": "You are a helpful AI assistant."},
-        {"role": "user", "content": user_prompt},
+        {"role": "user", "content": prompt},
     ]
     prompt_text = tokenizer.apply_chat_template(chat, tokenize=False, add_generation_prompt=True)
 
@@ -38,7 +35,7 @@ def main(mxq_path, embedding_weight_path):
     with torch.no_grad():
         output_ids = model.generate(
             **inputs,
-            max_new_tokens=256,
+            max_new_tokens=max_new_tokens,
             do_sample=True,
             temperature=0.7,
             top_p=0.9,
@@ -53,16 +50,30 @@ def main(mxq_path, embedding_weight_path):
 
 
 if __name__ == "__main__":
-    parser = ArgumentParser()
+    parser = argparse.ArgumentParser(description="LLM Inference using local wrapper")
     parser.add_argument(
         "--mxq-path",
         type=str,
-        default="../../../compilation/transformers/llm/Llama-3.2-1B-Instruct.mxq",
+        default="../../compilation/llm/Llama-3.2-1B-Instruct.mxq",
+        help="Path to the compiled MXQ file",
     )
     parser.add_argument(
         "--embedding-weight-path",
         type=str,
-        default="../../../compilation/transformers/llm/embedding.pt",
+        default="../../compilation/llm/embedding.pt",
+        help="Path to the embedding weight file",
+    )
+    parser.add_argument(
+        "--prompt",
+        type=str,
+        default="Explain the concept of NPU, compared to GPU and CPU, in 3 short bullet points.",
+        help="User prompt for the model",
+    )
+    parser.add_argument(
+        "--max-new-tokens",
+        type=int,
+        default=256,
+        help="Maximum number of new tokens to generate",
     )
     args = parser.parse_args()
-    main(args.mxq_path, args.embedding_weight_path)
+    main(args.mxq_path, args.embedding_weight_path, args.prompt, args.max_new_tokens)

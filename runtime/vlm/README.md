@@ -1,319 +1,158 @@
 # Vision Language Model (VLM) Runtime Inference
 
-This tutorial provides instructions for running inference with the compiled Qwen2-VL-2B-Instruct model on Aries 2 hardware using the Mobilint runtime.
+This tutorial provides instructions for running inference with the compiled Qwen2-VL-2B-Instruct model on Aries 2 hardware.
+
+In this tutorial, we will use the [Qwen2-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct) model compiled in the [compilation tutorial](../../compilation/vlm/README.md). **You must complete the compilation tutorial first** to have the following files ready in `compilation/vlm/mxq/`:
+
+- `Qwen2-VL-2B-Instruct_text_model.mxq` - Compiled language model
+- `Qwen2-VL-2B-Instruct_vision_transformer.mxq` - Compiled vision encoder
+- `config.json` - Model configuration with MXQ paths
+- `model.safetensors` - Rotated token embedding weight
 
 ## Overview
 
-After compiling the VLM model following the [compilation tutorial](../../../compilation/transformers/vlm/README.md), you can run inference on the compiled MXQ models using the provided runtime script.
+The inference process consists of two steps:
 
-The inference script demonstrates how to:
+1. **Model Preparation**: Copy MXQ files and configure NPU core allocation
+2. **Inference**: Run image-text-to-text inference using mblt-model-zoo
 
-- Load compiled MXQ models from the compilation output directory.
-- Initialize the Mobilint runtime pipeline for image-text-to-text tasks.
-- Handle vision-language queries involving both images and text.
-- Run inference with real-time streaming output.
+This tutorial uses [mblt-model-zoo](https://docs.mobilint.com/model-zoo) to provide a simple inference experience with HuggingFace-compatible API. With mblt-model-zoo, compiled MXQ models can be loaded with a single line (`AutoModelForImageTextToText.from_pretrained()`) — just like standard HuggingFace models. NPU core allocation, KV cache, and resource management are handled automatically.
+
+All scripts are run from the `runtime/vlm/` directory.
 
 ## Prerequisites
 
-Before running inference, ensure you have:
+```bash
+pip install -r requirements.txt
+```
 
-- **Completed the compilation tutorial**: All 4 required files must be present in the compilation directory.
-- **Installed the `mblt-model-zoo` package**:
+## Step 1: Prepare Model Folder
 
-  ```bash
-  pip install mblt-model-zoo
-  ```
-
-- **Installed required dependencies**:
-
-  ```bash
-  pip install torch pillow transformers==4.54.0
-  ```
-
-## Required Files
-
-The inference script expects the following 4 files to be present in the compilation output directory (`../../../compilation/transformers/vlm/compile/mxq/` relative to the runtime directory):
-
-1.  **Qwen2-VL-2B-Instruct_text_model.mxq**: Compiled language model.
-2.  **Qwen2-VL-2B-Instruct_vision_transformer.mxq**: Compiled vision encoder.
-3.  **config.json**: Model configuration containing MXQ paths.
-4.  **model.safetensors**: Rotated embedding weights.
-
-These files are automatically generated upon successful completion of the compilation tutorial.
-
-## Running Inference
-
-### Basic Usage
-
-To run the inference script:
+Copy compilation output and configure NPU core allocation.
 
 ```bash
-cd /workspace/mblt-sdk-tutorial/runtime/transformers/vlm
-python run_qwen2_vl_local.py
+python prepare_model.py \
+    --compilation-dir ../../compilation/vlm/mxq \
+    --output-folder ./qwen2-vl-mxq \
+    --model-id mobilint/Qwen2-VL-2B-Instruct
 ```
 
-The script will:
+**What this does:**
 
-1.  Load the compiled MXQ models from the specified directory.
-2.  Load the processor from Hugging Face (model ID: `mobilint/Qwen2-VL-2B-Instruct`).
-3.  Run inference on a demo image using a sample prompt.
-4.  Stream the generated text output in real-time.
+- Copies MXQ files, config.json, and model.safetensors to the output folder
+- Adds NPU core allocation settings (`target_cores`) to config.json
 
-### Understanding the Code
+**Output:**
 
-The `run_qwen2_vl_local.py` script illustrates the complete inference workflow:
+- `./qwen2-vl-mxq/` - Prepared model folder ready for inference
 
-```python
-from transformers import TextStreamer
-from mblt_model_zoo.transformers import pipeline, AutoModelForImageTextToText, AutoProcessor
+## Step 2: Run Inference with mblt-model-zoo
 
-# Path to compiled MXQ models (relative path from runtime directory)
-model_folder = "../../../compilation/transformers/vlm/compile/mxq/"
-model_id = "mobilint/Qwen2-VL-2B-Instruct"
+Run image-text-to-text inference. The script uses mblt-model-zoo's official Qwen2-VL implementation to load MXQ models via the HuggingFace `AutoModel` API.
 
-# Load compiled model
-model = AutoModelForImageTextToText.from_pretrained(model_folder)
+```bash
+python inference_mblt_model_zoo.py \
+    --model-folder ./qwen2-vl-mxq \
+    --model-id mobilint/Qwen2-VL-2B-Instruct
+```
 
-# Load processor from Hugging Face
-processor = AutoProcessor.from_pretrained(model_id)
+**Additional options:**
 
-# Create pipeline
-pipe = pipeline(
-    "image-text-to-text",
-    model=model,
-    processor=processor,
-)
+```bash
+# Use a local image
+python inference_mblt_model_zoo.py --model-folder ./qwen2-vl-mxq --model-id mobilint/Qwen2-VL-2B-Instruct --image /path/to/image.jpg
 
-# Remove max_new_tokens limit
-pipe.generation_config.max_new_tokens = None
+# Custom prompt
+python inference_mblt_model_zoo.py --model-folder ./qwen2-vl-mxq --model-id mobilint/Qwen2-VL-2B-Instruct --prompt "What objects are in this image?"
 
-# Prepare messages with image
-messages = [
-    {
-        "role": "user",
-        "content": [
-            {"type": "image", "image": "https://..."},
-            {"type": "text", "text": "Your question here"},
-        ],
+# Longer generation
+python inference_mblt_model_zoo.py --model-folder ./qwen2-vl-mxq --model-id mobilint/Qwen2-VL-2B-Instruct --max-length 1024
+```
+
+## NPU Inference Modes
+
+The NPU supports multiple core modes for different performance characteristics. The core mode is configured in `config.json` (generated by `prepare_model.py`).
+
+| Mode | Description | config.json fields |
+|------|-------------|-------------------|
+| `single` | Each core runs inference independently. Default mode. | `target_cores: ["0:0"]` |
+| `multi` | Multiple cores collaborate on a single inference. | `core_mode: "multi"`, `target_clusters: [0]` |
+| `global4` | 4 cores (1 cluster) run in global mode. | `core_mode: "global4"`, `target_clusters: [0]` |
+| `global8` | 8 cores (2 clusters) run in global mode. Maximum throughput. | `core_mode: "global8"`, `target_clusters: [0, 1]` |
+
+The same fields apply to the vision encoder under `vision_config` (e.g., `vision_config.target_cores`, `vision_config.core_mode`).
+
+**Example: Changing to global8 mode**
+
+Edit `qwen2-vl-mxq/config.json`:
+```json
+{
+    "core_mode": "global8",
+    "target_clusters": [0, 1],
+    "vision_config": {
+        "core_mode": "global8",
+        "target_clusters": [0, 1]
     }
-]
-
-# Run inference with streaming
-pipe(
-    text=messages,
-    generate_kwargs={
-        "max_length": 512,
-        "streamer": TextStreamer(tokenizer=pipe.tokenizer, skip_prompt=False),
-        "repetition_penalty": 1.1,
-    },
-)
-
-# Clean up
-pipe.model.dispose()
+}
 ```
 
-### Key Components
+> **Note:** The `target_cores` format is `"cluster:core"` (e.g., `"0:0"` = Cluster 0, Core 0). When using multi/global4/global8, use `target_clusters` instead of `target_cores`.
 
-#### 1. Model Loading
+## Command Line Arguments
 
--   `AutoModelForImageTextToText.from_pretrained()`: Loads the compiled MXQ models from the specified directory.
--   It automatically detects and loads both language and vision models based on `config.json`.
+### `prepare_model.py`
 
-#### 2. Processor Loading
+| Argument | Default | Description |
+| -------- | ------- | ----------- |
+| `--compilation-dir` | `../../compilation/vlm/mxq` | Path to the compilation output directory |
+| `--output-folder` | `./qwen2-vl-mxq` | Destination folder for the prepared model |
+| `--model-id` | `mobilint/Qwen2-VL-2B-Instruct` | HuggingFace model ID stored in config for mblt-model-zoo model registration |
 
--   `AutoProcessor.from_pretrained()`: Loads the tokenizer and image processor from Hugging Face.
--   It uses the model ID `mobilint/Qwen2-VL-2B-Instruct` for processor configuration.
+### `inference_mblt_model_zoo.py`
 
-#### 3. Pipeline Creation
+| Argument | Default | Description |
+| -------- | ------- | ----------- |
+| `--model-folder` | `./qwen2-vl-mxq` | Path to the prepared model folder |
+| `--model-id` | `mobilint/Qwen2-VL-2B-Instruct` | HuggingFace model ID for processor (tokenizer + image processor) download |
+| `--image` | Demo image URL | Path or URL to the input image |
+| `--prompt` | `"Describe the environment..."` | Text prompt for the model |
+| `--max-length` | `512` | Maximum generation length |
 
--   `pipeline()`: Creates an `image-text-to-text` pipeline.
--   It automatically handles the interaction between vision and language components.
+## File Structure
 
-#### 4. Message Format
-
--   Messages follow a structured format with roles and content types.
--   Content can include both images and text.
--   Images can be specified as URLs or local file paths.
-
-#### 5. Generation
-
--   `generate_kwargs`: Controls generation parameters (e.g., `max_length`, `temperature`).
--   `TextStreamer`: Displays generated text in real-time.
-
-## Customizing Inference
-
-### Using Local Images
-
-To use a local image instead of a URL:
-
-```python
-messages = [
-    {
-        "role": "user",
-        "content": [
-            {"type": "image", "image": "/path/to/your/image.jpg"},
-            {"type": "text", "text": "What is in this image?"},
-        ],
-    }
-]
+```text
+vlm/
+├── prepare_model.py              # Step 1: Prepare model folder
+├── inference_mblt_model_zoo.py   # Step 2: Run inference
+└── qwen2-vl-mxq/                # Output from Step 1
+    ├── config.json               # Model config with NPU core allocation
+    ├── model.safetensors
+    ├── Qwen2-VL-2B-Instruct_text_model.mxq
+    ├── Qwen2-VL-2B-Instruct_vision_transformer.mxq
+    └── ...
 ```
-
-### Changing the Prompt
-
-Modify the text content to ask different questions:
-
-```python
-{"type": "text", "text": "Describe the environment and context surrounding the main subject."}
-{"type": "text", "text": "What objects are visible in this image?"}
-{"type": "text", "text": "Count the number of people in the image."}
-{"type": "text", "text": "What is the spatial relationship between objects?"}
-```
-
-### Adjusting Generation Parameters
-
-Control the generation behavior with different parameters:
-
-```python
-pipe(
-    text=messages,
-    generate_kwargs={
-        "max_length": 1024,      # Longer responses
-        "temperature": 0.7,       # Creativity control (higher = more creative)
-        "top_p": 0.9,            # Nucleus sampling
-        "top_k": 50,             # Top-K sampling
-        "repetition_penalty": 1.1, # Penalize repetition
-        "streamer": TextStreamer(tokenizer=pipe.tokenizer, skip_prompt=False),
-    },
-)
-```
-
-### Multi-turn Conversations
-
-The model supports multi-turn dialogues:
-
-```python
-messages = [
-    {
-        "role": "user",
-        "content": [
-            {"type": "image", "image": "image.jpg"},
-            {"type": "text", "text": "What's in this image?"},
-        ],
-    },
-    {
-        "role": "assistant",
-        "content": [{"type": "text", "text": "I see a dog playing in a park."}],
-    },
-    {
-        "role": "user",
-        "content": [{"type": "text", "text": "What color is the dog?"}],
-    },
-]
-```
-
-## Performance Notes
-
--   **Hardware Acceleration**: The compiled MXQ models run on Aries 2 hardware for optimal performance.
--   **Stateful KV Cache**: Memory is efficiently managed through the stateful KV cache system.
--   **Streaming Output**: Text generation is streamed in real-time for a better user experience.
--   **Resource Cleanup**: Always call `pipe.model.dispose()` to properly clean up resources after inference.
-
-## Configuration
-
-### Model Path
-
-The script uses a relative path to the compiled models:
-
-```python
-model_folder = "../../../compilation/transformers/vlm/compile/mxq/"
-```
-
-This relative path works when running the script from the `runtime/transformers/vlm/` directory. If you've compiled the models to a different location, update this path accordingly.
-
-### Model ID
-
-The processor is loaded from Hugging Face using the model ID:
-
-```python
-model_id = "mobilint/Qwen2-VL-2B-Instruct"
-```
-
-This ID is used to download the tokenizer and image processor configuration.
 
 ## Troubleshooting
 
 ### Model Not Found Error
 
-```text
-FileNotFoundError: Model files not found
-```
+Ensure all 4 files exist in the compilation output directory. Re-run the compilation tutorial if missing.
 
-**Solution**: Ensure you've completed the compilation tutorial and all 4 files exist in the compilation output directory.
+### Import Errors (`No module named 'mblt_model_zoo'`)
+
+```bash
+pip install -r requirements.txt
+```
 
 ### Out of Memory (OOM) Errors
 
-**Solutions**:
-
--   Reduce `max_length` in generation parameters.
--   Process smaller images.
--   Close other GPU/NPU-intensive applications.
-
-### Processor Download Issues
-
-**Solutions**:
-
--   Check your internet connection.
--   Verify Hugging Face access (may require authentication).
--   Use `huggingface-cli login` if needed.
-
-### Import Errors
-
-```text
-ModuleNotFoundError: No module named 'mblt_model_zoo'
-```
-
-**Solution**: Install the required package:
-
-```bash
-pip install mblt-model-zoo
-```
-
-## Example Outputs
-
-### Image Description
-
-**Input**: "Describe the environment and context surrounding the main subject."
-**Output**: Detailed description of the scene, objects, and spatial relationships.
-
-### Object Counting
-
-**Input**: "How many people are in this image?"
-**Output**: Count and description of people visible.
-
-### Visual Reasoning
-
-**Input**: "What is the person doing?"
-**Output**: Analysis of actions and activities in the image.
-
-### Spatial Understanding
-
-**Input**: "Where is the dog located relative to the tree?"
-**Output**: Description of spatial relationships between objects.
+- Reduce `--max-length` in generation parameters
+- Process smaller images
+- Close other NPU-intensive applications
 
 ## References
 
--   [Compilation Tutorial](../../../compilation/transformers/vlm/README.md)
--   [Qwen2-VL Model Card](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct)
--   [Mobilint Documentation](https://docs.mobilint.com)
--   [mblt-model-zoo Documentation](https://docs.mobilint.com/model-zoo)
-
-## Support
-
-For issues or questions:
-
--   Check the troubleshooting section above.
--   Review the compilation tutorial to ensure models are properly compiled.
--   Refer to the `mblt-model-zoo` documentation.
--   Contact Mobilint support with detailed error logs.
-
-> **Note**: This runtime inference script requires properly compiled MXQ models from the compilation tutorial. Make sure to complete the compilation process before attempting to run inference.
+- [Compilation Tutorial](../../compilation/vlm/README.md)
+- [Qwen2-VL Model Card](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct)
+- [mblt-model-zoo Documentation](https://docs.mobilint.com/model-zoo)
+- [Mobilint Documentation](https://docs.mobilint.com)

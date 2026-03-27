@@ -2,11 +2,11 @@ import qbruntime
 import torch
 
 
-class BertMXQModel(torch.nn.Module):
+class BertMXQ(torch.nn.Module):
     def __init__(self, mxq_path, weight_path):
         super().__init__()
 
-        weight_dict = torch.load(weight_path)
+        weight_dict = torch.load(weight_path, weights_only=True)
         self.word_embeddings = torch.nn.Embedding.from_pretrained(weight_dict["word_embeddings"])
         self.token_type_embeddings = torch.nn.Embedding.from_pretrained(
             weight_dict["token_type_embeddings"]
@@ -43,3 +43,6 @@ class BertMXQModel(torch.nn.Module):
 
         output = self.model.infer([embedded_text.cpu().numpy()])
         return torch.from_numpy(output[0]).squeeze()
+
+    def dispose(self):
+        self.model.dispose()

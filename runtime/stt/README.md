@@ -1,89 +1,99 @@
-# Speech-to-Text Model Inference (Whisper)
+# Speech-to-Text (STT) Model Inference
 
-This tutorial provides step-by-step instructions for running inference with compiled Whisper speech-to-text models using the Mobilint qbruntime.
+This tutorial provides instructions for running inference with the compiled Whisper speech-to-text model on Mobilint NPU hardware.
 
-This guide is a continuation of [mblt-sdk-tutorial/compilation/transformers/stt/README.md](file:///workspace/mblt-sdk-tutorial/compilation/transformers/stt/README.md). It is assumed that you have successfully compiled the model.
+In this tutorial, we will use the [Whisper Small](https://huggingface.co/mobilint/whisper-small) model compiled in the [compilation tutorial](../../compilation/stt/README.md). **You must complete the compilation tutorial first** to have the following files ready:
+
+- `compilation/stt/mxq/whisper-small_encoder.mxq` - Compiled encoder
+- `compilation/stt/mxq/whisper-small_decoder.mxq` - Compiled decoder
+- `compilation/stt/audio_files/` - Audio samples for testing
+
+## Overview
+
+The inference process consists of two steps:
+
+1. **Model Preparation**: Organize MXQ files and download required configurations
+2. **Inference**: Run speech-to-text on audio files using mblt-model-zoo
+
+This tutorial uses [mblt-model-zoo](https://docs.mobilint.com/model-zoo) to provide a simple inference experience with HuggingFace-compatible API. With mblt-model-zoo, compiled MXQ models can be loaded with a single line (`AutoModelForSpeechSeq2Seq.from_pretrained()`) — just like standard HuggingFace models. NPU core allocation, KV cache, and resource management are handled automatically.
+
+All scripts are run from the `runtime/stt/` directory.
 
 ## Prerequisites
 
-Before running inference, ensure you have the following components installed and available:
+```bash
+pip install -r requirements.txt
+```
 
-- Compiled Whisper MXQ models (encoder and decoder)
-- `qbruntime` library (to access the NPU accelerator)
-- Python packages: `transformers`, `torch`, `librosa`, `safetensors`
+## Step 1: Prepare Model Folder
 
-## Files
-
-| File | Description |
-| ---- | ----------- |
-| `mblt-whisper.py` | Hugging Face-compatible Mobilint Whisper model implementation |
-| `prepare_model.py` | Script to prepare the model directory with necessary configuration files |
-| `inference_mxq.py` | Main inference script for audio transcription and translation |
-
-## Quick Start
-
-### Step 1: Prepare Model Folder
-
-First, execute the `prepare_model.py` script to organize the compiled MXQ files and generate the required configuration:
+Organize the compiled MXQ files and download the required configuration from HuggingFace.
 
 ```bash
 python prepare_model.py \
-    --encoder-mxq ../../../compilation/transformers/stt/compilation/compiled/whisper-small_encoder.mxq \
-    --decoder-mxq ../../../compilation/transformers/stt/compilation/compiled/whisper-small_decoder.mxq \
+    --encoder-mxq ../../compilation/stt/mxq/whisper-small_encoder.mxq \
+    --decoder-mxq ../../compilation/stt/mxq/whisper-small_decoder.mxq \
     --output-folder ./whisper-small-mxq \
     --base-model openai/whisper-small
 ```
 
-This script performs the following actions:
+**What this does:**
 
-- Copies the compiled MXQ files to the specified output folder.
-- Downloads the processor (tokenizer and feature extractor) from Hugging Face.
-- Extracts and saves the embedding weights from the base model.
-- Generates the configuration files required for the Mobilint Whisper model.
+- Copies the compiled MXQ files to the output folder
+- Extracts and saves embedding weights from the base model
+- Generates `config.json` with NPU core allocation settings for mblt-model-zoo
 
-### Step 2: Run Inference
+**Output:**
 
-Execute speech-to-text inference on an audio file using `inference_mxq.py`:
+- `./whisper-small-mxq/` - Prepared model folder ready for inference
 
-```bash
-python inference_mxq.py \
-    --audio /path/to/audio.wav \
-    --model-folder ./whisper-small-mxq
-```
+## Step 2: Run Inference with mblt-model-zoo
 
-## Usage Options
-
-### Basic Transcription
-
-To transcribe an audio file:
+Run speech-to-text inference on an audio file. The script uses mblt-model-zoo's official Whisper implementation to load MXQ models via the HuggingFace `AutoModel` API.
 
 ```bash
-python inference_mxq.py --audio audio.wav --model-folder ./whisper-small-mxq
+python inference_mblt_model_zoo.py \
+    --audio ../../compilation/stt/audio_files/en_us_0000.wav \
+    --model-folder ./whisper-small-mxq \
+    --model-id mobilint/whisper-small
 ```
 
-### Specify Language
-
-To specify the source language (e.g., English):
+**Additional options:**
 
 ```bash
-python inference_mxq.py --audio audio.wav --model-folder ./whisper-small-mxq --language en
+# Specify source language (e.g., English)
+python inference_mblt_model_zoo.py --audio audio.wav --model-folder ./whisper-small-mxq --model-id mobilint/whisper-small --language en
+
+# Translate spoken audio to English
+python inference_mblt_model_zoo.py --audio audio.wav --model-folder ./whisper-small-mxq --model-id mobilint/whisper-small --task translate
 ```
 
-### Translation to English
+## NPU Inference Modes
 
-To translate the spoken audio to English:
+The NPU supports multiple core modes for different performance characteristics. The core mode is configured in `config.json` (generated by `prepare_model.py`).
 
-```bash
-python inference_mxq.py --audio audio.wav --model-folder ./whisper-small-mxq --task translate
+| Mode | Description | config.json fields |
+|------|-------------|-------------------|
+| `single` | Each core runs inference independently. Default mode. | `encoder_target_cores: ["0:0"]` |
+| `multi` | Multiple cores collaborate on a single inference. | `encoder_core_mode: "multi"`, `encoder_target_clusters: [0]` |
+| `global4` | 4 cores (1 cluster) run in global mode. | `encoder_core_mode: "global4"`, `encoder_target_clusters: [0]` |
+| `global8` | 8 cores (2 clusters) run in global mode. Maximum throughput. | `encoder_core_mode: "global8"`, `encoder_target_clusters: [0, 1]` |
+
+The same fields apply to the decoder with `decoder_` prefix (e.g., `decoder_target_cores`, `decoder_core_mode`).
+
+**Example: Changing to global8 mode**
+
+Edit `whisper-small-mxq/config.json`:
+```json
+{
+    "encoder_core_mode": "global8",
+    "encoder_target_clusters": [0, 1],
+    "decoder_core_mode": "global8",
+    "decoder_target_clusters": [0, 1]
+}
 ```
 
-### Use Pipeline API
-
-To use the Hugging Face pipeline API (recommended for longer audio files):
-
-```bash
-python inference_mxq.py --audio audio.wav --model-folder ./whisper-small-mxq --use-pipeline
-```
+> **Note:** The `target_cores` format is `"cluster:core"` (e.g., `"0:0"` = Cluster 0, Core 0). When using multi/global4/global8, use `target_clusters` instead of `target_cores`.
 
 ## Command Line Arguments
 
@@ -91,62 +101,44 @@ python inference_mxq.py --audio audio.wav --model-folder ./whisper-small-mxq --u
 
 | Argument | Default | Description |
 | -------- | ------- | ----------- |
-| `--encoder-mxq` | `../../../compilation/transformers/stt/compilation/compiled/whisper-small_encoder.mxq` | Path to the compiled encoder MXQ file |
-| `--decoder-mxq` | `../../../compilation/transformers/stt/compilation/compiled/whisper-small_decoder.mxq` | Path to the compiled decoder MXQ file |
+| `--encoder-mxq` | `../../compilation/stt/mxq/whisper-small_encoder.mxq` | Path to the compiled encoder MXQ file |
+| `--decoder-mxq` | `../../compilation/stt/mxq/whisper-small_decoder.mxq` | Path to the compiled decoder MXQ file |
 | `--output-folder` | `./whisper-small-mxq` | Destination folder for the prepared model |
-| `--base-model` | `openai/whisper-small` | Hugging Face model ID used for base configuration |
+| `--base-model` | `openai/whisper-small` | HuggingFace model ID for base configuration and embedding extraction |
+| `--model-id` | `mobilint/whisper-small` | HuggingFace model ID for mblt-model-zoo |
 
-### `inference_mxq.py`
+### `inference_mblt_model_zoo.py`
 
 | Argument | Default | Description |
 | -------- | ------- | ----------- |
-| `--audio` | `../../../compilation/transformers/stt/data/audio_files/en_us_0000.wav` | Path to the input audio file |
+| `--audio` | `../../compilation/stt/audio_files/en_us_0000.wav` | Path to the input audio file |
 | `--model-folder` | `./whisper-small-mxq` | Path to the prepared model folder |
+| `--model-id` | `mobilint/whisper-small` | HuggingFace model ID for processor download |
 | `--language` | `None` (auto-detect) | Source language code (e.g., `en`, `ko`, `ja`) |
-| `--task` | `transcribe` | Task to perform: `transcribe` or `translate` |
-| `--use-pipeline` | `False` | If set, uses the Hugging Face pipeline API instead of manual inference |
+| `--task` | `transcribe` | Task: `transcribe` or `translate` |
 
-## Supported Languages
-
-Whisper supports over 99 languages. Common language codes include:
-
-- `en` - English
-- `ko` - Korean
-- `ja` - Japanese
-- `zh` - Chinese
-- `es` - Spanish
-- `fr` - French
-- `de` - German
-
-## Architecture
-
-The implementation leverages Hugging Face's `AutoModel` classes for seamless integration:
+## File Structure
 
 ```text
-┌─────────────────────────────────────────────────────────┐
-│                   inference_mxq.py                      │
-│  (Loads model via AutoModelForSpeechSeq2Seq)            │
-└─────────────────────┬───────────────────────────────────┘
-                      │
-                      ▼
-┌─────────────────────────────────────────────────────────┐
-│                   mblt-whisper.py                       │
-│  ┌─────────────────────────────────────────────────┐    │
-│  │  MobilintWhisperForConditionalGeneration        │    │
-│  │  ├── MobilintWhisperEncoder (encoder.mxq)       │    │
-│  │  └── MobilintWhisperDecoder (decoder.mxq)       │    │
-│  └─────────────────────────────────────────────────┘    │
-└─────────────────────┬───────────────────────────────────┘
-                      │
-                      ▼
-┌─────────────────────────────────────────────────────────┐
-│                  Mobilint Accelerator                   │
-│                      (qbruntime)                        │
-└─────────────────────────────────────────────────────────┘
+stt/
+├── prepare_model.py              # Step 1: Prepare model folder
+├── inference_mblt_model_zoo.py   # Step 2: Run inference
+└── whisper-small-mxq/            # Output from Step 1
+    ├── config.json               # Model config with NPU core allocation
+    ├── whisper-small_encoder.mxq
+    ├── whisper-small_decoder.mxq
+    └── ...
 ```
 
 ## Notes
 
-- Audio files are automatically resampled to 16kHz.
-- The model processes audio in chunks of up to 30 seconds.
-- For audio files longer than 30 seconds, it is recommended to use the pipeline API (`--use-pipeline`), which automatically handles chunking.
+- Audio files are automatically resampled to 16kHz
+- The model processes audio in chunks of up to 30 seconds
+- Whisper supports 99+ languages. Common codes: `en`, `ko`, `ja`, `zh`, `es`, `fr`, `de`
+
+## References
+
+- [OpenAI Whisper](https://github.com/openai/whisper)
+- [HuggingFace Whisper](https://huggingface.co/mobilint/whisper-small)
+- [mblt-model-zoo Documentation](https://docs.mobilint.com/model-zoo)
+- [Mobilint Documentation](https://docs.mobilint.com)
