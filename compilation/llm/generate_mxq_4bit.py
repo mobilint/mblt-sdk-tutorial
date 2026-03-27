@@ -17,7 +17,6 @@ from qbcompiler import (
     mxq_compile,
 )
 
-
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--model-path", type=str, default="meta-llama/Llama-3.2-1B-Instruct")
@@ -43,7 +42,12 @@ if __name__ == "__main__":
     bit_config = BitConfig(
         transformer=BitConfig.Transformer(
             weight=BitConfig.Transformer.Weight(
-                query=4, key=4, value=value_bit, output=4, ffn=4, head=4,
+                query=4,
+                key=4,
+                value=value_bit,
+                output=4,
+                ffn=4,
+                head=4,
             ),
         )
     )
@@ -64,7 +68,11 @@ if __name__ == "__main__":
     sws_config = SearchWeightScaleConfig(
         apply=True,
         transformer=SearchWeightScaleConfig.Transformer(
-            query=True, key=True, value=True, out=True, ffn=True,
+            query=True,
+            key=True,
+            value=True,
+            out=True,
+            ffn=True,
         ),
     )
 

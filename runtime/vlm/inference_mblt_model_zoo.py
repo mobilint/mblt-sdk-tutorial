@@ -1,13 +1,11 @@
 import argparse
 
 import mblt_model_zoo.hf_transformers.models.qwen2_vl.modeling_qwen2_vl  # noqa: F401
-from transformers import AutoModelForImageTextToText, AutoProcessor, pipeline, TextStreamer
+from transformers import AutoModelForImageTextToText, AutoProcessor, TextStreamer, pipeline
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="VLM Inference using mblt-model-zoo"
-    )
+    parser = argparse.ArgumentParser(description="VLM Inference using mblt-model-zoo")
     parser.add_argument(
         "--model-folder",
         type=str,

@@ -25,7 +25,7 @@ def download_coco_samples(output_dir="images", num_images=100, target_size=(224,
     output_path = Path(output_dir)
     output_path.mkdir(exist_ok=True)
 
-    print(f"Loading COCO dataset...")
+    print("Loading COCO dataset...")
     print(f"Downloading {num_images} images to {output_dir}/")
 
     try:
@@ -36,9 +36,7 @@ def download_coco_samples(output_dir="images", num_images=100, target_size=(224,
         failed = 0
 
         # Iterate through the dataset
-        for idx, example in enumerate(
-            tqdm(dataset, desc="Downloading images", total=num_images)
-        ):
+        for idx, example in enumerate(tqdm(dataset, desc="Downloading images", total=num_images)):
             if downloaded >= num_images:
                 break
 
@@ -59,7 +57,7 @@ def download_coco_samples(output_dir="images", num_images=100, target_size=(224,
 
                 downloaded += 1
 
-            except Exception as e:
+            except Exception:
                 failed += 1
                 if failed % 10 == 0:
                     print(f"\nWarning: {failed} downloads failed so far. Continuing...")
@@ -93,16 +91,14 @@ def download_sample_images(output_dir="images", num_images=100, target_size=(224
 
     for i in tqdm(range(num_images), desc="Generating images"):
         # Create a random image with some structure
-        img_array = np.random.randint(
-            0, 256, (target_size[1], target_size[0], 3), dtype=np.uint8
-        )
+        img_array = np.random.randint(0, 256, (target_size[1], target_size[0], 3), dtype=np.uint8)
 
         # Add some patterns to make it look less random
         for channel in range(3):
             gradient = np.linspace(0, 255, target_size[0], dtype=np.uint8)
-            img_array[:, :, channel] = (
-                img_array[:, :, channel] * 0.7 + gradient * 0.3
-            ).astype(np.uint8)
+            img_array[:, :, channel] = (img_array[:, :, channel] * 0.7 + gradient * 0.3).astype(
+                np.uint8
+            )
 
         img = Image.fromarray(img_array)
         output_file = output_path / f"image_{i:04d}.jpg"

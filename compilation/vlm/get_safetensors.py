@@ -1,4 +1,3 @@
-import json
 import os
 
 import torch
@@ -12,9 +11,7 @@ snapshot_download(
     repo_id="Qwen/Qwen2-VL-2B-Instruct",
     local_dir="./huggingface/",
     local_dir_use_symlinks=False,
-    allow_patterns=[
-        "model-00001-of-00002.safetensors"
-    ],  # optional: only download specific files
+    allow_patterns=["model-00001-of-00002.safetensors"],  # optional: only download specific files
 )
 
 SOURCE_FILE = "./huggingface/model-00001-of-00002.safetensors"

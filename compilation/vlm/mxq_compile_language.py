@@ -1,4 +1,5 @@
 import os
+
 import torch
 from qbcompiler import mxq_compile
 from qbcompiler.configs import CompileConfig

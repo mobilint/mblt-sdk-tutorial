@@ -1,11 +1,11 @@
 from argparse import ArgumentParser
 
 import torch
-from wrapper.bert_model import BertMXQ
 from datasets import load_dataset
 from scipy.stats import pearsonr, spearmanr
 from tqdm import tqdm
 from transformers import BertTokenizer
+from wrapper.bert_model import BertMXQ
 
 if __name__ == "__main__":
     tokenizer = BertTokenizer.from_pretrained(

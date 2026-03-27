@@ -25,16 +25,15 @@ import glob
 import json
 import os
 import traceback
-from typing import Dict, List, Tuple
 
 import numpy as np
 import torch
-from qwen_vl_utils import process_vision_info
-from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
 from qbcompiler.model_dict.parser.backend.hf.util import (
     DefaultInputsCaptureContainer,
     InputCaptureCtxManager,
 )
+from qwen_vl_utils import process_vision_info
+from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
 
 
 def load_model_and_processor(model_name: str):
@@ -49,15 +48,13 @@ def load_model_and_processor(model_name: str):
 
 def prepare_inputs(
     processor,
-    messages: List[Dict],
+    messages: list[dict],
     model_device: torch.device,
-    image_size: Tuple[int, int] = (224, 224),
-) -> Dict:
+    image_size: tuple[int, int] = (224, 224),
+) -> dict:
     """Prepare inputs for model inference from messages."""
     # Apply chat template
-    text = processor.apply_chat_template(
-        messages, tokenize=False, add_generation_prompt=True
-    )
+    text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
 
     # Process vision inputs
     image_inputs, video_inputs = process_vision_info(messages)
@@ -81,7 +78,7 @@ def prepare_inputs(
     return inputs
 
 
-def create_diverse_samples() -> List[Dict]:
+def create_diverse_samples() -> list[dict]:
     """
     Create diverse calibration samples covering various scenarios.
     Uses ALL local images from images/ folder with diverse prompts.
@@ -183,8 +180,6 @@ def create_diverse_samples() -> List[Dict]:
         template_idx = idx % len(prompt_templates)
         prompt_type, prompt_text = prompt_templates[template_idx]
 
-        # Extract filename for naming
-        filename = os.path.basename(image_path)
         sample_name = f"{prompt_type}_{idx:03d}"
 
         samples.append(
@@ -202,8 +197,8 @@ def create_diverse_samples() -> List[Dict]:
 def capture_language_model_inputs(
     model,
     processor,
-    sample_config: Dict,
-    image_size: Tuple[int, int] = (224, 224),
+    sample_config: dict,
+    image_size: tuple[int, int] = (224, 224),
     max_new_tokens: int = 500,
 ) -> np.ndarray:
     """
@@ -246,7 +241,7 @@ def capture_language_model_inputs(
     inputs_container = DefaultInputsCaptureContainer()
     max_call_limit = 1  # Capture the first call (prefill phase)
 
-    with InputCaptureCtxManager(model.model, max_call_limit, inputs_container) as f:
+    with InputCaptureCtxManager(model.model, max_call_limit, inputs_container):
         # Run generation to capture inputs with vision embeddings merged
         _ = model.generate(**inputs, max_new_tokens=max_new_tokens)
 
@@ -265,10 +260,10 @@ def capture_language_model_inputs(
         if tensor.dtype == torch.bfloat16:
             tensor = tensor.float()
         result["inputs_embeds"] = tensor.cpu().numpy()
-        print(f"   ✓ Using pre-computed inputs_embeds")
+        print("   ✓ Using pre-computed inputs_embeds")
     else:
         # Need to compute embeddings from input_ids
-        print(f"   → Computing inputs_embeds from input_ids + vision features")
+        print("   → Computing inputs_embeds from input_ids + vision features")
 
         # Get input_ids and vision features
         input_ids = captured_kwargs.get("input_ids")
@@ -283,9 +278,7 @@ def capture_language_model_inputs(
             # Find the embed_tokens layer - try different paths
             if hasattr(model.model, "embed_tokens"):
                 embed_tokens = model.model.embed_tokens
-            elif hasattr(model.model, "model") and hasattr(
-                model.model.model, "embed_tokens"
-            ):
+            elif hasattr(model.model, "model") and hasattr(model.model.model, "embed_tokens"):
                 embed_tokens = model.model.model.embed_tokens
             elif hasattr(model, "get_input_embeddings"):
                 embed_tokens = model.get_input_embeddings()
@@ -323,23 +316,19 @@ def capture_language_model_inputs(
                 )
 
                 # Convert image embeds to same dtype and device as inputs_embeds
-                image_embeds = image_embeds.to(
-                    inputs_embeds.device, inputs_embeds.dtype
-                )
+                image_embeds = image_embeds.to(inputs_embeds.device, inputs_embeds.dtype)
 
                 # Scatter image embeddings into the text embeddings at image token positions
                 inputs_embeds = inputs_embeds.masked_scatter(image_mask, image_embeds)
 
-                print(
-                    f"   ✓ Merged {n_image_features} image features into inputs_embeds"
-                )
+                print(f"   ✓ Merged {n_image_features} image features into inputs_embeds")
 
             # Convert to float32 and move to CPU
             if inputs_embeds.dtype == torch.bfloat16:
                 inputs_embeds = inputs_embeds.float()
             result["inputs_embeds"] = inputs_embeds.cpu().numpy()
 
-        print(f"   ✓ Computed inputs_embeds from embedding layer")
+        print("   ✓ Computed inputs_embeds from embedding layer")
 
     # Validate inputs_embeds shape and range
     if "inputs_embeds" in result:
@@ -356,24 +345,22 @@ def capture_language_model_inputs(
         )
 
         # Expected: [batch=1, seq_len=dynamic, hidden_size=1536]
-        assert (
-            len(embeds_shape) == 3
-        ), f"inputs_embeds should be 3D, got shape {embeds_shape}"
+        assert len(embeds_shape) == 3, f"inputs_embeds should be 3D, got shape {embeds_shape}"
         assert embeds_shape[0] == 1, f"batch size should be 1, got {embeds_shape[0]}"
         expected_hidden_size = 1536  # For Qwen2-VL-2B-Instruct
         if embeds_shape[2] != expected_hidden_size:
             print(
                 f"   ⚠ Warning: hidden_size is {embeds_shape[2]}, expected {expected_hidden_size}"
             )
-            print(f"   This may be a different model variant")
+            print("   This may be a different model variant")
 
         # Warn if range seems too small (likely missing vision features)
         if abs(embeds_max) < 1.0 and abs(embeds_min) < 1.0:
             print(
                 f"   ⚠ WARNING: inputs_embeds range is very small ({embeds_min:.2f} to {embeds_max:.2f})"
             )
-            print(f"   ⚠ This might indicate vision features were not properly merged!")
-            print(f"   ⚠ Expected range is typically much larger (e.g., -20 to 80)")
+            print("   ⚠ This might indicate vision features were not properly merged!")
+            print("   ⚠ Expected range is typically much larger (e.g., -20 to 80)")
 
         return inputs_embeds
     else:
@@ -383,7 +370,7 @@ def capture_language_model_inputs(
 def generate_language_calibration_data(
     model_name: str = "Qwen/Qwen2-VL-2B-Instruct",
     output_dir: str = "./calibration_data/language",
-    image_size: Tuple[int, int] = (224, 224),
+    image_size: tuple[int, int] = (224, 224),
     num_samples: int = None,
     max_new_tokens: int = 500,
 ) -> str:
@@ -431,7 +418,7 @@ def generate_language_calibration_data(
 
     # Process each sample
     for i, sample_config in enumerate(sample_configs):
-        print(f"\n[{i+1}/{len(sample_configs)}] Processing: {sample_config['name']}")
+        print(f"\n[{i + 1}/{len(sample_configs)}] Processing: {sample_config['name']}")
         print(f"   Image: {sample_config['image_url']}")
         print(f"   Prompt: {sample_config['prompt']}")
 
@@ -448,9 +435,7 @@ def generate_language_calibration_data(
             # Save only inputs_embeds.npy
             npy_path = os.path.join(sample_dir, "inputs_embeds.npy")
             np.save(npy_path, inputs_embeds)
-            shape_str = (
-                str(inputs_embeds.shape) + " # [batch, seq_len, hidden_size=1536]"
-            )
+            shape_str = str(inputs_embeds.shape) + " # [batch, seq_len, hidden_size=1536]"
             print(f"   ✓ Saved inputs_embeds.npy: {shape_str}")
 
             # Add absolute path to list
@@ -500,27 +485,27 @@ def generate_language_calibration_data(
     print("\n" + "=" * 80)
     print("LANGUAGE CALIBRATION DATA GENERATION COMPLETE")
     print("=" * 80)
-    print(f"\nSummary:")
+    print("\nSummary:")
     print(f"  - Samples collected: {len(metadata['samples'])}")
     print(f"  - Output directory: {output_dir}")
     print(f"  - Total size: {total_size_mb:.2f} MB")
     print(f"  - Image size: {image_size}")
     print(f"  - Max tokens per sample: {max_new_tokens}")
-    print(f"\nStructure:")
+    print("\nStructure:")
     print(f"  {output_dir}/")
     for sample in metadata["samples"][:3]:  # Show first 3
         print(f"  ├── {sample['directory']}/")
         print(f"  │   └── inputs_embeds.npy    # {sample['shape']}")
     if len(metadata["samples"]) > 3:
         print(f"  ├── ... ({len(metadata['samples']) - 3} more samples)")
-    print(f"  ├── metadata.json")
-    print(f"  └── npy_files.txt")
-    print(f"\nUsage:")
-    print(f"  # Load a sample")
+    print("  ├── metadata.json")
+    print("  └── npy_files.txt")
+    print("\nUsage:")
+    print("  # Load a sample")
     print(f"  inputs_embeds = np.load('{output_dir}/sample_000/inputs_embeds.npy')")
-    print(f"  # Or load all paths from the list")
+    print("  # Or load all paths from the list")
     print(f"  with open('{output_dir}/npy_files.txt', 'r') as f:")
-    print(f"      npy_paths = [line.strip() for line in f]")
+    print("      npy_paths = [line.strip() for line in f]")
 
     return output_dir
 

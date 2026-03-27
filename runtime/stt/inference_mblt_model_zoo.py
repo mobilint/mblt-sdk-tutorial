@@ -1,12 +1,12 @@
 import argparse
 
 import librosa
-import torch
 
 # Register mblt-model-zoo's Whisper model with HuggingFace AutoModel.
 # This single import enables AutoModelForSpeechSeq2Seq.from_pretrained()
 # to load Mobilint MXQ models directly — no local wrapper needed.
 import mblt_model_zoo.hf_transformers.models.whisper.modeling_whisper  # noqa: F401
+import torch
 from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor
 
 

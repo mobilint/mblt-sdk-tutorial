@@ -1,8 +1,8 @@
 from argparse import ArgumentParser
 
 import torch
-from wrapper.bert_model import BertMXQ
 from transformers import BertTokenizer
+from wrapper.bert_model import BertMXQ
 
 DUMMY_CORPUS = [
     ["A man is eating food.", "A man is eating something."],
@@ -17,7 +17,6 @@ DUMMY_CORPUS = [
 
 
 if __name__ == "__main__":
-
     parser = ArgumentParser()
     parser.add_argument(
         "--mxq_path",
@@ -44,6 +43,6 @@ if __name__ == "__main__":
             s2 = model(**tokenizer(dummy_pair[1], return_tensors="pt"))
             similarity = torch.nn.functional.cosine_similarity(s1, s2, dim=0)
 
-        print(f"  {similarity.item():.4f}  |  \"{dummy_pair[0]}\" vs \"{dummy_pair[1]}\"")
+        print(f'  {similarity.item():.4f}  |  "{dummy_pair[0]}" vs "{dummy_pair[1]}"')
 
     model.dispose()

@@ -1,8 +1,5 @@
 """Qwen2-VL Vision Encoder Compilation to MBLT Format"""
 
-from typing import Dict, List, Tuple
-
-import torch
 from qbcompiler.model_dict.common import DataFormat, LayerType
 from qbcompiler.model_dict.parser.backend.fx_hf_extensions.transformers.models.qwen2vl import (
     VisionModelForQwen2VL,
@@ -25,13 +22,13 @@ from utils import (
 def compile_vision_encoder(
     model,
     processor,
-    messages: List[Dict],
-    image_size: Tuple[int, int] = (224, 224),
+    messages: list[dict],
+    image_size: tuple[int, int] = (224, 224),
     output_path: str = "mblt/Qwen2-VL-2B-Instruct_vision_transformer.mblt",
     target_device: str = "aries2",
     ignore_weight: bool = False,
     debug: bool = True,
-) -> Tuple[str, str, str]:
+) -> tuple[str, str, str]:
     """
     Compile Qwen2-VL vision encoder to MBLT format.
 
@@ -96,9 +93,7 @@ def compile_vision_encoder(
     vision_model.to(model.device)
 
     # STEP 4: Compile with qbcompiler parser
-    print(
-        f"\n[4/6] Compiling to MBLT with qbcompiler parser (target: {target_device})..."
-    )
+    print(f"\n[4/6] Compiling to MBLT with qbcompiler parser (target: {target_device})...")
 
     parser = ModelParser(
         model=vision_model,

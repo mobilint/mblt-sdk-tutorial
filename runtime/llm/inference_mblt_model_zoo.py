@@ -1,14 +1,12 @@
 import argparse
 
-import torch
 import mblt_model_zoo.hf_transformers.models.llama.modeling_llama  # noqa: F401
+import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, TextStreamer
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="LLM Inference using mblt-model-zoo"
-    )
+    parser = argparse.ArgumentParser(description="LLM Inference using mblt-model-zoo")
     parser.add_argument(
         "--model-folder",
         type=str,
@@ -58,7 +56,7 @@ def main():
     # Generate
     print("Running inference...")
     with torch.no_grad():
-        output_ids = model.generate(
+        model.generate(
             **inputs,
             max_new_tokens=args.max_new_tokens,
             do_sample=True,

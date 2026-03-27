@@ -1,7 +1,5 @@
 """Qwen2-VL Language Model Compilation to MBLT Format"""
 
-from typing import Dict, List, Optional, Tuple
-
 import torch
 from qbcompiler.model_dict.parser.backend.fx_hf_extensions.transformers.models.qwen2vl import (
     CachedQwen2VLTextRotaryEmbedding,
@@ -24,13 +22,13 @@ from utils import (
 def compile_language_model(
     model,
     processor,
-    messages: List[Dict],
+    messages: list[dict],
     output_path: str = "mblt/Qwen2-VL-2B-Instruct_text_model.mblt",
     target_device: str = "aries2",
-    num_blocks: Optional[int] = None,
+    num_blocks: int | None = None,
     ignore_weight: bool = False,
     debug: bool = True,
-) -> Tuple[str, str, str]:
+) -> tuple[str, str, str]:
     """
     Compile Qwen2-VL language model to MBLT format.
 
@@ -68,9 +66,7 @@ def compile_language_model(
     inputs_container = DefaultInputsCaptureContainer()
     max_call_limit = 1  # Only capture the first call
 
-    with InputCaptureCtxManager(
-        model.projection, max_call_limit, inputs_container
-    ):
+    with InputCaptureCtxManager(model.projection, max_call_limit, inputs_container):
         _ = model.generate(**inputs, max_new_tokens=500)
 
     feed_dict = inputs_container.captured_kwargs[-1]
@@ -102,20 +98,14 @@ def compile_language_model(
 
     if num_blocks is not None:
         print(f"   Limiting to {num_blocks} transformer blocks (for testing)")
-        target_model.language_model.layers = target_model.language_model.layers[
-            :num_blocks
-        ]
+        target_model.language_model.layers = target_model.language_model.layers[:num_blocks]
     else:
-        print(
-            f"   Compiling all {len(target_model.language_model.layers)} transformer blocks"
-        )
+        print(f"   Compiling all {len(target_model.language_model.layers)} transformer blocks")
 
     target_model.language_model.rotary_emb.set_rope(feed_dict["position_ids"])
 
     # STEP 4: Compile with qbcompiler parser
-    print(
-        f"\n[4/6] Compiling to MBLT with qbcompiler parser (target: {target_device})..."
-    )
+    print(f"\n[4/6] Compiling to MBLT with qbcompiler parser (target: {target_device})...")
 
     output_meta = {"type": "list", "keys": [0]}
 

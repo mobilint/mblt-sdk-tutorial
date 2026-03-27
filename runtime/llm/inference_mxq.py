@@ -1,8 +1,8 @@
 import argparse
 
 import torch
-from wrapper.llama_model import LlamaMXQ
 from transformers import AutoConfig, AutoTokenizer, TextStreamer
+from wrapper.llama_model import LlamaMXQ
 
 MODEL_NAME = "meta-llama/Llama-3.2-1B-Instruct"
 
