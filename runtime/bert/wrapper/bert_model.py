@@ -8,12 +8,8 @@ class BertMXQ(torch.nn.Module):
 
         weight_dict = torch.load(weight_path, weights_only=True)
         self.word_embeddings = torch.nn.Embedding.from_pretrained(weight_dict["word_embeddings"])
-        self.token_type_embeddings = torch.nn.Embedding.from_pretrained(
-            weight_dict["token_type_embeddings"]
-        )
-        self.position_embeddings = torch.nn.Embedding.from_pretrained(
-            weight_dict["position_embeddings"]
-        )
+        self.token_type_embeddings = torch.nn.Embedding.from_pretrained(weight_dict["token_type_embeddings"])
+        self.position_embeddings = torch.nn.Embedding.from_pretrained(weight_dict["position_embeddings"])
         layernorm_weight = weight_dict["layernorm_weight"]
         layernorm_bias = weight_dict["layernorm_bias"]
 

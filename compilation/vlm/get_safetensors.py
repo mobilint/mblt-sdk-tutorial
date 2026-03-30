@@ -33,12 +33,8 @@ with safe_open(SOURCE_FILE, framework="pt") as f:
 # Apply the same rotation matrix used during language model MXQ compilation.
 # The token embedding is not compiled into MXQ (it runs as a CPU lookup),
 # so it must be pre-rotated to match the quantized model's transformed space.
-head_out_ch_rotation_matrix_path = (
-    "./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth"
-)
-head_out_ch_rotation_matrix = torch.jit.load(
-    head_out_ch_rotation_matrix_path, map_location="cpu"
-).state_dict()["0"]
+head_out_ch_rotation_matrix_path = "./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth"
+head_out_ch_rotation_matrix = torch.jit.load(head_out_ch_rotation_matrix_path, map_location="cpu").state_dict()["0"]
 
 embedding = tensor.double() @ head_out_ch_rotation_matrix
 

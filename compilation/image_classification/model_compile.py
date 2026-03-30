@@ -65,6 +65,7 @@ if __name__ == "__main__":
         save_path=args.save_path,
         save_subgraph_type=2,  # save mblt file before quantization
         output_subgraph_path=args.onnx_path.replace(".onnx", ".mblt"),
+        image_channels=3,  # If there is grayscale image in calibration dataset, convert to RGB
         backend="onnx",
         device="gpu",
         inference_scheme="all",  # now support all scheme in one model

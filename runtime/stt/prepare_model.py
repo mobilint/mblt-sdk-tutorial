@@ -83,9 +83,7 @@ def prepare_model_folder(
 
     # Extract and save embedding weights from the base model
     print(f"Extracting embedding weights from {base_model}...")
-    base_model_obj = WhisperForConditionalGeneration.from_pretrained(
-        base_model, dtype=torch.float32
-    )
+    base_model_obj = WhisperForConditionalGeneration.from_pretrained(base_model, dtype=torch.float32)
 
     # Get decoder embedding weights and positional embeddings
     embed_tokens_weight = base_model_obj.model.decoder.embed_tokens.weight.data
@@ -167,6 +165,4 @@ if __name__ == "__main__":
     )
 
     print("\nYou can now run inference with:")
-    print(
-        f"  python inference_mblt_model_zoo.py --audio /path/to/audio.wav --model-folder {args.output_folder}"
-    )
+    print(f"  python inference_mblt_model_zoo.py --audio /path/to/audio.wav --model-folder {args.output_folder}")

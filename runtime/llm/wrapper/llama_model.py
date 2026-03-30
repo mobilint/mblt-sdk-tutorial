@@ -130,9 +130,7 @@ class LlamaMXQ(LlamaPreTrainedModel, GenerationMixin):
 
         # ------------------------ LlamaModel.forward() --------------------------------------------
         output_attentions = (
-            output_attentions
-            if output_attentions is not None
-            else self.config.output_attentions  # False by default
+            output_attentions if output_attentions is not None else self.config.output_attentions  # False by default
         )
         output_hidden_states = (
             output_hidden_states
@@ -141,29 +139,21 @@ class LlamaMXQ(LlamaPreTrainedModel, GenerationMixin):
         )
         use_cache = use_cache if use_cache is not None else self.config.use_cache  # True by default
         return_dict = (
-            return_dict
-            if return_dict is not None
-            else self.config.use_return_dict  # True by default
+            return_dict if return_dict is not None else self.config.use_return_dict  # True by default
         )
         if inputs_embeds is None:
             inputs_embeds = self.embed_tokens(input_ids)  # (batch, seqlen, hidden_size)
         inputs_embeds_numpy = inputs_embeds.float().detach().numpy()
 
         if inputs_embeds_numpy.ndim == 3:
-            inputs_embeds_numpy = np.expand_dims(
-                inputs_embeds_numpy, 1
-            )  # (batch, 1, seqlen,  hidden_size)
+            inputs_embeds_numpy = np.expand_dims(inputs_embeds_numpy, 1)  # (batch, 1, seqlen,  hidden_size)
 
         seq_len = inputs_embeds_numpy.shape[2]
-        assert req_ret <= seq_len, (
-            f"Requested return length {req_ret} is greater than input sequence length {seq_len}"
-        )
+        assert req_ret <= seq_len, f"Requested return length {req_ret} is greater than input sequence length {seq_len}"
         res_ret = seq_len - req_ret + 1  # number of tokens that will not return logits
         # -------------------------------------------------------------------------------------------
         # Stage 1: Process tokens that will not return logits except the last one
-        for i in range(
-            math.ceil(res_ret / self.max_sub_seq)
-        ):  # max_sub_seq tokens are processed at once
+        for i in range(math.ceil(res_ret / self.max_sub_seq)):  # max_sub_seq tokens are processed at once
             seq_start = i * self.max_sub_seq
             seq_end = min((i + 1) * self.max_sub_seq, res_ret)
             tmp_logits = self.mxq_model.infer(
@@ -227,9 +217,7 @@ class LlamaMXQ(LlamaPreTrainedModel, GenerationMixin):
         if past_key_values is not None:
             if inputs_embeds is not None:  # Exception 1
                 input_ids = input_ids[:, -cache_position.shape[0] :]
-            elif (
-                input_ids.shape[1] != cache_position.shape[0]
-            ):  # Default case (the "else", a no op, is Exception 2)
+            elif input_ids.shape[1] != cache_position.shape[0]:  # Default case (the "else", a no op, is Exception 2)
                 input_ids = input_ids[:, cache_position]
 
         if attention_mask is not None and position_ids is None:
@@ -337,20 +325,14 @@ def _prepare_4d_causal_attention_mask_with_cache_position(
             mask_length = attention_mask.shape[-1]
             padding_mask = causal_mask[:, :, :, :mask_length] + attention_mask[:, None, None, :]
             padding_mask = padding_mask == 0
-            causal_mask[:, :, :, :mask_length] = causal_mask[:, :, :, :mask_length].masked_fill(
-                padding_mask, min_dtype
-            )
+            causal_mask[:, :, :, :mask_length] = causal_mask[:, :, :, :mask_length].masked_fill(padding_mask, min_dtype)
 
     return causal_mask
 
 
-def fixed_cross_entropy(
-    source, target, num_items_in_batch: int = None, ignore_index: int = -100, **kwargs
-):
+def fixed_cross_entropy(source, target, num_items_in_batch: int = None, ignore_index: int = -100, **kwargs):
     reduction = "sum" if num_items_in_batch is not None else "mean"
-    loss = nn.functional.cross_entropy(
-        source, target, ignore_index=ignore_index, reduction=reduction
-    )
+    loss = nn.functional.cross_entropy(source, target, ignore_index=ignore_index, reduction=reduction)
     if reduction == "sum":
         loss = loss / num_items_in_batch
     return loss

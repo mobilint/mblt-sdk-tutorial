@@ -44,8 +44,11 @@ def download_fleurs_data(output_dir=".", languages=FLEURS_LANGUAGES, num_samples
 
         try:
             dataset = load_dataset(
-                "google/fleurs", lang, split="validation",
-                trust_remote_code=True, streaming=True,
+                "google/fleurs",
+                lang,
+                split="validation",
+                trust_remote_code=True,
+                streaming=True,
             )
 
             i = 0

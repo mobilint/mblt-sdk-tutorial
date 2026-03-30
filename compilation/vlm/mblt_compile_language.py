@@ -92,9 +92,7 @@ def compile_language_model(
     print("\n[3/6] Applying Aries 2 architectural patches...")
 
     target_model = model.projection
-    target_model.language_model.rotary_emb = CachedQwen2VLTextRotaryEmbedding(
-        target_model.language_model.rotary_emb
-    )
+    target_model.language_model.rotary_emb = CachedQwen2VLTextRotaryEmbedding(target_model.language_model.rotary_emb)
 
     if num_blocks is not None:
         print(f"   Limiting to {num_blocks} transformer blocks (for testing)")
@@ -143,9 +141,7 @@ def compile_language_model(
     # STEP 6: Validation
     print("\n[6/6] Validating compiled model...")
 
-    inference_values_path, comparison_path = validate_compiled_model(
-        parser, model.device, output_path
-    )
+    inference_values_path, comparison_path = validate_compiled_model(parser, model.device, output_path)
 
     print_compilation_summary(
         "LANGUAGE MODEL",

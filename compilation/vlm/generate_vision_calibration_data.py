@@ -360,9 +360,7 @@ def generate_vision_calibration_data(
 
     # Calculate total size
     total_size = sum(
-        os.path.getsize(os.path.join(root, file))
-        for root, dirs, files in os.walk(output_dir)
-        for file in files
+        os.path.getsize(os.path.join(root, file)) for root, dirs, files in os.walk(output_dir) for file in files
     )
     total_size_mb = total_size / (1024 * 1024)
 

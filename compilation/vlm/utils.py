@@ -40,9 +40,7 @@ def load_model_and_processor(model_name: str):
     model.projection = Projection(model.language_model, model.lm_head)
     qwen2vl_model = model.model
     qwen2vl_model.get_image_feature_class = Qwen2VLModel_get_image_feature(qwen2vl_model)
-    qwen2vl_model.get_image_features = Qwen2VL_get_image_features.__get__(
-        qwen2vl_model, type(qwen2vl_model)
-    )
+    qwen2vl_model.get_image_features = Qwen2VL_get_image_features.__get__(qwen2vl_model, type(qwen2vl_model))
 
     print("✓ Model and processor loaded successfully")
 

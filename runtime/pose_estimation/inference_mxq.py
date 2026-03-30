@@ -24,9 +24,7 @@ def preprocess_yolo(img_path: str, img_size=(640, 640)):
     dh /= 2  # to center the image
     top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
     left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
-    img = cv2.copyMakeBorder(
-        img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(114, 114, 114)
-    )  # add border
+    img = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(114, 114, 114))  # add border
 
     return img
 
@@ -39,12 +37,8 @@ if __name__ == "__main__":
         default="../../compilation/pose_estimation/yolo11m-pose.mxq",
         help="Path to the compiled MXQ model",
     )
-    parser.add_argument(
-        "--image-path", type=str, default="../rc/cr7.jpg", help="Path to the input image"
-    )
-    parser.add_argument(
-        "--output-path", type=str, default="./tmp/cr_pose_demo.jpg", help="Path to the output image"
-    )
+    parser.add_argument("--image-path", type=str, default="../rc/cr7.jpg", help="Path to the input image")
+    parser.add_argument("--output-path", type=str, default="./tmp/cr_pose_demo.jpg", help="Path to the output image")
     parser.add_argument("--conf-thres", type=float, default=0.25, help="Confidence threshold")
     parser.add_argument("--iou-thres", type=float, default=0.5, help="IoU threshold")
 

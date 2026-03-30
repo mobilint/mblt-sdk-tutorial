@@ -64,9 +64,7 @@ def generate_calibration(
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Generate calibration datasets from Wikipedia for LLM models"
-    )
+    parser = argparse.ArgumentParser(description="Generate calibration datasets from Wikipedia for LLM models")
     parser.add_argument(
         "--tokenizer-path",
         type=str,

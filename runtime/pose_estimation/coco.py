@@ -209,13 +209,9 @@ POSE_SKELETON = [
     [5, 7],
 ]
 
-LIMB_PALLETE = [
-    POSE_PALETTE[i] for i in [9, 9, 9, 9, 7, 7, 7, 0, 0, 0, 0, 0, 16, 16, 16, 16, 16, 16, 16]
-]
+LIMB_PALLETE = [POSE_PALETTE[i] for i in [9, 9, 9, 9, 7, 7, 7, 0, 0, 0, 0, 0, 16, 16, 16, 16, 16, 16, 16]]
 
-KEYPOINT_PALLETE = [
-    POSE_PALETTE[i] for i in [16, 16, 16, 16, 16, 0, 0, 0, 0, 0, 0, 9, 9, 9, 9, 9, 9]
-]
+KEYPOINT_PALLETE = [POSE_PALETTE[i] for i in [16, 16, 16, 16, 16, 0, 0, 0, 0, 0, 0, 9, 9, 9, 9, 9, 9]]
 
 
 def get_coco_class_num() -> int:

@@ -124,14 +124,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if not os.path.exists(args.mxq_path):
-        raise FileNotFoundError(
-            f"MXQ file not found: {args.mxq_path}\n"
-            "Please run the compilation tutorial first."
-        )
+        raise FileNotFoundError(f"MXQ file not found: {args.mxq_path}\nPlease run the compilation tutorial first.")
     if not os.path.exists(args.embedding_path):
         raise FileNotFoundError(
-            f"Embedding file not found: {args.embedding_path}\n"
-            "Please run the compilation tutorial first."
+            f"Embedding file not found: {args.embedding_path}\nPlease run the compilation tutorial first."
         )
 
     prepare_model_folder(
@@ -142,6 +138,4 @@ if __name__ == "__main__":
     )
 
     print("\nYou can now run inference with:")
-    print(
-        f"  python inference_mblt_model_zoo.py --model-folder {args.output_folder} --model-id {args.model_id}"
-    )
+    print(f"  python inference_mblt_model_zoo.py --model-folder {args.output_folder} --model-id {args.model_id}")

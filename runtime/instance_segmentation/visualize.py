@@ -10,9 +10,7 @@ from coco import get_coco_det_palette, get_coco_label
 def compute_ratio_pad(input_shape, img_shape, ratio_pad=None):
     """Compute ratio and pad which were used to resize image to input_shape"""
     if ratio_pad is None:  # calculate from img0_shape
-        gain = min(
-            input_shape[0] / img_shape[0], input_shape[1] / img_shape[1]
-        )  # gain  = old / new
+        gain = min(input_shape[0] / img_shape[0], input_shape[1] / img_shape[1])  # gain  = old / new
         pad = (
             round((input_shape[1] - img_shape[1] * gain) / 2 - 0.1),
             round((input_shape[0] - img_shape[0] * gain) / 2 - 0.1),
@@ -53,9 +51,7 @@ def scale_masks(img1_shape, masks, img0_shape, ratio_pad=None):
     bottom, right = int(masks.shape[1] - pad[1]), int(masks.shape[2] - pad[0])
 
     masks = masks[:, top:bottom, left:right]
-    masks = F.interpolate(
-        masks.unsqueeze(0), scale_factor=1 / gain, mode="bilinear", align_corners=False
-    ).squeeze(0)
+    masks = F.interpolate(masks.unsqueeze(0), scale_factor=1 / gain, mode="bilinear", align_corners=False).squeeze(0)
 
     masks = torch.cat(
         [torch.from_numpy(cv2.resize(m.cpu().numpy(), img0_shape[:2][::-1])[None]) for m in masks],
@@ -147,9 +143,7 @@ class YoloVisualizer(BaseVisualizer):
         masks: list[torch.Tensor] = None,
         kpts: list[torch.Tensor] = None,
     ):
-        assert not (masks is not None and kpts is not None), (
-            "masks and kpts cannot be used together."
-        )
+        assert not (masks is not None and kpts is not None), "masks and kpts cannot be used together."
 
         img = cv2.imread(input_path)
 

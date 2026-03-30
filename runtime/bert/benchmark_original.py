@@ -24,9 +24,7 @@ if __name__ == "__main__":
         with torch.no_grad():
             s1 = model(tokenizer(s1, return_tensors="pt")["input_ids"])
             s2 = model(tokenizer(s2, return_tensors="pt")["input_ids"])
-            similarity = torch.nn.functional.cosine_similarity(
-                s1["pooler_output"], s2["pooler_output"], dim=1
-            )
+            similarity = torch.nn.functional.cosine_similarity(s1["pooler_output"], s2["pooler_output"], dim=1)
         original_score.append(score)
         inference_score.append(similarity.item())
 

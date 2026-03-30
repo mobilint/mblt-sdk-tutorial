@@ -28,9 +28,7 @@ def prepare_model_folder(
     # Find MXQ files
     mxq_files = [f for f in os.listdir(compilation_dir) if f.endswith(".mxq")]
     if len(mxq_files) < 2:
-        raise FileNotFoundError(
-            f"Expected at least 2 MXQ files in {compilation_dir}, found {len(mxq_files)}"
-        )
+        raise FileNotFoundError(f"Expected at least 2 MXQ files in {compilation_dir}, found {len(mxq_files)}")
 
     all_files = required_files + mxq_files
     for filename in all_files:
@@ -103,8 +101,7 @@ if __name__ == "__main__":
 
     if not os.path.exists(args.compilation_dir):
         raise FileNotFoundError(
-            f"Compilation directory not found: {args.compilation_dir}\n"
-            "Please run the compilation tutorial first."
+            f"Compilation directory not found: {args.compilation_dir}\nPlease run the compilation tutorial first."
         )
 
     prepare_model_folder(
@@ -114,6 +111,4 @@ if __name__ == "__main__":
     )
 
     print("\nYou can now run inference with:")
-    print(
-        f"  python inference_mblt_model_zoo.py --model-folder {args.output_folder}"
-    )
+    print(f"  python inference_mblt_model_zoo.py --model-folder {args.output_folder}")

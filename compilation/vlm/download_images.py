@@ -96,9 +96,7 @@ def download_sample_images(output_dir="images", num_images=100, target_size=(224
         # Add some patterns to make it look less random
         for channel in range(3):
             gradient = np.linspace(0, 255, target_size[0], dtype=np.uint8)
-            img_array[:, :, channel] = (img_array[:, :, channel] * 0.7 + gradient * 0.3).astype(
-                np.uint8
-            )
+            img_array[:, :, channel] = (img_array[:, :, channel] * 0.7 + gradient * 0.3).astype(np.uint8)
 
         img = Image.fromarray(img_array)
         output_file = output_path / f"image_{i:04d}.jpg"
