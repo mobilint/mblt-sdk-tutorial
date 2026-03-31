@@ -56,7 +56,7 @@ if __name__ == "__main__":
 
     acc = qbruntime.Accelerator()
     mc = qbruntime.ModelConfig()
-    mc.set_single_core_mode(1)
+    mc.set_single_core_mode(None, [qbruntime.CoreId(qbruntime.Cluster.Cluster0, qbruntime.Core.Core0)])
     model = qbruntime.Model(args.model_path, mc)
     model.launch(acc)
 

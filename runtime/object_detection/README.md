@@ -71,7 +71,7 @@ Finally, execute the model with the preprocessed input and apply postprocessing 
 To run the example inference script, use the following command:
 
 ```bash
-python inference_mxq.py --model-path ../../../compilation/vision/object_detection/yolo11m.mxq --image-path ../rc/cr7.jpg --output-path tmp/cr7.jpg --conf-thres 0.25 --iou-thres 0.45
+python inference_mxq.py --model-path ../../compilation/object_detection/yolo11m.mxq --image-path ../rc/cr7.jpg --output-path tmp/cr7.jpg --conf-thres 0.25 --iou-thres 0.45
 ```
 
 ### Script Breakdown
