@@ -71,7 +71,7 @@ def preprocess_yolo(img_path: str, img_size=(640, 640)):
 예제 추론 스크립트를 실행하려면 다음 명령어를 사용하십시오:
 
 ```bash
-python inference_mxq.py --model-path ../../compilation/instance_segmentation/yolo11m-seg.mxq --image-path ../rc/cr7.jpg --output-path tmp/cr7.jpg --conf-thres 0.25 --iou_thres 0.45
+python inference_mxq.py --model-path ../../compilation/instance_segmentation/yolo11m-seg.mxq --image-path ../rc/cr7.jpg --output-path tmp/cr7.jpg --conf-thres 0.25 --iou-thres 0.45
 ```
 
 ### 스크립트 세부 설명
