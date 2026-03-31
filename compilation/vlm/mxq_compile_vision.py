@@ -8,9 +8,7 @@ mblt_path = "mblt/Qwen2-VL-2B-Instruct_vision_transformer.mblt"
 save_path = "mxq/Qwen2-VL-2B-Instruct_vision_transformer.mxq"
 calib_data_path = "calibration_data/vision/npy_files.txt"
 device = "gpu" if torch.cuda.is_available() else "cpu"
-head_out_ch_rotation_matrix_path = (
-    "./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth"
-)
+head_out_ch_rotation_matrix_path = "./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth"
 
 # Ensure output directory exists
 output_dir = os.path.dirname(os.path.abspath(save_path))

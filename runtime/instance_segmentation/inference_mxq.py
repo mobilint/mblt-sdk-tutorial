@@ -24,9 +24,7 @@ def preprocess_yolo(img_path: str, img_size=(640, 640)):
     dh /= 2  # to center the image
     top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
     left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
-    img = cv2.copyMakeBorder(
-        img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(114, 114, 114)
-    )  # add border
+    img = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(114, 114, 114))  # add border
 
     return img
 
@@ -58,7 +56,7 @@ if __name__ == "__main__":
 
     acc = qbruntime.Accelerator()
     mc = qbruntime.ModelConfig()
-    mc.set_single_core_mode(1)
+    mc.set_single_core_mode(None, [qbruntime.CoreId(qbruntime.Cluster.Cluster0, qbruntime.Core.Core0)])
     model = qbruntime.Model(args.model_path, mc)
     model.launch(acc)
 

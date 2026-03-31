@@ -252,9 +252,7 @@ def capture_language_model_inputs(
     result = {}
 
     # Handle inputs_embeds - it's often None and needs to be computed
-    if "inputs_embeds" in captured_kwargs and isinstance(
-        captured_kwargs["inputs_embeds"], torch.Tensor
-    ):
+    if "inputs_embeds" in captured_kwargs and isinstance(captured_kwargs["inputs_embeds"], torch.Tensor):
         # Already have embeddings
         tensor = captured_kwargs["inputs_embeds"]
         if tensor.dtype == torch.bfloat16:
@@ -349,16 +347,12 @@ def capture_language_model_inputs(
         assert embeds_shape[0] == 1, f"batch size should be 1, got {embeds_shape[0]}"
         expected_hidden_size = 1536  # For Qwen2-VL-2B-Instruct
         if embeds_shape[2] != expected_hidden_size:
-            print(
-                f"   ⚠ Warning: hidden_size is {embeds_shape[2]}, expected {expected_hidden_size}"
-            )
+            print(f"   ⚠ Warning: hidden_size is {embeds_shape[2]}, expected {expected_hidden_size}")
             print("   This may be a different model variant")
 
         # Warn if range seems too small (likely missing vision features)
         if abs(embeds_max) < 1.0 and abs(embeds_min) < 1.0:
-            print(
-                f"   ⚠ WARNING: inputs_embeds range is very small ({embeds_min:.2f} to {embeds_max:.2f})"
-            )
+            print(f"   ⚠ WARNING: inputs_embeds range is very small ({embeds_min:.2f} to {embeds_max:.2f})")
             print("   ⚠ This might indicate vision features were not properly merged!")
             print("   ⚠ Expected range is typically much larger (e.g., -20 to 80)")
 
@@ -424,9 +418,7 @@ def generate_language_calibration_data(
 
         try:
             # Capture inputs (returns only inputs_embeds as numpy array)
-            inputs_embeds = capture_language_model_inputs(
-                model, processor, sample_config, image_size, max_new_tokens
-            )
+            inputs_embeds = capture_language_model_inputs(model, processor, sample_config, image_size, max_new_tokens)
 
             # Create sample directory
             sample_dir = os.path.join(output_dir, f"sample_{i:03d}")
@@ -475,9 +467,7 @@ def generate_language_calibration_data(
 
     # Calculate total size
     total_size = sum(
-        os.path.getsize(os.path.join(root, file))
-        for root, dirs, files in os.walk(output_dir)
-        for file in files
+        os.path.getsize(os.path.join(root, file)) for root, dirs, files in os.walk(output_dir) for file in files
     )
     total_size_mb = total_size / (1024 * 1024)
 
@@ -513,9 +503,7 @@ def generate_language_calibration_data(
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Generate calibration data for Qwen2-VL language model quantization"
-    )
+    parser = argparse.ArgumentParser(description="Generate calibration data for Qwen2-VL language model quantization")
     parser.add_argument(
         "--model-name",
         type=str,

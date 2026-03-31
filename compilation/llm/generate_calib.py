@@ -50,9 +50,7 @@ def generate_calibration(
         print(f"Output directory: {output_lang_dir}")
 
         print(f"Loading Wikipedia dataset for {lang}...")
-        dataset = load_dataset(
-            "wikimedia/wikipedia", subset_name, split="train", streaming=True
-        )
+        dataset = load_dataset("wikimedia/wikipedia", subset_name, split="train", streaming=True)
 
         pbar = tqdm(total=max_calib, desc=f"Calibrating ({lang})")
         cur_num_calib = 0

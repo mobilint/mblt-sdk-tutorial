@@ -116,9 +116,7 @@ def generate_decoder_calibration_data(audio_dir, output_dir="./calibration_data/
             # Get encoder output
             with torch.no_grad():
                 encoder_output = model.model.encoder(inputs.input_features.to(device))
-                encoder_hidden_states = (
-                    encoder_output.last_hidden_state.cpu().numpy().astype(np.float32)
-                )
+                encoder_hidden_states = encoder_output.last_hidden_state.cpu().numpy().astype(np.float32)
 
             # 20% translation, 80% transcription
             # Reflects typical usage where transcription is the primary task.
@@ -127,9 +125,7 @@ def generate_decoder_calibration_data(audio_dir, output_dir="./calibration_data/
             task = "translate" if use_translation else "transcribe"
 
             with torch.no_grad():
-                generated_ids = model.generate(
-                    inputs.input_features.to(device), language=lang_code, task=task
-                )
+                generated_ids = model.generate(inputs.input_features.to(device), language=lang_code, task=task)
             tokens = generated_ids[0].tolist()
 
             # Skip if only special tokens were generated (no actual content)
@@ -144,16 +140,18 @@ def generate_decoder_calibration_data(audio_dir, output_dir="./calibration_data/
             tokens_tensor = torch.tensor([tokens], dtype=torch.long)
             token_embeds = model.model.decoder.embed_tokens(tokens_tensor.to(device))
             positions = model.model.decoder.embed_positions(tokens_tensor.to(device))
-            decoder_hidden_states = (
-                (token_embeds + positions).detach().cpu().numpy().astype(np.float32)
-            )
+            decoder_hidden_states = (token_embeds + positions).detach().cpu().numpy().astype(np.float32)
 
             # Save calibration files
             encoder_calib_path = os.path.join(
-                os.path.abspath(output_dir), f"sample_{i:04d}", "encoder_hidden_states.npy",
+                os.path.abspath(output_dir),
+                f"sample_{i:04d}",
+                "encoder_hidden_states.npy",
             )
             decoder_calib_path = os.path.join(
-                os.path.abspath(output_dir), f"sample_{i:04d}", "decoder_hidden_states.npy",
+                os.path.abspath(output_dir),
+                f"sample_{i:04d}",
+                "decoder_hidden_states.npy",
             )
 
             os.makedirs(os.path.dirname(encoder_calib_path), exist_ok=True)
@@ -186,10 +184,7 @@ def generate_decoder_calibration_data(audio_dir, output_dir="./calibration_data/
                 [1, 1500, 768],  # Fixed shape for encoder
             ],
         },
-        "calib paths": [
-            [item["decoder_hidden_states"], item["encoder_hidden_states"]]
-            for item in calibration_data
-        ],
+        "calib paths": [[item["decoder_hidden_states"], item["encoder_hidden_states"]] for item in calibration_data],
         "metadata": calibration_data,
     }
 

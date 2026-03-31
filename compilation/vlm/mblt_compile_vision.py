@@ -134,9 +134,7 @@ def compile_vision_encoder(
     # STEP 6: Validation
     print("\n[6/6] Validating compiled model...")
 
-    inference_values_path, comparison_path = validate_compiled_model(
-        parser, model.device, output_path
-    )
+    inference_values_path, comparison_path = validate_compiled_model(parser, model.device, output_path)
 
     print_compilation_summary(
         "VISION ENCODER",

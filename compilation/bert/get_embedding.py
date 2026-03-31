@@ -5,9 +5,7 @@ from transformers import BertModel
 
 WEIGHT_PATH = "./weights/weight_dict.pth"
 
-model = BertModel.from_pretrained(
-    "sentence-transformers-testing/stsb-bert-tiny-safetensors", trust_remote_code=True
-)
+model = BertModel.from_pretrained("sentence-transformers-testing/stsb-bert-tiny-safetensors", trust_remote_code=True)
 
 word_embeddings = model.embeddings.word_embeddings.weight
 token_type_embeddings = model.embeddings.token_type_embeddings.weight

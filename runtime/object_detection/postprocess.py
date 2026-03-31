@@ -27,9 +27,7 @@ class YoloPostProcessAnchorless:
 
         self.nl = 3
         self.stride = [2 ** (3 + i) for i in range(self.nl)]
-        self.anchors, self.strides = (
-            xx.transpose(0, 1) for xx in make_anchors(self.imh, self.imw, self.stride, 0.5)
-        )
+        self.anchors, self.strides = (xx.transpose(0, 1) for xx in make_anchors(self.imh, self.imw, self.stride, 0.5))
         self.n_extra = 0
         self.device = DEVICE
         self.invconf_thres = invsigmoid(self.conf_thres)
@@ -91,9 +89,7 @@ class YoloPostProcessAnchorless:
         y_det = sorted(y_det, key=lambda x: x.numel(), reverse=True)
         y_cls = sorted(y_cls, key=lambda x: x.numel(), reverse=True)
 
-        y = [
-            torch.cat((yi_det, yi_cls), dim=1).flatten(2) for (yi_det, yi_cls) in zip(y_det, y_cls)
-        ]
+        y = [torch.cat((yi_det, yi_cls), dim=1).flatten(2) for (yi_det, yi_cls) in zip(y_det, y_cls)]
 
         return y
 
@@ -102,9 +98,7 @@ class YoloPostProcessAnchorless:
 
         if self.device.type == "cpu":
             with ThreadPool(NUM_THREADS) as pool:
-                return pool.map(
-                    self.process_box_cls, batch_box_cls
-                )  # [(*, 84), (*, 84), (*, 84), ...]
+                return pool.map(self.process_box_cls, batch_box_cls)  # [(*, 84), (*, 84), (*, 84), ...]
 
         return [self.process_box_cls(box_cls) for box_cls in batch_box_cls]
 
@@ -112,10 +106,7 @@ class YoloPostProcessAnchorless:
         if self.n_extra == 0:
             ic = torch.amax(box_cls[-self.nc :, :], dim=0) > self.invconf_thres
         else:
-            ic = (
-                torch.amax(box_cls[-self.nc - self.n_extra : -self.n_extra, :], dim=0)
-                > self.invconf_thres
-            )
+            ic = torch.amax(box_cls[-self.nc - self.n_extra : -self.n_extra, :], dim=0) > self.invconf_thres
         box_cls = box_cls[:, ic]  # (144, *)
         if box_cls.numel() == 0:
             return torch.zeros((0, 4 + self.nc + self.n_extra), dtype=torch.float32)  # (0, 84)
@@ -164,9 +155,7 @@ class YoloPostProcessAnchorless:
         assert 0 <= self.conf_thres <= 1, (
             f"Invalid Confidence threshold {self.conf_thres}, valid values are between 0.0 and 1.0"
         )
-        assert 0 <= self.iou_thres <= 1, (
-            f"Invalid IoU {self.iou_thres}, valid values are between 0.0 and 1.0"
-        )
+        assert 0 <= self.iou_thres <= 1, f"Invalid IoU {self.iou_thres}, valid values are between 0.0 and 1.0"
 
         def nms_single(x):
             box, conf, mask = torch.split(x, [4, self.nc, self.n_extra], dim=1)

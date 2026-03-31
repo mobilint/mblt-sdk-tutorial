@@ -11,9 +11,7 @@ from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Whisper Speech-to-Text Inference using mblt-model-zoo"
-    )
+    parser = argparse.ArgumentParser(description="Whisper Speech-to-Text Inference using mblt-model-zoo")
     parser.add_argument(
         "--audio",
         type=str,

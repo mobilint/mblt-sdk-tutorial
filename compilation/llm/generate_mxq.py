@@ -33,7 +33,12 @@ if __name__ == "__main__":
     bit_config = BitConfig(
         transformer=BitConfig.Transformer(
             weight=BitConfig.Transformer.Weight(
-                query=8, key=8, value=8, output=8, ffn=8, head=8,
+                query=8,
+                key=8,
+                value=8,
+                output=8,
+                ffn=8,
+                head=8,
             ),
         )
     )

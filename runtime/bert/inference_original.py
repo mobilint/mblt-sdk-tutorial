@@ -27,7 +27,5 @@ if __name__ == "__main__":
         with torch.no_grad():
             s1 = model(tokenizer(dummy_pair[0], return_tensors="pt")["input_ids"])
             s2 = model(tokenizer(dummy_pair[1], return_tensors="pt")["input_ids"])
-            similarity = torch.nn.functional.cosine_similarity(
-                s1["pooler_output"], s2["pooler_output"], dim=1
-            )
-        print(f"  {similarity.item():.4f}  |  \"{dummy_pair[0]}\" vs \"{dummy_pair[1]}\"")
+            similarity = torch.nn.functional.cosine_similarity(s1["pooler_output"], s2["pooler_output"], dim=1)
+        print(f'  {similarity.item():.4f}  |  "{dummy_pair[0]}" vs "{dummy_pair[1]}"')
