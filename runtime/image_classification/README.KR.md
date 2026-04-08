@@ -1,8 +1,8 @@
 # 이미지 분류 모델 추론 (Image Classification Model Inference)
 
-이 튜토리얼은 Mobilint qbruntime을 사용하여 컴파일된 이미지 분류 모델로 추론을 실행하는 방법에 대한 단계별 지침을 제공합니다.
+이 튜토리얼은 Mobilint `qbruntime`을 사용하여 컴파일된 이미지 분류 모델로 추론을 실행하는 방법에 대한 단계별 지침을 제공합니다.
 
-이 가이드는 [mblt-sdk-tutorial/compilation/vision/image_classification/README.md](file:///workspace/mblt-sdk-tutorial/compilation/vision/image_classification/README.md)에서 이어지는 내용입니다. 모델 컴파일을 성공적으로 마쳤으며 다음 파일이 준비되어 있다고 가정합니다:
+이 가이드는 [../../compilation/image_classification/README.KR.md](../../compilation/image_classification/README.KR.md)에서 이어지는 내용입니다. 모델 컴파일을 성공적으로 마쳤으며 다음 파일이 준비되어 있다고 가정합니다:
 
 - `./resnet50.mxq` - 컴파일된 모델 파일
 
@@ -32,7 +32,7 @@
 ```python
 acc = qbruntime.Accelerator(0)
 mc = qbruntime.ModelConfig()
-mc.set_single_core_mode(1)
+mc.set_single_core_mode(None, [qbruntime.CoreId(qbruntime.Cluster.Cluster0, qbruntime.Core.Core0)])
 mxq_model = qbruntime.Model(args.mxq_path, mc)
 mxq_model.launch(acc)
 ```
