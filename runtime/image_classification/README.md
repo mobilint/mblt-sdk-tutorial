@@ -1,8 +1,8 @@
 # Image Classification Model Inference
 
-This tutorial provides step-by-step instructions for running inference with compiled image classification models using the Mobilint qbruntime.
+This tutorial provides step-by-step instructions for running inference with compiled image classification models using the Mobilint `qbruntime`.
 
-This guide is a continuation of [mblt-sdk-tutorial/compilation/vision/image_classification/README.md](file:///workspace/mblt-sdk-tutorial/compilation/vision/image_classification/README.md). It is assumed that you have successfully compiled the model and have the following file ready:
+This guide is a continuation of [../../compilation/image_classification/README.md](../../compilation/image_classification/README.md). It is assumed that you have successfully compiled the model and have the following file ready:
 
 - `./resnet50.mxq` - Compiled model file
 
@@ -32,7 +32,7 @@ First, initialize the NPU accelerator and the model configuration.
 ```python
 acc = qbruntime.Accelerator(0)
 mc = qbruntime.ModelConfig()
-mc.set_single_core_mode(1)
+mc.set_single_core_mode(None, [qbruntime.CoreId(qbruntime.Cluster.Cluster0, qbruntime.Core.Core0)])
 mxq_model = qbruntime.Model(args.mxq_path, mc)
 mxq_model.launch(acc)
 ```

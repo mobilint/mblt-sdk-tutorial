@@ -1,8 +1,8 @@
 # Pose Estimation Model Inference
 
-This tutorial provides step-by-step instructions for running inference with compiled pose estimation models using the Mobilint qbruntime.
+This tutorial provides step-by-step instructions for running inference with compiled pose estimation models using the Mobilint `qbruntime`.
 
-This guide is a continuation of [mblt-sdk-tutorial/compilation/vision/pose_estimation/README.md](file:///workspace/mblt-sdk-tutorial/compilation/vision/pose_estimation/README.md). It is assumed that you have successfully compiled the model and have the following file ready:
+This guide is a continuation of [../../compilation/pose_estimation/README.md](../../compilation/pose_estimation/README.md). It is assumed that you have successfully compiled the model and have the following file ready:
 
 - `./yolo11m-pose.mxq` - Compiled model file
 
@@ -33,11 +33,11 @@ The `inference_mxq.py` script performs inference in several detailed steps.
 First, initialize the NPU accelerator and the model configuration.
 
 ```python
-acc = qbruntime.Accelerator(0)
+acc = qbruntime.Accelerator()
 mc = qbruntime.ModelConfig()
-mc.set_single_core_mode(1)
-mxq_model = qbruntime.Model(args.mxq_path, mc)
-mxq_model.launch(acc)
+mc.set_single_core_mode(None, [qbruntime.CoreId(qbruntime.Cluster.Cluster0, qbruntime.Core.Core0)])
+model = qbruntime.Model(args.model_path, mc)
+model.launch(acc)
 ```
 
 Next, load and preprocess the input image. Since the normalization operation is fused into the MXQ model during compilation, the input image should remain in `UInt8` format.
@@ -71,7 +71,7 @@ Finally, execute the model with the preprocessed input and apply postprocessing 
 To run the example inference script, use the following command:
 
 ```bash
-python inference_mxq.py --model-path ../../compilation/pose_estimation/yolo11m-pose.mxq --image-path ../rc/cr7.jpg --output-path tmp/cr7.jpg --conf-thres 0.25 --iou-thres 0.45
+python inference_mxq.py --model-path ../../compilation/pose_estimation/yolo11m-pose.mxq --image-path ../rc/cr7.jpg --output-path ./tmp/cr_pose_demo.jpg --conf-thres 0.25 --iou-thres 0.45
 ```
 
 ### Script Breakdown
@@ -92,4 +92,4 @@ python inference_mxq.py --model-path ../../compilation/pose_estimation/yolo11m-p
 
 ### Expected Output
 
-The script prints detection results (labels and confidence scores) to the console and saves an image with drawn bounding boxes and keypoints to `tmp/cr7.jpg`.
+The script saves an image with drawn bounding boxes and keypoints to `tmp/cr_pose_demo.jpg`.

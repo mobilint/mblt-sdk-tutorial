@@ -40,7 +40,7 @@ if __name__ == "__main__":
     parser.add_argument("--image-path", type=str, default="../rc/cr7.jpg", help="Path to the input image")
     parser.add_argument("--output-path", type=str, default="./tmp/cr_pose_demo.jpg", help="Path to the output image")
     parser.add_argument("--conf-thres", type=float, default=0.25, help="Confidence threshold")
-    parser.add_argument("--iou-thres", type=float, default=0.5, help="IoU threshold")
+    parser.add_argument("--iou-thres", type=float, default=0.45, help="IoU threshold")
 
     args = parser.parse_args()
 

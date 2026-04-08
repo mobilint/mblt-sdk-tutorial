@@ -1,8 +1,8 @@
 # 인스턴스 세그멘테이션 모델 추론 (Instance Segmentation Model Inference)
 
-이 튜토리얼은 Mobilint qbruntime을 사용하여 컴파일된 인스턴스 세그멘테이션 모델로 추론을 실행하는 방법에 대한 단계별 지침을 제공합니다.
+이 튜토리얼은 Mobilint `qbruntime`을 사용하여 컴파일된 인스턴스 세그멘테이션 모델로 추론을 실행하는 방법에 대한 단계별 지침을 제공합니다.
 
-이 가이드는 [mblt-sdk-tutorial/compilation/vision/instance_segmentation/README.md](file:///workspace/mblt-sdk-tutorial/compilation/vision/instance_segmentation/README.md)에서 이어지는 내용입니다. 모델 컴파일을 성공적으로 마쳤으며 다음 파일이 준비되어 있다고 가정합니다:
+이 가이드는 [../../compilation/instance_segmentation/README.KR.md](../../compilation/instance_segmentation/README.KR.md)에서 이어지는 내용입니다. 모델 컴파일을 성공적으로 마쳤으며 다음 파일이 준비되어 있다고 가정합니다:
 
 - `./yolo11m-seg.mxq` - 컴파일된 모델 파일
 
@@ -33,11 +33,11 @@
 먼저, NPU 가속기와 모델 설정을 초기화합니다.
 
 ```python
-acc = qbruntime.Accelerator(0)
+acc = qbruntime.Accelerator()
 mc = qbruntime.ModelConfig()
-mc.set_single_core_mode(1)
-mxq_model = qbruntime.Model(args.mxq_path, mc)
-mxq_model.launch(acc)
+mc.set_single_core_mode(None, [qbruntime.CoreId(qbruntime.Cluster.Cluster0, qbruntime.Core.Core0)])
+model = qbruntime.Model(args.model_path, mc)
+model.launch(acc)
 ```
 
 다음으로, 입력 이미지를 로드하고 전처리합니다. 컴파일 과정에서 정규화 연산이 MXQ 모델에 융합(fused)되었으므로, 입력 이미지는 `UInt8` 형식을 유지해야 합니다.
@@ -71,7 +71,7 @@ def preprocess_yolo(img_path: str, img_size=(640, 640)):
 예제 추론 스크립트를 실행하려면 다음 명령어를 사용하십시오:
 
 ```bash
-python inference_mxq.py --model-path ../../compilation/instance_segmentation/yolo11m-seg.mxq --image-path ../rc/cr7.jpg --output-path tmp/cr7.jpg --conf-thres 0.25 --iou-thres 0.45
+python inference_mxq.py --model-path ../../compilation/instance_segmentation/yolo11m-seg.mxq --image-path ../rc/cr7.jpg --output-path ./tmp/cr_seg_demo.jpg --conf-thres 0.25 --iou-thres 0.45
 ```
 
 ### 스크립트 세부 설명
@@ -92,4 +92,4 @@ python inference_mxq.py --model-path ../../compilation/instance_segmentation/yol
 
 ### 예상 출력 (Expected Output)
 
-스크립트는 감지 결과(라벨 및 신뢰도 점수)를 콘솔에 출력하고, 바운딩 박스와 마스크가 그려진 이미지를 `tmp/cr7.jpg`에 저장합니다.
+스크립트는 바운딩 박스와 마스크가 그려진 이미지를 `tmp/cr_seg_demo.jpg`에 저장합니다.
