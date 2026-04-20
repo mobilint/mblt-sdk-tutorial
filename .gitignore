@@ -5,6 +5,8 @@
 *.egg-info
 *.h5
 *.jpg
+!runtime/rc/
+!runtime/rc/**
 *.json
 *.keras
 *.log
