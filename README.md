@@ -12,13 +12,7 @@
 
 This repository provides examples and explanations to help users easily get started with the Mobilint SDK qb, which includes the compiler (qbcompiler) and the runtime software (qbruntime) library.
 
-Models converted using the compiler can be executed on the Mobilint NPU through the runtime. When properly configured, this workflow enables models to achieve faster inference performance while maintaining the original model's accuracy.
-
-## Repository Structure
-
-- `compilation/` - Tutorials for compiling models using the Mobilint qbcompiler
-- `runtime/` - Tutorials for running compiled models using the Mobilint qbruntime
-- `assets/` - Images and diagrams used in the documentation
+Models converted using the compiler can be executed on the Mobilint NPU through the runtime. When properly configured, this workflow enables models to achieve faster inference performance while maintaining the original model’s accuracy.
 
 ## Before you start
 
@@ -26,6 +20,16 @@ Before getting started, ensure that you have access to a Mobilint NPU.
 If you don’t have one, please contact [us](mailto:contact@mobilint.com) to discuss evaluation options for your AI application.
 
 The SDK is distributed through the [Mobilint Download Center](https://dl.mobilint.com/). Please sign up for an account before downloading the SDK.
+
+## Supported Devices
+
+Mobilint SDK qb supports the following devices:
+
+- **Aries**
+- **Regulus**
+
+Both devices use qbcompiler and qbruntime, providing the same workflow for model compilation and inference.
+For device-specific setup, refer to the [compiler](compilation/README.md) and [runtime](runtime/README.md) tutorials.
 
 ## Overview
 
@@ -45,6 +49,13 @@ The Mobilint qbruntime enables execution of the compiled MXQ models on the NPU.
 Using the runtime library, you can integrate your compiled MXQ models into real-world applications in a simple and efficient way.
 
 For more information, please refer to the [compiler](compilation/README.md) and [runtime](runtime/README.md) tutorials.
+
+## Repository Structure
+
+- `compilation/` - Tutorials for compiling models using the Mobilint qbcompiler
+- `runtime/` - Tutorials for running compiled models using the Mobilint qbruntime
+  - `runtime/cross_compile/` - Tutorials for C++ cross-compiled inference
+- `assets/` - Images and diagrams used in the documentation
 
 ## Support & Issues
 

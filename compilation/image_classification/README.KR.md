@@ -8,7 +8,7 @@
 
 시작하기 전에 다음이 설치되어 있는지 확인하세요:
 
-- qbcompiler v1.0.0
+- qbcompiler
 - ImageNet 데이터셋에 접근 가능한 HuggingFace 계정 (gated 데이터셋 사용을 위해)
 
 ## 개요
@@ -87,9 +87,9 @@ python prepare_imagenet.py
 - `[0, 1]` 범위로 스케일링 설정
 - 평균 `[0.485, 0.456, 0.406]` 및 표준 편차 `[0.229, 0.224, 0.225]`로 정규화(Normalization)
 
-모빌린트 컴파일 API는 이러한 전처리 과정을 내부적으로 수행하며, NPU 효율을 극대화하기 위해 정규화와 같은 처리 과정을 MXQ 모델에 직접 융합합니다.
+모빌린트 컴파일 API는 전처리 파이프라인을 캘리브레이션 과정에서 사용합니다. 정규화 연산(mean/std 및 /255 스케일링)은 `fuseIntoFirstLayer`와 `Uint8InputConfig`를 통해 MXQ 모델에 융합되며, 런타임에서 uint8 입력을 직접 받을 수 있게 합니다. 공간 변환(resize, centerCrop)은 융합되지 않으므로 런타임에서 직접 수행해야 합니다.
 
-`model_compile.py`에서 다음과 같이 전처리 파이프라인을 정의합니다. 이 파이프라인은 캘리브레이션 시에 사용되며, 정규화 모듈을 딥러닝 모델에 융합할 것입니다.
+`model_compile.py`에서 다음과 같이 전처리 파이프라인을 정의합니다. 이 파이프라인은 캘리브레이션 이미지에 적용됩니다.
 
 ```python
 preprocess_pipeline = [
@@ -126,17 +126,7 @@ calibration_config = CalibrationConfig(
     )
 ```
 
-설정을 구성한 후 코드 실행은 아래와 같이 할 수 있습니다.
-
-```bash
-python model_compile.py --onnx-path {path_to_onnx_model} --calib-data-path {path_to_calibration_dataset} --save-path {path_to_save_model}
-```
-
-**수행 작업:**
-
-- ONNX 모델 로드
-- 캘리브레이션 데이터 로드
-- 모델을 `.mxq` 형식으로 컴파일
+설정을 구성한 후 대상 디바이스에 맞는 스크립트를 실행합니다.
 
 **파라미터:**
 
@@ -148,10 +138,22 @@ python model_compile.py --onnx-path {path_to_onnx_model} --calib-data-path {path
 
 - 컴파일된 모델이 포함된 `{path_to_save_model}` 파일 경로
 
-예를 들어, 해당하는 명령어는 다음과 같습니다:
+### Aries
+
+Aries는 `inference_scheme="all"`을 사용하여 하나의 MXQ 모델에서 여러 추론 스킴을 지원합니다.
 
 ```bash
-python model_compile.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq 
+python model_compile.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq
+```
+
+위의 명령어를 실행하면, 컴파일된 모델이 현재 디렉토리에 `resnet50.mxq`로 저장됩니다.
+
+### Regulus
+
+Regulus는 `inference_scheme="single"`만 지원합니다. `model_compile_regulus.py`를 사용하세요.
+
+```bash
+python model_compile_regulus.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq
 ```
 
 위의 명령어를 실행하면, 컴파일된 모델이 현재 디렉토리에 `resnet50.mxq`로 저장됩니다.

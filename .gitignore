@@ -30,6 +30,8 @@
 *.torchscript
 *.txt
 !requirements.txt
+!CMakeLists.txt
+!imagenet_labels.txt
 *.wav
 *.whl
 *.zip
