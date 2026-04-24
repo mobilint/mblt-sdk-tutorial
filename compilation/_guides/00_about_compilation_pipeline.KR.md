@@ -41,7 +41,7 @@ mblt_compile(model=whisper_model, backend="hf", target="decoder", ...)
 
 원본 모델의 연산 그래프와 가중치를 하드웨어 비의존적인 중간 형식으로 변환한 파일입니다.
 
-### MXQ (Mobilint Quantized)
+### MXQ (Mobilint eXeQutable)
 
 MBLT를 양자화하고 NPU 하드웨어에 최적화한 최종 배포 포맷입니다.
 Mobilint NPU에서 직접 실행할 수 있는 `.mxq` 파일이 생성됩니다.

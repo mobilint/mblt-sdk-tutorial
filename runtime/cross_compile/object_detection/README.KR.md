@@ -9,7 +9,7 @@ YOLOv9m MXQ 모델을 사용하여 단일 이미지에 대해 C++ NPU 추론을 
 
 ## 사전 준비
 
-- [컴파일러 튜토리얼](../../../compilation/object_detection/README.KR.md)의 Regulus 섹션에서 `model_compile_regulus.py`로 생성한 `yolov9m.mxq` 파일이 필요합니다.
+- [컴파일러 튜토리얼](../../../compilation/object_detection/README.KR.md)의 REGULUS 섹션에서 `model_compile_regulus.py`로 생성한 `yolov9m.mxq` 파일이 필요합니다.
 
 ### 1. 툴체인 설치 확인
 

@@ -9,7 +9,7 @@ An example of running C++ NPU inference on a single image using a YOLOv9m MXQ mo
 
 ## Prerequisites
 
-- You need a `yolov9m.mxq` file generated with `model_compile_regulus.py` from the Regulus section of the [compiler tutorial](../../../compilation/object_detection/README.md).
+- You need a `yolov9m.mxq` file generated with `model_compile_regulus.py` from the REGULUS section of the [compiler tutorial](../../../compilation/object_detection/README.md).
 
 ### 1. Verify Toolchain Installation
 

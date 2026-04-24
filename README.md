@@ -25,8 +25,8 @@ The SDK is distributed through the [Mobilint Download Center](https://dl.mobilin
 
 Mobilint SDK qb supports the following devices:
 
-- **Aries**
-- **Regulus**
+- **ARIES**
+- **REGULUS**
 
 Both devices use qbcompiler and qbruntime, providing the same workflow for model compilation and inference.
 For device-specific setup, refer to the [compiler](compilation/README.md) and [runtime](runtime/README.md) tutorials.
@@ -42,7 +42,7 @@ For device-specific setup, refer to the [compiler](compilation/README.md) and [r
 
 Mobilint [SDK qb](https://www.mobilint.com/sdk-qb) consists of two main components: the [compiler](compilation/README.md) and the [runtime](runtime/README.md).
 
-The Mobilint qbcompiler converts models from popular deep learning frameworks into the Mobilint Model eXeCUtable (MXQ) format.
+The Mobilint qbcompiler converts models from popular deep learning frameworks into the Mobilint eXeQutable (MXQ) format.
 Using a pre-trained model and a calibration dataset, the compiler parses, quantizes, and optimizes the model for execution on the Mobilint NPU.
 
 The Mobilint qbruntime enables execution of the compiled MXQ models on the NPU.

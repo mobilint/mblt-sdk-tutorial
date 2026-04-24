@@ -10,7 +10,7 @@ An example of running C++ NPU inference on a single image using a ResNet-50 MXQ 
 
 ## Prerequisites
 
-- You need a `resnet50.mxq` file generated with `model_compile_regulus.py` from the Regulus section of the [compiler tutorial](../../../compilation/image_classification/README.md).
+- You need a `resnet50.mxq` file generated with `model_compile_regulus.py` from the REGULUS section of the [compiler tutorial](../../../compilation/image_classification/README.md).
 
 ### 1. Verify Toolchain Installation
 

@@ -138,9 +138,9 @@ After configuring the settings, run the script for your target device.
 
 - `{path_to_save_model}` file path containing the compiled model
 
-### Aries
+### ARIES
 
-Aries uses `inference_scheme="all"` to support multiple inference schemes in a single MXQ model.
+ARIES uses `inference_scheme="all"` to support multiple inference schemes in a single MXQ model.
 
 ```bash
 python model_compile.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq
@@ -148,9 +148,9 @@ python model_compile.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet
 
 After executing the above command, the compiled model will be saved as `resnet50.mxq` in the current directory.
 
-### Regulus
+### REGULUS
 
-Regulus only supports `inference_scheme="single"`. Use `model_compile_regulus.py`.
+REGULUS only supports `inference_scheme="single"`. Use `model_compile_regulus.py`.
 
 ```bash
 python model_compile_regulus.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq

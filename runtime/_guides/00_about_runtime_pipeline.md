@@ -82,7 +82,7 @@ pipe.model.model.language_model.dispose()
 
 ---
 
-## Next Documents
+## Related Documents
 
 - [Model Preparation Guide](./01_about_model_preparation.md) - prepare_model.py and config.json structure
 - [Inference API Guide](./02_about_inference_api.md) - qbruntime vs mblt-model-zoo

@@ -122,7 +122,7 @@ Use `core_mode` and `target_clusters` instead of `target_cores`.
 
 ---
 
-## Next Documents
+## Related Documents
 
 - [Runtime Pipeline Overview](./00_about_runtime_pipeline.md) - Overall flow
 - [Inference API Guide](./02_about_inference_api.md) - qbruntime vs mblt-model-zoo

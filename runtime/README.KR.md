@@ -13,7 +13,7 @@ Mobilint qb 런타임은 컴파일된 MXQ 모델을 Mobilint NPU에서 실행하
 
 ## Python 런타임
 
-Python `qbruntime` 라이브러리를 사용하여 MXQ 모델을 실행합니다. Aries와 Regulus 모두 동일한 API로 추론할 수 있습니다.
+Python `qbruntime` 라이브러리를 사용하여 MXQ 모델을 실행합니다. ARIES와 REGULUS 모두 동일한 API로 추론할 수 있습니다.
 
 - `image_classification/` - 이미지 분류 (ResNet-50)
 - `object_detection/` - 객체 탐지 (YOLO)
@@ -67,7 +67,7 @@ Mobilint는 NPU 상태 확인, MXQ 파일 검증, 간단한 추론 작업 실행
 
 ## 크로스 컴파일 (C++)
 
-Regulus와 같이 호스트(x86_64)와 타겟 보드(ARM64)가 분리된 환경에서는 크로스 컴파일을 통해 타겟에 최적화된 C++ 추론 바이너리를 빌드할 수 있습니다.
+REGULUS와 같이 호스트(x86_64)와 타겟 보드(ARM64)가 분리된 환경에서는 크로스 컴파일을 통해 타겟에 최적화된 C++ 추론 바이너리를 빌드할 수 있습니다.
 빌드된 바이너리는 타겟 보드로 전송하여 실행합니다.
 본 튜토리얼에서는 C++ `qbruntime`을 사용하여 추론 바이너리를 빌드하는 과정을 다룹니다.
 툴체인 설치, CMake 크로스 빌드, 타겟 보드 배포까지의 과정은 [`cross_compile/`](cross_compile/README.md) 디렉토리를 참조하세요.

@@ -14,7 +14,7 @@ VLM 컴파일 과정은 세 가지 주요 단계로 구성됩니다:
 
 컴파일 과정은 **언어 모델**(디코더)과 **비전 인코더** 컴포넌트에 대해 별도로 수행됩니다.
 
-컴파일 후에는 Aries 2 하드웨어에서 배포할 준비가 된 모든 필요한 파일이 `mxq/` 디렉토리에 생성됩니다.
+컴파일 후에는 NPU에서 배포할 준비가 된 모든 필요한 파일이 `mxq/` 디렉토리에 생성됩니다.
 
 ## 사전 요구사항
 
@@ -121,7 +121,7 @@ python generate_vision_calibration_data.py \
 - `images/` 폴더에서 모든 이미지 로드 (이전에 다운로드한 100개의 JPEG 이미지)
 - 다양한 프롬프트 순환 (언어 캘리브레이션과 동일)
 - 비전 인코더 입력(픽셀 값) 캡처
-- Aries 2 아키텍처와 호환되는 형식으로 리셰이프: `[896, 56, 6]`
+- NPU 호환 형식으로 리셰이프: `[896, 56, 6]`
 - 메타데이터와 함께 캘리브레이션 데이터를 `.npy` 파일로 저장
 
 **출력 구조:**
@@ -153,7 +153,7 @@ python mblt_compile_language.py
 
 - 샘플 생성 중 언어 모델 입력 캡처
 - 시퀀스 길이 차원을 동적으로 표시 (가변 길이 입력용)
-- Aries 2 호환 아키텍처 패치 적용:
+- NPU 호환 아키텍처 패치 적용:
   - **사전 캐시된 RoPE 임베딩**: 런타임 삼각 함수 연산 제거
   - **마지막 쿼리 슬라이싱**: 디코드 단계를 위해 최종 디코더 레이어 최적화
   - **상태 저장 KV 캐시 래퍼**: 효율적인 자기 회귀 생성 활성화
@@ -187,20 +187,20 @@ python mblt_compile_vision.py
 **이 작업의 내용:**
 
 - 샘플 추론 중 비전 인코더 입력 캡처
-- 픽셀 값을 Aries 2 호환 형식으로 재처리
-- Aries 2 호환 아키텍처 패치 적용:
+- 픽셀 값을 NPU 호환 형식으로 재처리
+- NPU 호환 아키텍처 패치 적용:
   - **3D2D 컨볼루션**: NPU 최적화를 위해 3D 컨볼루션을 2D로 변환
   - **분할 QKV 프로젝션**: 더 나은 병렬화를 위해 Query, Key, Value 프로젝션 분리
   - **사전 계산된 RoPE 임베딩**: 런타임 삼각 함수 연산 제거
   - **병합된 패치화 연산**: 메모리 전송 감소
 - PyTorch FX 추적을 사용하여 qbcompiler의 ModelParser로 모델 컴파일
-- 모든 입력 상수에 대해 데이터 형식을 NHWC(Aries 2 친화적)로 설정
+- 모든 입력 상수에 대해 데이터 형식을 NHWC(NPU 친화적)로 설정
 - MBLT 바이너리 형식으로 직렬화
 - 원본 모델과 비교하여 출력 검증
 
 **주요 변환:**
 
-- 픽셀 값을 HuggingFace 형식 `[num_patches, channels*patch_size^2]`에서 Aries 2 형식 `[batch, channels*temporal, height, width]`로 재처리
+- 픽셀 값을 HuggingFace 형식 `[num_patches, channels*patch_size^2]`에서 ARIES 형식 `[batch, channels*temporal, height, width]`로 재처리
 - 3D 시간 컨볼루션을 2D 공간 컨볼루션으로 변환
 - 병렬 실행을 위해 QKV 어텐션 프로젝션 분리
 - 이미지 그리드 차원을 기반으로 RoPE 임베딩 사전 계산
@@ -213,7 +213,7 @@ python mblt_compile_vision.py
 
 ## Stage 3: MXQ 컴파일 (고급 양자화)
 
-MXQ(Mobilint Quantized) 형식은 고급 양자화 기법을 적용하고 Aries 2 하드웨어에서 배포할 수 있도록 모델을 준비합니다.
+MXQ(Mobilint eXeQutable) 형식은 고급 양자화 기법을 적용하고 NPU에서 배포할 수 있도록 모델을 준비합니다.
 
 ### Step 3.1: 언어 모델을 MXQ로 컴파일
 
@@ -242,7 +242,7 @@ python mxq_compile_language.py
 
 **출력 파일:**
 
-- `./mxq/Qwen2-VL-2B-Instruct_text_model.mxq`: Aries 2 배포 준비가 된 양자화된 모델
+- `./mxq/Qwen2-VL-2B-Instruct_text_model.mxq`: ARIES 배포 준비가 된 양자화된 모델
 - `./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`: 전역 회전 행렬 (비전 인코더에 필요)
 
 ### Step 3.2: 비전 인코더를 MXQ로 컴파일
@@ -280,7 +280,7 @@ python mxq_compile_vision.py
 
 **출력 파일:**
 
-- `./mxq/Qwen2-VL-2B-Instruct_vision_transformer.mxq`: Aries 2 배포 준비가 된 양자화된 모델
+- `./mxq/Qwen2-VL-2B-Instruct_vision_transformer.mxq`: ARIES 배포 준비가 된 양자화된 모델
 
 ### Step 3.3: 추론 구성 파일 준비
 
@@ -528,7 +528,7 @@ python download_images.py
 3. **config.json** - MXQ 경로가 포함된 모델 구성
 4. **model.safetensors** - 회전된 토큰 임베딩 가중치 (`model.embed_tokens.weight`)
 
-이 파일들은 Mobilint 런타임을 사용하여 Aries 2 하드웨어에서 배포할 준비가 되었습니다.
+이 파일들은 Mobilint 런타임을 사용하여 NPU에서 배포할 준비가 되었습니다.
 
 ## 다음 단계: 추론 실행
 

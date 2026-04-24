@@ -114,9 +114,9 @@ calibration_config = CalibrationConfig(
 
 - 컴파일된 모델을 포함하는 `{path_to_save_model}` 파일 경로
 
-### Aries
+### ARIES
 
-Aries는 `inference_scheme="all"`을 사용하여 하나의 MXQ 모델에서 여러 추론 스킴을 지원합니다.
+ARIES는 `inference_scheme="all"`을 사용하여 하나의 MXQ 모델에서 여러 추론 스킴을 지원합니다.
 
 ```bash
 python model_compile.py --onnx-path ./yolo11m.onnx --calib-data-path ./coco-selected --save-path ./yolo11m.mxq
@@ -124,11 +124,11 @@ python model_compile.py --onnx-path ./yolo11m.onnx --calib-data-path ./coco-sele
 
 위의 명령어를 실행한 후, 컴파일된 모델은 현재 디렉토리에 `yolo11m.mxq`로 저장됩니다.
 
-### Regulus
+### REGULUS
 
-Regulus는 `inference_scheme="single"`만 지원합니다. `model_compile_regulus.py`를 사용하세요.
+REGULUS는 `inference_scheme="single"`만 지원합니다. `model_compile_regulus.py`를 사용하세요.
 
-> **참고**: Regulus는 현재 YOLO11을 지원하지 않습니다. YOLOv9 이하 모델을 사용하세요.
+> **참고**: REGULUS는 현재 YOLO11을 지원하지 않습니다. YOLOv9 이하 모델을 사용하세요.
 
 모델 준비:
 

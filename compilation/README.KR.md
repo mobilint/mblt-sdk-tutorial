@@ -46,7 +46,7 @@ docker run -it --ipc=host \
 
 컴파일 시 GPU를 사용하려면 `--gpus=all` 플래그를 추가하세요.
 
-### Aries
+### ARIES
 
 환경에 Mobilint NPU가 포함되어 있고 동일한 컨테이너에서 컴파일과 추론을 모두 수행하려는 경우, 다음 플래그를 추가하세요:
 
@@ -70,9 +70,9 @@ docker run -it --ipc=host \
 다음으로, [Mobilint 다운로드 센터](https://dl.mobilint.com/)를 방문하여 최신 qbcompiler wheel 파일을 다운로드하세요.
 로그인 후, ARIES -> qb Compiler 메뉴에서 사용자 환경과 호환되는 wheel 파일을 다운로드할 수 있습니다.
 
-### Regulus
+### REGULUS
 
-Regulus는 호스트(x86_64)에서 컴파일하고 타겟 보드에서 추론하는 크로스 컴파일 방식입니다.
+REGULUS는 호스트(x86_64)에서 컴파일하고 타겟 보드에서 추론하는 크로스 컴파일 방식입니다.
 컴파일 시 NPU 디바이스를 Docker 컨테이너에 연결할 필요가 없습니다.
 
 예시:

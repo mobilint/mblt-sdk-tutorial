@@ -138,9 +138,9 @@ calibration_config = CalibrationConfig(
 
 - 컴파일된 모델이 포함된 `{path_to_save_model}` 파일 경로
 
-### Aries
+### ARIES
 
-Aries는 `inference_scheme="all"`을 사용하여 하나의 MXQ 모델에서 여러 추론 스킴을 지원합니다.
+ARIES는 `inference_scheme="all"`을 사용하여 하나의 MXQ 모델에서 여러 추론 스킴을 지원합니다.
 
 ```bash
 python model_compile.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq
@@ -148,9 +148,9 @@ python model_compile.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet
 
 위의 명령어를 실행하면, 컴파일된 모델이 현재 디렉토리에 `resnet50.mxq`로 저장됩니다.
 
-### Regulus
+### REGULUS
 
-Regulus는 `inference_scheme="single"`만 지원합니다. `model_compile_regulus.py`를 사용하세요.
+REGULUS는 `inference_scheme="single"`만 지원합니다. `model_compile_regulus.py`를 사용하세요.
 
 ```bash
 python model_compile_regulus.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq

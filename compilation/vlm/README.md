@@ -14,7 +14,7 @@ The VLM compilation process consists of three main stages:
 
 The compilation process is performed separately for the **language model** (decoder) and **vision encoder** components.
 
-After compilation, you will have all necessary files in the `mxq/` directory ready for deployment on Aries 2 hardware.
+After compilation, you will have all necessary files in the `mxq/` directory ready for deployment on NPU.
 
 ## Prerequisites
 
@@ -121,7 +121,7 @@ python generate_vision_calibration_data.py \
 - Loads all images from `images/` folder (100 JPEG images downloaded earlier)
 - Cycles through diverse prompts (same as language calibration)
 - Captures vision encoder inputs (pixel values)
-- Reshapes to format compatible with Aries 2 architecture: `[896, 56, 6]`
+- Reshapes to format compatible with ARIES architecture: `[896, 56, 6]`
 - Saves calibration data as `.npy` files with metadata
 
 **Output structure:**
@@ -153,7 +153,7 @@ python mblt_compile_language.py
 
 - Captures language model inputs during sample generation
 - Marks sequence length dimensions as dynamic (for variable-length inputs)
-- Applies Aries 2-compatible architectural patches:
+- Applies NPU-compatible architectural patches:
   - **Pre-cached RoPE embeddings**: Eliminates runtime trigonometric operations
   - **Last-query slicing**: Optimizes the final decoder layer for decode phase
   - **Stateful KV cache wrappers**: Enables efficient auto-regressive generation
@@ -187,20 +187,20 @@ python mblt_compile_vision.py
 **What it does:**
 
 - Captures vision encoder inputs during sample inference
-- Reprocesses pixel values to Aries 2-compatible format
-- Applies Aries 2-compatible architectural patches:
+- Reprocesses pixel values to NPU-compatible format
+- Applies NPU-compatible architectural patches:
   - **3D2D convolution**: Transforms 3D convolutions to 2D for NPU optimization
   - **Split QKV projection**: Separates Query, Key, Value projections for better parallelization
   - **Pre-computed RoPE embeddings**: Eliminates runtime trigonometric operations
   - **Merged patchify operation**: Reduces memory transfers
 - Compiles the model using qbcompiler's ModelParser with PyTorch FX tracing
-- Sets data format to NHWC (Aries 2-friendly) for all input constants
+- Sets data format to NHWC (NPU-friendly) for all input constants
 - Serializes to MBLT binary format
 - Validates output by comparing with original model
 
 **Key transformations:**
 
-- Pixel values reprocessed from HuggingFace format `[num_patches, channels*patch_size^2]` to Aries 2 format `[batch, channels*temporal, height, width]`
+- Pixel values reprocessed from HuggingFace format `[num_patches, channels*patch_size^2]` to ARIES format `[batch, channels*temporal, height, width]`
 - 3D temporal convolutions converted to 2D spatial convolutions
 - QKV attention projections split for parallel execution
 - RoPE embeddings pre-computed based on image grid dimensions
@@ -213,7 +213,7 @@ python mblt_compile_vision.py
 
 ## Stage 3: MXQ Compilation (Advanced Quantization)
 
-MXQ (Mobilint Quantized) format applies advanced quantization techniques and prepares the model for deployment on Aries 2 hardware.
+MXQ (Mobilint eXeQutable) format applies advanced quantization techniques and prepares the model for deployment on NPU.
 
 ### Step 3.1: Compile Language Model to MXQ
 
@@ -242,7 +242,7 @@ python mxq_compile_language.py
 
 **Output files:**
 
-- `./mxq/Qwen2-VL-2B-Instruct_text_model.mxq`: Quantized model ready for Aries 2 deployment
+- `./mxq/Qwen2-VL-2B-Instruct_text_model.mxq`: Quantized model ready for ARIES deployment
 - `./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`: Global rotation matrix (needed for vision encoder)
 
 ### Step 3.2: Compile Vision Encoder to MXQ
@@ -280,7 +280,7 @@ The vision encoder's output must be properly aligned with the language model's i
 
 **Output files:**
 
-- `./mxq/Qwen2-VL-2B-Instruct_vision_transformer.mxq`: Quantized model ready for Aries 2 deployment
+- `./mxq/Qwen2-VL-2B-Instruct_vision_transformer.mxq`: Quantized model ready for ARIES deployment
 
 ### Step 3.3: Prepare Inference Configuration Files
 
@@ -528,7 +528,7 @@ After completing all compilation stages, the `./mxq/` directory contains all 4 f
 3. **config.json** - Model configuration with MXQ paths
 4. **model.safetensors** - Rotated token embedding weight (`model.embed_tokens.weight`)
 
-These files are ready for deployment on Aries 2 hardware using the Mobilint runtime.
+These files are ready for deployment on NPU using the Mobilint runtime.
 
 ## Next Steps: Running Inference
 

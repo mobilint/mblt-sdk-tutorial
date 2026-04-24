@@ -90,7 +90,7 @@ enabling the runtime to load the correct model files.
 
 ---
 
-## Next Documents
+## Related Documents
 
 - [Compilation Pipeline Overview](./00_about_compilation_pipeline.md) - Overall compilation flow
 - [Compile Config Guide](./01_about_quantization_config.md) - Per-component quantization settings

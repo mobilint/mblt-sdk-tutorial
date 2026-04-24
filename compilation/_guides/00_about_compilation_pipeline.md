@@ -43,7 +43,7 @@ The compilation process internally goes through two stages: **MBLT → MXQ** wit
 
 A file that converts the original model's computation graph and weights into a hardware-agnostic intermediate format.
 
-### MXQ (Mobilint Quantized)
+### MXQ (Mobilint eXeQutable)
 
 The final deployment format that quantizes the MBLT and optimizes it for NPU hardware.
 A `.mxq` file that can be directly executed on Mobilint NPU is generated.
@@ -148,7 +148,7 @@ refer to the high-level functions provided in each tutorial.
 | STT (Whisper) | `hf` | Explicit (mblt_compile) | encoder/decoder split |
 | VLM (Qwen2-VL) | `torch` | Explicit (ModelParser) | vision/language split |
 
-## Next Documents
+## Related Documents
 
 - [Compile Config Guide](./01_about_quantization_config.md) - Detailed config options passed to `mxq_compile()`
 - [Calibration Data Guide](./02_about_calibration_data.md) - Preparation and format of calibration data

@@ -13,7 +13,7 @@ The runtime is available in two languages: Python and C++.
 
 ## Python Runtime
 
-Run MXQ models using the Python `qbruntime` library. Both Aries and Regulus can perform inference with the same API.
+Run MXQ models using the Python `qbruntime` library. Both ARIES and REGULUS can perform inference with the same API.
 
 - `image_classification/` - Image Classification (ResNet-50)
 - `object_detection/` - Object Detection (YOLO)
@@ -67,7 +67,7 @@ Refer to the [Utility Tool Installation Guide](https://docs.mobilint.com/v0.29/e
 
 ## Cross-Compilation (C++)
 
-For environments where the host (x86_64) and target board (ARM64) are separate, such as Regulus, you can cross-compile C++ inference binaries optimized for the target.
+For environments where the host (x86_64) and target board (ARM64) are separate, such as REGULUS, you can cross-compile C++ inference binaries optimized for the target.
 The built binaries are then transferred to the target board for execution.
 This tutorial covers the process of building inference binaries using the C++ `qbruntime`.
 For toolchain installation, CMake cross-build, and target board deployment, refer to the [`cross_compile/`](cross_compile/README.md) directory.

@@ -112,9 +112,9 @@ After configuring the settings, run the script for your target device.
 
 - `{path_to_save_model}` file path containing the compiled model
 
-### Aries
+### ARIES
 
-Aries uses `inference_scheme="all"` to support multiple inference schemes in a single MXQ model.
+ARIES uses `inference_scheme="all"` to support multiple inference schemes in a single MXQ model.
 
 ```bash
 python model_compile.py --onnx-path ./yolo11m.onnx --calib-data-path ./coco-selected --save-path ./yolo11m.mxq
@@ -122,11 +122,11 @@ python model_compile.py --onnx-path ./yolo11m.onnx --calib-data-path ./coco-sele
 
 After executing the above command, the compiled model will be saved as `yolo11m.mxq` in the current directory.
 
-### Regulus
+### REGULUS
 
-Regulus only supports `inference_scheme="single"`. Use `model_compile_regulus.py`.
+REGULUS only supports `inference_scheme="single"`. Use `model_compile_regulus.py`.
 
-> **Note**: Regulus does not currently support YOLO11. Use YOLOv9 or earlier models.
+> **Note**: REGULUS does not currently support YOLO11. Use YOLOv9 or earlier models.
 
 Model preparation:
 

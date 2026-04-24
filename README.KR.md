@@ -25,8 +25,8 @@ SDK는 [Mobilint 다운로드 센터](https://dl.mobilint.com/)를 통해 배포
 
 Mobilint SDK qb는 다음 디바이스를 지원합니다:
 
-- **Aries**
-- **Regulus**
+- **ARIES**
+- **REGULUS**
 
 두 디바이스 모두 qbcompiler와 qbruntime을 사용하며, 동일한 워크플로우로 모델 컴파일과 추론을 수행할 수 있습니다.
 디바이스별 환경 설정은 [컴파일러](compilation/README.KR.md) 및 [런타임](runtime/README.KR.md) 튜토리얼을 참조하세요.
@@ -42,7 +42,7 @@ Mobilint SDK qb는 다음 디바이스를 지원합니다:
 
 Mobilint [SDK qb](https://www.mobilint.com/sdk-qb)는 [컴파일러](compilation/README.KR.md)와 [런타임](runtime/README.KR.md) 두 가지 주요 구성 요소로 구성됩니다.
 
-Mobilint qb 컴파일러는 널리 사용되는 딥러닝 프레임워크의 모델을 Mobilint Model eXeCUtable (MXQ) 형식으로 변환합니다.
+Mobilint qb 컴파일러는 널리 사용되는 딥러닝 프레임워크의 모델을 Mobilint eXeQutable (MXQ) 형식으로 변환합니다.
 사전 훈련된 모델과 캘리브레이션 데이터셋을 사용하여 컴파일러는 모델을 분석하고, 양자화하며, Mobilint NPU에서 실행하기 위해 최적화합니다.
 
 Mobilint qb 런타임은 컴파일된 MXQ 모델을 Mobilint NPU에서 실행할 수 있게 합니다.
