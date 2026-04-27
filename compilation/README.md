@@ -58,6 +58,8 @@ You can connect multiple NPUs by adding `--device /dev/aries1:/dev/aries1`, and 
 
 Example:
 
+> `--gpus=all` is optional. CPU compilation is supported if no GPU is available.
+
 ```bash
 docker run -it --ipc=host \
   -v {path_to_local_workspace}:{path_to_container_workspace} \
@@ -76,6 +78,8 @@ REGULUS uses a cross-compilation approach where compilation runs on the host (x8
 There is no need to connect an NPU device to the Docker container during compilation.
 
 Example:
+
+> `--gpus=all` is optional. CPU compilation is supported if no GPU is available.
 
 ```bash
 docker run -it --ipc=host \

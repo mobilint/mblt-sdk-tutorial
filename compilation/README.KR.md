@@ -58,12 +58,14 @@ docker run -it --ipc=host \
 
 예시:
 
+> `--gpus=all`은 선택 사항입니다. GPU가 없는 환경에서는 생략해도 CPU 컴파일이 가능합니다.
+
 ```bash
 docker run -it --ipc=host \
   -v {path_to_local_workspace}:{path_to_container_workspace} \
   --name {your_container_name} \
-  --gpus=all \ # Docker 컨테이너에서 GPU 접근 활성화
-  --device /dev/aries0:/dev/aries0 \ # Docker 컨테이너에서 Mobilint NPU 접근 활성화
+  --gpus=all \
+  --device /dev/aries0:/dev/aries0 \
   mobilint/qbcompiler:1.0-cuda12.8.1-ubuntu22.04
 ```
 
@@ -77,11 +79,13 @@ REGULUS는 호스트(x86_64)에서 컴파일하고 타겟 보드에서 추론하
 
 예시:
 
+> `--gpus=all`은 선택 사항입니다. GPU가 없는 환경에서는 생략해도 CPU 컴파일이 가능합니다.
+
 ```bash
 docker run -it --ipc=host \
   -v {path_to_local_workspace}:{path_to_container_workspace} \
   --name {your_container_name} \
-  --gpus=all \ # Docker 컨테이너에서 GPU 접근 활성화
+  --gpus=all \
   mobilint/qbcompiler:1.0-cuda12.8.1-ubuntu22.04
 ```
 

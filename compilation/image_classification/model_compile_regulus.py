@@ -67,7 +67,6 @@ if __name__ == "__main__":
         output_subgraph_path=args.onnx_path.replace(".onnx", ".mblt"),
         image_channels=3,  # If there is grayscale image in calibration dataset, convert to RGB
         backend="onnx",
-        device="gpu",
         inference_scheme="single",  # Regulus only supports single scheme
         preprocessing_config=preprocessing_config,
         uint8_input_config=Uint8InputConfig(apply=True, inputs=[]),
