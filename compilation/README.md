@@ -62,8 +62,8 @@ Example:
 docker run -it --ipc=host \
   -v {path_to_local_workspace}:{path_to_container_workspace} \
   --name {your_container_name} \
-  --gpus=all \ # Enable access to the GPU in Docker container
-  --device /dev/aries0:/dev/aries0 \ # Enable access to the Mobilint NPU in Docker container
+  --gpus=all \
+  --device /dev/aries0:/dev/aries0 \
   mobilint/qbcompiler:1.0-cuda12.8.1-ubuntu22.04
 ```
 
@@ -81,7 +81,7 @@ Example:
 docker run -it --ipc=host \
   -v {path_to_local_workspace}:{path_to_container_workspace} \
   --name {your_container_name} \
-  --gpus=all \ # Enable access to the GPU in Docker container
+  --gpus=all \
   mobilint/qbcompiler:1.0-cuda12.8.1-ubuntu22.04
 ```
 
