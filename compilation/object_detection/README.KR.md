@@ -8,7 +8,7 @@ Ultralytics에서 만든 COCO 데이터셋으로 사전 학습된 [YOLO11m](http
 
 시작하기 전에 다음이 설치되어 있는지 확인하세요:
 
-- qbcompiler v1.0.0
+- qbcompiler
 - COCO 데이터셋에 접근 가능한 HuggingFace 계정 (gated 데이터셋 사용을 위해)
 
 또한, 다음 패키지들을 설치해야 합니다:
@@ -67,9 +67,9 @@ python prepare_coco.py
 
 [Ultralytics GitHub](https://github.com/ultralytics/ultralytics)에 자세히 설명되어 있듯이 YOLO 모델은 일반적으로 `LetterBox` 연산을 사용합니다.
 
-모빌린트 컴파일 API는 이러한 전처리 단계를 내부적으로 수행하며, NPU 효율성을 극대화하기 위해 작동을 MXQ 모델에 직접 융합합니다.
+모빌린트 컴파일 API는 전처리 파이프라인을 캘리브레이션 과정에서 사용합니다. 정규화 연산(/255 스케일링)은 `Uint8InputConfig`를 통해 MXQ 모델에 융합되며, 런타임에서 uint8 입력을 직접 받을 수 있게 합니다. Letterbox와 같은 공간 변환은 융합되지 않으므로 런타임에서 직접 수행해야 합니다.
 
-`model_compile.py`에서 아래와 같이 전처리 파이프라인을 정의합니다. 이 파이프라인은 캘리브레이션에 사용되며, 정규화 모듈을 딥러닝 모델에 융합할 것입니다.
+`model_compile.py`에서 아래와 같이 전처리 파이프라인을 정의합니다. 이 파이프라인은 캘리브레이션 이미지에 적용됩니다.
 
 ```python
 preprocess_pipeline = [
@@ -102,17 +102,7 @@ calibration_config = CalibrationConfig(
     )
 ```
 
-설정을 구성한 후, 코드를 다음과 같이 실행할 수 있습니다.
-
-```bash
-python model_compile.py --onnx-path {path_to_onnx_model} --calib-data-path {path_to_calibration_dataset} --save-path {path_to_save_model}
-```
-
-**수행 작업:**
-
-- ONNX 모델 로드
-- 캘리브레이션 데이터 로드
-- `.mxq` 형식으로 모델 컴파일
+설정을 구성한 후 대상 디바이스에 맞는 스크립트를 실행합니다.
 
 **파라미터:**
 
@@ -124,10 +114,32 @@ python model_compile.py --onnx-path {path_to_onnx_model} --calib-data-path {path
 
 - 컴파일된 모델을 포함하는 `{path_to_save_model}` 파일 경로
 
-예시 명령어는 다음과 같습니다:
+### ARIES
+
+ARIES는 `inference_scheme="all"`을 사용하여 하나의 MXQ 모델에서 여러 추론 스킴을 지원합니다.
 
 ```bash
 python model_compile.py --onnx-path ./yolo11m.onnx --calib-data-path ./coco-selected --save-path ./yolo11m.mxq
 ```
 
 위의 명령어를 실행한 후, 컴파일된 모델은 현재 디렉토리에 `yolo11m.mxq`로 저장됩니다.
+
+### REGULUS
+
+REGULUS는 `inference_scheme="single"`만 지원합니다. `model_compile_regulus.py`를 사용하세요.
+
+> **참고**: REGULUS는 현재 YOLO11을 지원하지 않습니다. YOLOv9 이하 모델을 사용하세요.
+
+모델 준비:
+
+```bash
+yolo export model=yolov9m.pt format=onnx # YOLOv9m 모델을 ONNX 형식으로 내보내기
+```
+
+컴파일:
+
+```bash
+python model_compile_regulus.py --onnx-path ./yolov9m.onnx --calib-data-path ./coco-selected --save-path ./yolov9m.mxq
+```
+
+위의 명령어를 실행한 후, 컴파일된 모델은 현재 디렉토리에 `yolov9m.mxq`로 저장됩니다.

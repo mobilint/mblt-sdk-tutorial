@@ -164,7 +164,7 @@ model.mxq_model.dump_cache_memory()
 
 ---
 
-## Next Documents
+## Related Documents
 
 - [Runtime Pipeline Overview](./00_about_runtime_pipeline.md) - Overall flow
 - [Model Preparation Guide](./01_about_model_preparation.md) - config.json structure and NPU core allocation

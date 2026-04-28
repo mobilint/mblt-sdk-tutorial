@@ -1,6 +1,6 @@
 # 비전 언어 모델 (VLM) 런타임 추론
 
-이 튜토리얼은 Aries 2 하드웨어에서 컴파일된 Qwen2-VL-2B-Instruct 모델로 추론을 실행하는 방법을 안내합니다.
+이 튜토리얼은 ARIES 하드웨어에서 컴파일된 Qwen2-VL-2B-Instruct 모델로 추론을 실행하는 방법을 안내합니다.
 
 이 튜토리얼에서는 [컴파일 튜토리얼](../../compilation/vlm/README.md)에서 컴파일한 [Qwen2-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct) 모델을 사용합니다. **먼저 컴파일 튜토리얼을 완료해야** `compilation/vlm/mxq/`에 다음 파일들이 준비됩니다:
 

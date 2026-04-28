@@ -46,6 +46,8 @@ docker run -it --ipc=host \
 
 If you want to use GPU for compilation, add the `--gpus=all` flag.
 
+### ARIES
+
 If your environment also includes a Mobilint NPU and you want to perform both compilation and inference in the same container, add:
 
 ```bash
@@ -56,17 +58,39 @@ You can connect multiple NPUs by adding `--device /dev/aries1:/dev/aries1`, and 
 
 Example:
 
+> `--gpus=all` is optional. CPU compilation is supported if no GPU is available.
+
 ```bash
 docker run -it --ipc=host \
   -v {path_to_local_workspace}:{path_to_container_workspace} \
   --name {your_container_name} \
-  --gpus=all \ # Enable access to the GPU in Docker container
-  --device /dev/aries0:/dev/aries0 \ # Enable access to the Mobilint NPU in Docker container
+  --gpus=all \
+  --device /dev/aries0:/dev/aries0 \
   mobilint/qbcompiler:1.0-cuda12.8.1-ubuntu22.04
 ```
 
 Next, visit the [Mobilint Download Center](https://dl.mobilint.com/) to download the latest qbcompiler wheel file.
-After logging in, go to ARIES -> qbcompiler and download the wheel file compatible with your environment.
+After logging in, go to ARIES -> qb Compiler and download the wheel file compatible with your environment.
+
+### REGULUS
+
+REGULUS uses a cross-compilation approach where compilation runs on the host (x86_64) and inference runs on the target board.
+There is no need to connect an NPU device to the Docker container during compilation.
+
+Example:
+
+> `--gpus=all` is optional. CPU compilation is supported if no GPU is available.
+
+```bash
+docker run -it --ipc=host \
+  -v {path_to_local_workspace}:{path_to_container_workspace} \
+  --name {your_container_name} \
+  --gpus=all \
+  mobilint/qbcompiler:1.0-cuda12.8.1-ubuntu22.04
+```
+
+Next, visit the [Mobilint Download Center](https://dl.mobilint.com/) to download the latest qbcompiler wheel file.
+After logging in, go to REGULUS -> qb Compiler and download the wheel file compatible with your environment.
 
 Copy it to the container and install:
 

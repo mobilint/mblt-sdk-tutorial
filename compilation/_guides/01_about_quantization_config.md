@@ -381,7 +381,7 @@ preprocessing_config = PreprocessingConfig(
 
 ---
 
-## Next Documents
+## Related Documents
 
 - [Calibration Data Guide](./02_about_calibration_data.md) - Calibration data preparation for quantization
 - [Multi-Component Model Guide](./03_about_multi_component.md) - Models requiring split compilation (VLM/STT)

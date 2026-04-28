@@ -154,7 +154,7 @@ mxq_compile(
 | **Sequence length** | For LLMs, a minimum sequence length of 512 or more is recommended |
 | **OOM handling** | Reduce calibration sample count or sequence length to resolve memory issues |
 
-## Next Documents
+## Related Documents
 
 - [Compile Config Guide](./01_about_quantization_config.md) - Quantization config that utilizes calibration data
 - [Multi-Component Model Guide](./03_about_multi_component.md) - Split calibration structure for VLM/STT

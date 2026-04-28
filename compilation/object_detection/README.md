@@ -8,7 +8,7 @@ We will use the [YOLO11m](https://docs.ultralytics.com/models/yolo11/) model, pr
 
 Before starting, ensure you have the following installed:
 
-- qbcompiler v1.0.0
+- qbcompiler
 - HuggingFace account with access to the COCO dataset (to use the gated dataset)
 
 Also, you need to install the following packages:
@@ -65,9 +65,9 @@ The selected image dataset is the calibration dataset we will use.
 
 Before running the compilation, verify the required preprocessing steps. YOLO models typically use the `LetterBox` operation, as detailed on the [Ultralytics GitHub](https://github.com/ultralytics/ultralytics).
 
-The Mobilint compilation API performs these preprocessing steps internally and fuses operations directly into the MXQ model to maximize NPU efficiency.
+The Mobilint compilation API uses the preprocessing pipeline during calibration. The normalization operation (/255 scaling) is fused into the MXQ model via `Uint8InputConfig`, allowing the model to accept uint8 input directly at runtime. Spatial transforms such as letterbox are not fused and must be performed at runtime.
 
-In `model_compile.py`, we define the preprocessing pipeline as follows. This pipeline is used in calibration and will fuse the normalization module into the deep learning model.
+In `model_compile.py`, we define the preprocessing pipeline as follows. This pipeline is applied to calibration images.
 
 ```python
 preprocess_pipeline = [
@@ -100,17 +100,7 @@ calibration_config = CalibrationConfig(
     )
 ```
 
-After configuring the settings, the code can be executed as follows.
-
-```bash
-python model_compile.py --onnx-path {path_to_onnx_model} --calib-data-path {path_to_calibration_dataset} --save-path {path_to_save_model}
-```
-
-**What this does:**
-
-- Loads the ONNX model
-- Loads the calibration data
-- Compiles the model to `.mxq` format
+After configuring the settings, run the script for your target device.
 
 **Parameters:**
 
@@ -122,10 +112,32 @@ python model_compile.py --onnx-path {path_to_onnx_model} --calib-data-path {path
 
 - `{path_to_save_model}` file path containing the compiled model
 
-The example command is as follows:
+### ARIES
+
+ARIES uses `inference_scheme="all"` to support multiple inference schemes in a single MXQ model.
 
 ```bash
 python model_compile.py --onnx-path ./yolo11m.onnx --calib-data-path ./coco-selected --save-path ./yolo11m.mxq
 ```
 
 After executing the above command, the compiled model will be saved as `yolo11m.mxq` in the current directory.
+
+### REGULUS
+
+REGULUS only supports `inference_scheme="single"`. Use `model_compile_regulus.py`.
+
+> **Note**: REGULUS does not currently support YOLO11. Use YOLOv9 or earlier models.
+
+Model preparation:
+
+```bash
+yolo export model=yolov9m.pt format=onnx # Export YOLOv9m model to ONNX format
+```
+
+Compilation:
+
+```bash
+python model_compile_regulus.py --onnx-path ./yolov9m.onnx --calib-data-path ./coco-selected --save-path ./yolov9m.mxq
+```
+
+After executing the above command, the compiled model will be saved as `yolov9m.mxq` in the current directory.

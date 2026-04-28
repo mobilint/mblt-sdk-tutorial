@@ -1,6 +1,6 @@
 # Vision Language Model (VLM) Runtime Inference
 
-This tutorial provides instructions for running inference with the compiled Qwen2-VL-2B-Instruct model on Aries 2 hardware.
+This tutorial provides instructions for running inference with the compiled Qwen2-VL-2B-Instruct model on ARIES hardware.
 
 In this tutorial, we will use the [Qwen2-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct) model compiled in the [compilation tutorial](../../compilation/vlm/README.md). **You must complete the compilation tutorial first** to have the following files ready in `compilation/vlm/mxq/`:
 

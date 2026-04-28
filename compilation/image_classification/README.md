@@ -8,7 +8,7 @@ We will use the [ResNet-50](https://docs.pytorch.org/vision/main/models/generate
 
 Before starting, ensure you have the following installed:
 
-- qbcompiler v1.0.0
+- qbcompiler
 - HuggingFace account with access to the ImageNet dataset (to use the gated dataset)
 
 ## Overview
@@ -87,9 +87,9 @@ Before running the compilation, verify the preprocessing steps required by the m
 - Rescaling to the [0, 1] range
 - Normalizing with mean `[0.485, 0.456, 0.406]` and standard deviation `[0.229, 0.224, 0.225]`
 
-The Mobilint compilation API performs these preprocessing steps internally and fuses operations like normalization directly into the MXQ model to maximize NPU efficiency.
+The Mobilint compilation API uses the preprocessing pipeline during calibration. The normalization operation (mean/std and /255 scaling) is fused into the MXQ model via `fuseIntoFirstLayer` and `Uint8InputConfig`, allowing the model to accept uint8 input directly at runtime. Spatial transforms (resize and centerCrop) are not fused and must be performed at runtime.
 
-In `model_compile.py`, we define the preprocessing pipeline as follows. This pipeline is used in calibration and will fuse the normalization module into the deep learning model.
+In `model_compile.py`, we define the preprocessing pipeline as follows. This pipeline is applied to calibration images.
 
 ```python
 preprocess_pipeline = [
@@ -126,17 +126,7 @@ calibration_config = CalibrationConfig(
     )
 ```
 
-After configuring the settings, the code can be executed as follows.
-
-```bash
-python model_compile.py --onnx-path {path_to_onnx_model} --calib-data-path {path_to_calibration_dataset} --save-path {path_to_save_model}
-```
-
-**What it does:**
-
-- Loads the ONNX model
-- Loads the calibration data
-- Compiles the model to `.mxq` format
+After configuring the settings, run the script for your target device.
 
 **Parameters:**
 
@@ -148,10 +138,22 @@ python model_compile.py --onnx-path {path_to_onnx_model} --calib-data-path {path
 
 - `{path_to_save_model}` file path containing the compiled model
 
-For example, the command is as follows:
+### ARIES
+
+ARIES uses `inference_scheme="all"` to support multiple inference schemes in a single MXQ model.
 
 ```bash
-python model_compile.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq 
+python model_compile.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq
+```
+
+After executing the above command, the compiled model will be saved as `resnet50.mxq` in the current directory.
+
+### REGULUS
+
+REGULUS only supports `inference_scheme="single"`. Use `model_compile_regulus.py`.
+
+```bash
+python model_compile_regulus.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq
 ```
 
 After executing the above command, the compiled model will be saved as `resnet50.mxq` in the current directory.
