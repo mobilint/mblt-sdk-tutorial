@@ -5,6 +5,8 @@ An example of running C++ NPU inference on a single image using a YOLOv9m MXQ mo
 ## File Structure
 
 - `infer_det.cc` - Inference binary source (NPU inference, post-processing, bbox visualization)
+- `yolov9m_config.h` - YOLOv9m model configuration (preprocessing, postprocessing parameters)
+- `utils/` - Shared inference modules (NPURunner, Transformer, YoloDecoder)
 - `CMakeLists.txt` - CMake build configuration
 
 ## Prerequisites
@@ -52,9 +54,9 @@ echo $CXX
 ## Build (Host)
 
 ```bash
-mkdir build && cd build
-cmake ..
-make -j8
+rm -rf build && mkdir build && cd build
+cmake .. -DCMAKE_TOOLCHAIN_FILE=$CMAKE_TOOLCHAIN_FILE
+make -j$(nproc)
 cd ..
 ```
 
