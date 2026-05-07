@@ -1,13 +1,15 @@
 """Download FLEURS audio data for calibration."""
 
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from itertools import islice
 
 import librosa
 import soundfile as sf
 from datasets import load_dataset
 from tqdm import tqdm
 
-FLEURS_LANGUAGES = [
+FLEURS_LANGUAGES: list[str] = [
     "ar_eg",  # Arabic (Egypt)
     "cmn_hans_cn",  # Mandarin Chinese (Simplified)
     "de_de",  # German
@@ -28,52 +30,88 @@ FLEURS_LANGUAGES = [
 ]
 
 
-def download_fleurs_data(output_dir=".", languages=FLEURS_LANGUAGES, num_samples_per_lang=20):
-    """Download FLEURS audio data as 16kHz WAV files."""
+def download_one_language(lang: str, audio_dir: str, num_samples_per_lang: int) -> int:
+    """Stream one FLEURS language and save WAV files into ``audio_dir`` as a flat layout.
 
-    print(f"Downloading FLEURS data: {len(languages)} languages, {num_samples_per_lang} samples each")
+    Samples whose WAV file already exists are skipped (idempotent). Audio that is
+    not 16 kHz is resampled with ``librosa.resample`` before being written.
+
+    Args:
+        lang: FLEURS language code (e.g. ``ko_kr``).
+        audio_dir: Directory where ``{lang}_{i:04d}.wav`` files are saved.
+        num_samples_per_lang: Number of samples to fetch.
+
+    Returns:
+        Count of WAV files newly written to disk (skipped files excluded).
+    """
+    new_count = 0
+    try:
+        dataset = load_dataset(
+            "google/fleurs",
+            lang,
+            split="validation",
+            trust_remote_code=True,
+            streaming=True,
+        )
+        for i, sample in enumerate(islice(dataset, num_samples_per_lang)):
+            wav_path = os.path.join(audio_dir, f"{lang}_{i:04d}.wav")
+            if os.path.isfile(wav_path):
+                continue
+
+            audio = sample["audio"]["array"]
+            sample_rate = sample["audio"]["sampling_rate"]
+            if sample_rate != 16000:
+                audio = librosa.resample(audio, orig_sr=sample_rate, target_sr=16000)
+
+            sf.write(wav_path, audio, 16000)
+            new_count += 1
+    except Exception as e:
+        tqdm.write(f"Error downloading {lang}: {e}")
+    return new_count
+
+
+def download_fleurs_data(
+    output_dir: str = ".",
+    languages: list[str] = FLEURS_LANGUAGES,
+    num_samples_per_lang: int = 20,
+    n_workers: int = 8,
+) -> str:
+    """Download FLEURS audio into ``audio_files/`` with a flat layout.
+
+    Languages are fetched concurrently via ``ThreadPoolExecutor`` (max_workers=n_workers).
+    Each per-language streaming iterator is consumed by a single thread and stays
+    thread-safe. On re-run, samples whose WAV file already exists are skipped.
+
+    Args:
+        output_dir: Parent directory in which ``audio_files/`` is created.
+        languages: FLEURS language codes to fetch.
+        num_samples_per_lang: Samples per language.
+        n_workers: Maximum number of languages downloaded concurrently.
+
+    Returns:
+        Path to the ``audio_files`` directory.
+    """
+    print(
+        f"Downloading FLEURS data: {len(languages)} languages, "
+        f"{num_samples_per_lang} samples each, {n_workers} parallel workers"
+    )
 
     audio_dir = os.path.join(output_dir, "audio_files")
     os.makedirs(audio_dir, exist_ok=True)
 
-    total_downloaded = 0
-    lang_pbar = tqdm(languages, desc="Languages", unit="lang")
+    total_new = 0
+    with ThreadPoolExecutor(max_workers=n_workers) as pool:
+        futures = {
+            pool.submit(download_one_language, lang, audio_dir, num_samples_per_lang): lang for lang in languages
+        }
+        with tqdm(total=len(languages), desc="Languages", unit="lang") as pbar:
+            for fut in as_completed(futures):
+                lang = futures[fut]
+                pbar.set_postfix(lang=lang)
+                total_new += fut.result()
+                pbar.update(1)
 
-    for lang in lang_pbar:
-        lang_pbar.set_postfix(lang=lang)
-
-        try:
-            dataset = load_dataset(
-                "google/fleurs",
-                lang,
-                split="validation",
-                trust_remote_code=True,
-                streaming=True,
-            )
-
-            i = 0
-            for sample in dataset:
-                if i >= num_samples_per_lang:
-                    break
-
-                audio_filename = f"{lang}_{i:04d}.wav"
-                audio_path = os.path.join(audio_dir, audio_filename)
-
-                audio = sample["audio"]["array"]
-                sample_rate = sample["audio"]["sampling_rate"]
-
-                if sample_rate != 16000:
-                    audio = librosa.resample(audio, orig_sr=sample_rate, target_sr=16000)
-
-                sf.write(audio_path, audio, 16000)
-                total_downloaded += 1
-                i += 1
-
-        except Exception as e:
-            tqdm.write(f"Error downloading {lang}: {e}")
-            continue
-
-    print(f"\nTotal audio files: {total_downloaded}")
+    print(f"\nNew files written: {total_new} (skipped existing)")
     print(f"Audio directory: {audio_dir}")
 
     return audio_dir
