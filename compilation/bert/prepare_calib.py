@@ -63,7 +63,7 @@ def generate_calibration(
         cur_num_calib += 1
 
 
-def main():
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate calibration datasets from Wikipedia for LLM models")
     parser.add_argument(
         "--tokenizer-path",
@@ -82,7 +82,3 @@ def main():
         output_dir=args.output_dir,
         max_calib=args.max_calib,
     )
-
-
-if __name__ == "__main__":
-    main()

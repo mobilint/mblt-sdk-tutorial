@@ -12,6 +12,8 @@ from qbcompiler.model_dict.parser.backend.torch.object_wrapper import set_attent
 from qbcompiler.model_dict.parser.backend.torch.util import wrap_tensor
 from qbcompiler.model_dict.parser.parser import ModelParser
 from utils import (
+    create_sample_messages,
+    load_model_and_processor,
     prepare_inputs,
     print_compilation_summary,
     serialize_to_mblt,
@@ -154,8 +156,6 @@ def compile_language_model(
 
 
 if __name__ == "__main__":
-    from utils import create_sample_messages, load_model_and_processor
-
     model_name = "Qwen/Qwen2-VL-2B-Instruct"
     output_path = "mblt/Qwen2-VL-2B-Instruct_text_model.mblt"
 
