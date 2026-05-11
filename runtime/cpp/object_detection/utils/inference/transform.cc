@@ -1,6 +1,8 @@
-// =============================================================================
-// transform.cc - 이미지 변환기 구현 (Transformer implementation)
-// =============================================================================
+// Implementation of Transformer declared in transform.h.
+// Applies the preprocessing ops in ModelInfo.m_preprocess_list and converts the result to an NPU input tensor.
+//
+// (KR) transform.h 에 선언된 Transformer 구현.
+// ModelInfo.m_preprocess_list 의 전처리 연산을 순서대로 적용하고 NPU 입력 텐서로 변환한다.
 #include "transform.h"
 
 #include <cstring>
@@ -117,7 +119,7 @@ std::unique_ptr<float[]> Transformer::operator()(const cv::Mat& input,
     float* dst = out.get();
     for (int i = 0; i < h * w; ++i) {
         for (int j = 0; j < c; ++j) {
-            dst[c * i + j] = src[c * i + (2 - j)];  // BGR -> RGB
+            dst[c * i + j] = src[c * i + (2 - j)];  // reverses channel order BGR->RGB while transposing HWC->CHW (KR: 채널 순서 BGR->RGB 반전과 동시에 HWC->CHW 전치)
         }
     }
     return out;

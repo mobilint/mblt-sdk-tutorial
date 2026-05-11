@@ -1,21 +1,22 @@
-// =============================================================================
-// transform.h - 이미지 -> NPU 입력 텐서 변환
-// =============================================================================
-// YAML config (ModelInfo) 의 m_preprocess_list 를 순서대로 적용.
-// Applies m_preprocess_list from ModelInfo (parsed from YAML config) in order.
-// =============================================================================
+// Image-to-NPU-tensor transformer that applies m_preprocess_list ops from ModelInfo in order.
+// operator() produces a float HWC->CHW RGB buffer for float-input MXQ models.
+// transform_uint8() produces a uint8 CHW RGB buffer for uint8-input MXQ models.
+//
+// (KR) ModelInfo.m_preprocess_list 의 전처리 연산을 순서대로 적용해 NPU 입력 텐서를 생성하는 변환기.
+// operator() 는 float-input MXQ 용 float CHW RGB 버퍼를 생성한다.
+// transform_uint8() 는 uint8-input MXQ 용 uint8 CHW RGB 버퍼를 생성한다.
 #pragma once
 #include <memory>
 #include <opencv2/opencv.hpp>
 
-#include "parser.h"
+#include "types.h"
 
 class Transformer {
 public:
-    // float HWC RGB 출력 (NPU float-input MXQ 용)
+    // Produces a float CHW RGB buffer for float-input MXQ models. (KR: float-input MXQ 용 float CHW RGB 버퍼 생성.)
     std::unique_ptr<float[]> operator()(const cv::Mat& input, const ModelInfo& cfg);
 
-    // uint8 CHW RGB 출력 (NPU uint8-input MXQ 용, 튜토리얼과 동일)
+    // Produces a uint8 CHW RGB buffer for uint8-input MXQ models. (KR: uint8-input MXQ 용 uint8 CHW RGB 버퍼 생성.)
     std::unique_ptr<uint8_t[]> transform_uint8(const cv::Mat& input, const ModelInfo& cfg);
 
 private:

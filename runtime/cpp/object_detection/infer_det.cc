@@ -1,15 +1,19 @@
-// Object detection inference on Mobilint NPU with post-processing and visualization.
-//
-// Uses inference-regulus modules (NPURunner, Transformer, YoloDecoder).
-// Preprocessing: letterbox + BGR2RGB + HWC->CHW (via Transformer)
-// Normalization: fused into MXQ model (Uint8InputConfig)
-// Input: uint8 letterboxed CHW image
+// End-to-end object detection inference on Mobilint NPU with bounding-box visualization.
+// Preprocessing (letterbox + BGR->RGB + HWC->CHW) is handled by Transformer.
+// Normalization is fused into the MXQ model (uint8 input), so no float scaling is needed here.
+// Pipeline: load MXQ -> transform uint8 -> NPU infer -> DFL decode -> NMS -> draw boxes.
 //
 // Usage:
 //   ./infer-det <model.mxq> <image_path> <output_path>
 //
-// Example:
-//   ./infer-det yolov9m.mxq example.jpg result.jpg
+// Examples:
+//   ./infer-det yolo11m.mxq cr7.jpg result.jpg   # ARIES
+//   ./infer-det yolov9m.mxq cr7.jpg result.jpg   # REGULUS
+//
+// (KR) Mobilint NPU 에서 객체 탐지 추론을 실행하고 바운딩 박스를 이미지에 그린다.
+// 전처리(letterbox + BGR->RGB + HWC->CHW)는 Transformer 가 담당한다.
+// 정규화는 MXQ 모델에 퓨즈되어 있어(uint8 입력) 별도 float 변환이 필요 없다.
+// 파이프라인: MXQ 로드 -> uint8 변환 -> NPU 추론 -> DFL 디코드 -> NMS -> 박스 시각화.
 
 #include <chrono>
 #include <iostream>
@@ -21,7 +25,7 @@
 #include "decode.h"
 #include "runner.h"
 #include "transform.h"
-#include "yolov9m_config.h"
+#include "yolo_detect_config.h"
 
 static const std::vector<std::string> COCO_LABELS = {
     "person",        "bicycle",      "car",
@@ -89,21 +93,18 @@ int main(int argc, char** argv) {
     const std::string image_path = argv[2];
     const std::string output_path = argv[3];
 
-    // Model config (hardcoded, no YAML)
-    ModelInfo cfg = make_yolov9m_config();
+    ModelInfo cfg = make_yolo_detect_config();
     int nc = cfg.m_postprocess.num_classes;
     int nl = cfg.m_postprocess.num_layers;
     int reg_max = cfg.m_postprocess.reg_max;
     float conf_thres = cfg.m_postprocess.conf_thres;
     float iou_thres = cfg.m_postprocess.iou_thres;
 
-    // 1) Load MXQ model onto NPU
     NPURunner model(mxq_path);
     auto shape = model.get_input_shape();
     std::cout << "Model input: " << shape[0] << "x" << shape[1] << "x"
               << shape[2] << "\n";
 
-    // 2) Load image
     cv::Mat img = cv::imread(image_path);
     if (img.empty()) {
         std::cerr << "Failed to load image: " << image_path << "\n";
@@ -113,24 +114,22 @@ int main(int argc, char** argv) {
     int img_w = img.cols;
     std::cout << "Image size: " << img_w << "x" << img_h << "\n";
 
-    // 3) Preprocess: letterbox + BGR2RGB + HWC->CHW (uint8)
     Transformer transformer;
     auto input = transformer.transform_uint8(img, cfg);
 
-    // 4) Run NPU inference
     auto t0 = std::chrono::high_resolution_clock::now();
     auto outputs = model.infer_uint8(std::move(input));
     auto t1 = std::chrono::high_resolution_clock::now();
     double infer_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
     std::cout << "Inference time: " << infer_ms << " ms\n";
 
-    // 5) Post-process: DFL decode + NMS + rescale to original image
+    // DFL decode + NMS, then rescale boxes from letterbox space to original image coordinates
+    // (KR: DFL 디코드 + NMS 후 letterbox 좌표를 원본 이미지 좌표로 변환)
     YoloDecoder decoder(nc, nl, IMG_SIZE, reg_max, conf_thres, iou_thres);
     auto dets = decoder.decode(outputs);
     YoloDecoder::scale_to_original(dets, IMG_SIZE, img_h, img_w);
     std::cout << "Detections: " << dets.size() << "\n";
 
-    // 6) Draw bounding boxes and save result
     draw_detections(img, dets);
     cv::imwrite(output_path, img);
     std::cout << "Result saved to: " << output_path << "\n";

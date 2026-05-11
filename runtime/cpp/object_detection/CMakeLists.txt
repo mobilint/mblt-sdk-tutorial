@@ -5,14 +5,18 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(CMAKE_C_FLAGS "-O3 -march=armv8-a -ffast-math")
-set(CMAKE_CXX_FLAGS "-O3 -march=armv8-a -ffast-math")
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+    set(CMAKE_C_FLAGS   "-O3 -march=armv8-a -ffast-math")
+    set(CMAKE_CXX_FLAGS "-O3 -march=armv8-a -ffast-math")
+else()
+    set(CMAKE_C_FLAGS   "-O3 -march=native -ffast-math")
+    set(CMAKE_CXX_FLAGS "-O3 -march=native -ffast-math")
+endif()
 
 find_package(OpenCV REQUIRED)
 find_package(Threads REQUIRED)
 
 add_library(det_utils STATIC
-    utils/inference/parser.cc
     utils/inference/runner.cc
     utils/inference/transform.cc
     utils/postprocess/decode.cc

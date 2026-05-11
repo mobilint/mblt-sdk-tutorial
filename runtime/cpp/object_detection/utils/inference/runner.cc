@@ -1,6 +1,10 @@
-// =============================================================================
-// runner.cc - NPU 실행 래퍼 + .npy 작성 유틸 구현
-// =============================================================================
+// Implementation of NPURunner and save_npy() declared in runner.h.
+// NPURunner wraps qbruntime Accelerator/Model lifecycle (create, launch, infer, dispose).
+// save_npy() writes a single float32 tensor to disk in NumPy v1.0 format without external libraries.
+//
+// (KR) runner.h 에 선언된 NPURunner 와 save_npy() 구현.
+// NPURunner 는 qbruntime Accelerator/Model 의 생명주기(생성, 실행, 추론, 해제)를 래핑한다.
+// save_npy() 는 외부 라이브러리 없이 float32 텐서를 NumPy v1.0 포맷으로 저장한다.
 #include "runner.h"
 
 #include <cstdint>
@@ -17,7 +21,12 @@ NPURunner::NPURunner(const std::string& model_path) {
     acc_ = mobilint::Accelerator::create(sc_);
     if (!sc_) throw std::runtime_error("Failed to create accelerator");
 
-    model_ = mobilint::Model::create(model_path, sc_);
+    // Single-core mode (Cluster0/Core0) works for both ARIES multi-mode MXQ and REGULUS single-mode MXQ.
+    // (KR: 단일 코어 모드는 ARIES 멀티모드 MXQ 와 REGULUS 단일모드 MXQ 양쪽에서 동작한다.)
+    mobilint::ModelConfig mc;
+    mc.setSingleCoreMode({mobilint::CoreId{mobilint::Cluster::Cluster0,
+                                           mobilint::Core::Core0}});
+    model_ = mobilint::Model::create(model_path, mc, sc_);
     if (!sc_) throw std::runtime_error("Failed to load model: " + model_path);
 
     sc_ = model_->launch(*acc_);
@@ -33,9 +42,9 @@ std::vector<std::vector<float>> NPURunner::infer(std::unique_ptr<float[]> input)
 }
 
 std::vector<std::vector<float>> NPURunner::infer_uint8(std::unique_ptr<uint8_t[]> input) {
-    // transform_uint8 의 출력이 CHW 라 inferCHW 호출이 필요하다.
-    // 일반 infer(uint8_t*) 는 NHWC layout 을 가정하므로 (qbruntime model.h L598-615),
-    // CHW 데이터를 그쪽으로 보내면 NPU 가 잘못된 픽셀로 해석해 garbage 결과를 낸다.
+    // Must use inferCHW because transform_uint8 produces CHW layout.
+    // The plain infer(uint8_t*) overload assumes NHWC, which causes the NPU to misinterpret pixels and produce garbage output.
+    // (KR: transform_uint8 출력이 CHW 이므로 inferCHW 를 써야 한다. infer(uint8_t*) 는 NHWC 를 가정해 garbage 결과를 낸다.)
     return model_->inferCHW({input.get()}, sc_);
 }
 
@@ -46,14 +55,10 @@ std::vector<int> NPURunner::get_input_shape() const {
             static_cast<int>(info.original_channel)};
 }
 
-// =============================================================================
-// .npy writer (numpy v1.0 spec)
-// =============================================================================
-// magic: \x93NUMPY  (6 bytes)
-// version: \x01\x00 (2 bytes)
-// header_len: uint16 little-endian (2 bytes)
-// header: ASCII dict literal, padded with spaces, ends with '\n'
-// data: raw binary, row-major
+// NumPy v1.0 .npy format: magic(6 B) + version(2 B) + header_len uint16-LE(2 B)
+// + ASCII dict header padded to 16-byte alignment ending with '\n' + raw float32 data row-major.
+// (KR: NumPy v1.0 .npy 포맷: magic(6 B) + version(2 B) + header_len uint16-LE(2 B)
+// + 16바이트 정렬 ASCII dict 헤더('\n' 종료) + float32 raw 데이터 row-major.)
 void save_npy(const std::string& path, const float* data,
               const std::vector<size_t>& shape) {
     std::ofstream ofs(path, std::ios::binary);
@@ -73,8 +78,8 @@ void save_npy(const std::string& path, const float* data,
     oss << "), }";
     std::string header = oss.str();
 
-    // total prefix = 10 bytes (magic 6 + ver 2 + header_len 2). header 가 16-byte
-    // 정렬되도록 공백 패딩 + '\n'.
+    // Prefix is 10 bytes (magic 6 + ver 2 + header_len 2); pad header to 16-byte alignment then append '\n'.
+    // (KR: 접두사 10바이트(magic 6 + ver 2 + header_len 2); 헤더를 16바이트 정렬 후 '\n' 추가.)
     size_t total = 10 + header.size() + 1;
     size_t pad = (16 - (total % 16)) % 16;
     header.append(pad, ' ');

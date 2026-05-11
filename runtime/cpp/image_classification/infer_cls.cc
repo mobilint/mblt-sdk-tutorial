@@ -73,10 +73,15 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    // 2) Load MXQ model onto NPU
+    // 2) Load MXQ model onto NPU. Use single-core mode (Cluster0/Core0) so the
+    // same binary handles both REGULUS single-mode mxq and ARIES multi-mode
+    // mxq (inference_scheme="all" produced by model_compile.py).
     mobilint::StatusCode sc;
     auto acc = mobilint::Accelerator::create(sc);
-    auto model = mobilint::Model::create(mxq_path, sc);
+    mobilint::ModelConfig mc;
+    mc.setSingleCoreMode({mobilint::CoreId{mobilint::Cluster::Cluster0,
+                                           mobilint::Core::Core0}});
+    auto model = mobilint::Model::create(mxq_path, mc, sc);
     sc = model->launch(*acc);
 
     auto info = model->getInputBufferInfo()[0];

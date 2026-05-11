@@ -1,81 +1,93 @@
-# Object Detection - C++ Cross-Compiled Inference
+# Object Detection - C++ Inference (ARIES + REGULUS)
 
-An example of running C++ NPU inference on a single image using a YOLOv9m MXQ model, with bounding box visualization.
+An example of running C++ NPU inference on a single image with bounding-box
+visualization. The same binary handles both YOLO11m (ARIES) and YOLOv9m
+(REGULUS) MXQ models because ultralytics v8/v9/v11 share the same anchor-free
+Detect head layout (3 stride x [reg_max*4 box + nc cls] = 144 channels).
+
+Supports **ARIES native build** (x86_64 host with NPU) and **REGULUS
+cross-compile** (x86_64 host -> ARM64 target board) from the same
+`CMakeLists.txt`.
 
 ## File Structure
 
 - `infer_det.cc` - Inference binary source (NPU inference, post-processing, bbox visualization)
-- `yolov9m_config.h` - YOLOv9m model configuration (preprocessing, postprocessing parameters)
+- `yolo_detect_config.h` - Anchorless YOLO detect configuration (yolo11m / yolov9m P5, 80 classes)
 - `utils/` - Shared inference modules (NPURunner, Transformer, YoloDecoder)
-- `CMakeLists.txt` - CMake build configuration
+- `CMakeLists.txt` - CMake build configuration (host arch auto-detected)
 
 ## Prerequisites
 
-- You need a `yolov9m.mxq` file generated with `model_compile_regulus.py` from the REGULUS section of the [compiler tutorial](../../../compilation/object_detection/README.md).
+- Pick the matching MXQ file from the [compiler tutorial](../../../compilation/object_detection/README.md):
+  - **ARIES**: `yolo11m.mxq` from `model_compile.py`.
+  - **REGULUS**: `yolov9m.mxq` from `model_compile_regulus.py`.
 
-### 1. Verify Toolchain Installation
+### Common requirements (both paths)
 
-Check that the cross-compilation toolchain is installed:
+- CMake >= 3.18
+- C++17 compiler (gcc / clang)
+- `qbruntime` library (installed together with the Mobilint NPU SDK)
 
-```bash
-ls /opt/crosstools/mobilint/
-```
+### ARIES native build (x86_64 host with NPU)
 
-You should see a version directory (e.g., `1.0.0/`). If the toolchain is not installed, refer to [Cross-Compilation Setup](../README.md) to install it first.
-
-### 2. Activate Cross-Compilation Environment
-
-Find the `environment-setup-cortexa53-mobilint-linux` file in the installed toolchain directory:
+Install host-side OpenCV and build tools (Ubuntu / Debian):
 
 ```bash
-find /opt/crosstools/mobilint/ -name "environment-setup-cortexa53-mobilint-linux"
-# /opt/crosstools/mobilint/1.0.0/v3.4.0/environment-setup-cortexa53-mobilint-linux
+apt-get update
+apt-get install -y build-essential cmake libopencv-dev
 ```
 
-Unset host library paths (e.g., CUDA) to prevent conflicts with the cross-compiler:
+### REGULUS cross-compile (x86_64 host -> ARM64 target board)
+
+The vendor cross-compile toolchain ships with OpenCV and `qbruntime` pre-installed.
+Verify the toolchain and activate it:
 
 ```bash
-unset LD_LIBRARY_PATH
+ls /opt/crosstools/mobilint/                                   # version directory expected
+unset LD_LIBRARY_PATH                                          # avoid host CUDA libs leaking
+source /opt/crosstools/mobilint/{version}/{sdk}/environment-setup-cortexa53-mobilint-linux
+echo $CXX                                                      # aarch64-mobilint-linux-g++ ...
 ```
 
-Activate the toolchain environment using the path found above:
+If the toolchain is not installed, follow [Cross-Compilation Setup](../README.md).
+
+## Build
+
+The same command works for both ARIES native and REGULUS cross-compile.
+`CMakeLists.txt` detects the host arch and selects the right `-march` flag.
 
 ```bash
-source /opt/crosstools/mobilint/1.0.0/v3.4.0/environment-setup-cortexa53-mobilint-linux
+cmake -B build -S .
+cmake --build build -j
 ```
 
-Verify that the cross-compiler is set:
+After a successful build, `build/infer-det` is created.
 
-```bash
-echo $CXX
-# aarch64-mobilint-linux-g++ ...
-```
-
-## Build (Host)
-
-```bash
-rm -rf build && mkdir build && cd build
-cmake .. -DCMAKE_TOOLCHAIN_FILE=$CMAKE_TOOLCHAIN_FILE
-make -j$(nproc)
-cd ..
-```
-
-After a successful build, the `build/infer-det` binary will be generated.
-
-Verify the binary is built for ARM64:
+Verify the architecture:
 
 ```bash
 file build/infer-det
-# build/infer-det: ELF 64-bit LSB executable, ARM aarch64, ...
+# ARIES:   ELF 64-bit LSB executable, x86-64, ...
+# REGULUS: ELF 64-bit LSB executable, ARM aarch64, ...
 ```
 
-## Run (Target Board)
+## Run
 
-Copy the `build/infer-det` binary and `yolov9m.mxq` model file to the target board, then run:
+A sample image `../rc/cr7.jpg` is bundled with the repo.
+
+### ARIES (same host)
+
+```bash
+./build/infer-det ../../../compilation/object_detection/yolo11m.mxq ../rc/cr7.jpg result.jpg
+```
+
+### REGULUS (target board)
+
+Copy `build/infer-det`, `yolov9m.mxq`, and `../rc/cr7.jpg` to the target board, then:
 
 ```bash
 chmod +x infer-det
-./infer-det yolov9m.mxq example.jpg result.jpg
+./infer-det yolov9m.mxq cr7.jpg result.jpg
 ```
 
 ## Example Output
