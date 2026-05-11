@@ -2,9 +2,9 @@
 
 이 튜토리얼은 Mobilint `qbruntime`을 사용하여 컴파일된 객체 탐지 모델로 추론을 실행하는 방법에 대한 단계별 지침을 제공합니다.
 
-이 가이드는 [../../compilation/object_detection/README.KR.md](../../compilation/object_detection/README.KR.md)에서 이어지는 내용입니다. 모델 컴파일을 성공적으로 마쳤으며 다음 파일이 준비되어 있다고 가정합니다:
+이 가이드는 [../../../compilation/object_detection/README.KR.md](../../../compilation/object_detection/README.KR.md)에서 이어지는 내용입니다. 모델 컴파일을 성공적으로 마쳤으며 다음 파일이 준비되어 있다고 가정합니다:
 
-- `./yolo11m.mxq` - 컴파일된 모델 파일
+- `../../../compilation/object_detection/yolo11m.mxq` - 컴파일된 모델 파일
 
 ## 사전 요구 사항 (Prerequisites)
 
@@ -71,7 +71,7 @@ def preprocess_yolo(img_path: str, img_size=(640, 640)):
 예제 추론 스크립트를 실행하려면 다음 명령어를 사용하십시오:
 
 ```bash
-python inference_mxq.py --model-path ../../compilation/object_detection/yolo11m.mxq --image-path ../rc/cr7.jpg --output-path ./tmp/cr_demo.jpg --conf-thres 0.25 --iou-thres 0.45
+python inference_mxq.py --model-path ../../../compilation/object_detection/yolo11m.mxq --image-path ../rc/cr7.jpg --output-path ./tmp/cr_demo.jpg --conf-thres 0.25 --iou-thres 0.45
 ```
 
 ### 스크립트 세부 설명

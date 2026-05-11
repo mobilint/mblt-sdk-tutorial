@@ -2,9 +2,9 @@
 
 This tutorial provides step-by-step instructions for running inference with compiled pose estimation models using the Mobilint `qbruntime`.
 
-This guide is a continuation of [../../compilation/pose_estimation/README.md](../../compilation/pose_estimation/README.md). It is assumed that you have successfully compiled the model and have the following file ready:
+This guide is a continuation of [../../../compilation/pose_estimation/README.md](../../../compilation/pose_estimation/README.md). It is assumed that you have successfully compiled the model and have the following file ready:
 
-- `./yolo11m-pose.mxq` - Compiled model file
+- `../../../compilation/pose_estimation/yolo11m-pose.mxq` - Compiled model file
 
 ## Prerequisites
 
@@ -71,7 +71,7 @@ Finally, execute the model with the preprocessed input and apply postprocessing 
 To run the example inference script, use the following command:
 
 ```bash
-python inference_mxq.py --model-path ../../compilation/pose_estimation/yolo11m-pose.mxq --image-path ../rc/cr7.jpg --output-path ./tmp/cr_pose_demo.jpg --conf-thres 0.25 --iou-thres 0.45
+python inference_mxq.py --model-path ../../../compilation/pose_estimation/yolo11m-pose.mxq --image-path ../rc/cr7.jpg --output-path ./tmp/cr_pose_demo.jpg --conf-thres 0.25 --iou-thres 0.45
 ```
 
 ### Script Breakdown

@@ -4,9 +4,9 @@
 
 문서 구성은 [../object_detection/README.KR.md](../object_detection/README.KR.md)를 따르되, 후처리와 라벨 체계는 단일 클래스 얼굴 탐지기에 맞게 조정했습니다.
 
-이 가이드는 [../../compilation/face_detection/README.KR.md](../../compilation/face_detection/README.KR.md)에서 이어집니다. 아래와 같은 컴파일된 모델이 이미 준비되어 있다고 가정합니다.
+이 가이드는 [../../../compilation/face_detection/README.KR.md](../../../compilation/face_detection/README.KR.md)에서 이어집니다. 아래와 같은 컴파일된 모델이 이미 준비되어 있다고 가정합니다.
 
-- `../../compilation/face_detection/yolov12m-face.mxq`
+- `../../../compilation/face_detection/yolov12m-face.mxq`
 
 ## 사전 준비
 
@@ -71,7 +71,7 @@ def preprocess_yolo(img_path: str, img_size: tuple[int, int] = (640, 640)) -> np
 예제 실행 명령은 다음과 같습니다.
 
 ```bash
-python inference_mxq.py --model-path ../../compilation/face_detection/yolov12m-face.mxq --image-path ../rc/cr7.jpg --output-path ./tmp/cr_demo.jpg --conf-thres 0.25 --iou-thres 0.45
+python inference_mxq.py --model-path ../../../compilation/face_detection/yolov12m-face.mxq --image-path ../rc/cr7.jpg --output-path ./tmp/cr_demo.jpg --conf-thres 0.25 --iou-thres 0.45
 ```
 
 이 예제는 컴파일 튜토리얼에서 만든 산출물과 맞추기 위해 모델 경로를 명시적으로 전달합니다.

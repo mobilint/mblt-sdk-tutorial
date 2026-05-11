@@ -2,9 +2,9 @@
 
 이 튜토리얼은 Mobilint `qbruntime`을 사용하여 컴파일된 이미지 분류 모델로 추론을 실행하는 방법에 대한 단계별 지침을 제공합니다.
 
-이 가이드는 [../../compilation/image_classification/README.KR.md](../../compilation/image_classification/README.KR.md)에서 이어지는 내용입니다. 모델 컴파일을 성공적으로 마쳤으며 다음 파일이 준비되어 있다고 가정합니다:
+이 가이드는 [../../../compilation/image_classification/README.KR.md](../../../compilation/image_classification/README.KR.md)에서 이어지는 내용입니다. 모델 컴파일을 성공적으로 마쳤으며 다음 파일이 준비되어 있다고 가정합니다:
 
-- `./resnet50.mxq` - 컴파일된 모델 파일
+- `../../../compilation/image_classification/resnet50.mxq` - 컴파일된 모델 파일
 
 ## 사전 요구 사항 (Prerequisites)
 
@@ -67,7 +67,7 @@ output = np.exp(output) / np.sum(np.exp(output)) # softmax
 예제 추론 스크립트를 실행하려면 다음 명령어를 사용하십시오:
 
 ```bash
-python inference_mxq.py --mxq-path ../../compilation/image_classification/resnet50.mxq --image-path ../rc/volcano.jpg
+python inference_mxq.py --mxq-path ../../../compilation/image_classification/resnet50.mxq --image-path ../rc/volcano.jpg
 ```
 
 ### 스크립트 세부 설명

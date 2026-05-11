@@ -2,10 +2,10 @@
 
 이 튜토리얼은 Mobilint NPU 하드웨어에서 컴파일된 Llama-3.2-1B-Instruct 모델로 추론을 실행하는 방법을 안내합니다.
 
-이 튜토리얼에서는 [컴파일 튜토리얼](../../compilation/llm/README.md)에서 컴파일한 [Llama-3.2-1B-Instruct](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct) 모델을 사용합니다. **먼저 컴파일 튜토리얼을 완료해야** 다음 파일들이 준비됩니다:
+이 튜토리얼에서는 [컴파일 튜토리얼](../../../compilation/llm/README.md)에서 컴파일한 [Llama-3.2-1B-Instruct](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct) 모델을 사용합니다. **먼저 컴파일 튜토리얼을 완료해야** 다음 파일들이 준비됩니다:
 
-- `compilation/llm/Llama-3.2-1B-Instruct.mxq` - 컴파일된 모델
-- `compilation/llm/embedding.pt` - 임베딩 레이어 가중치
+- `../../../compilation/llm/Llama-3.2-1B-Instruct.mxq` - 컴파일된 모델
+- `../../../compilation/llm/embedding.pt` - 임베딩 레이어 가중치
 
 ## 개요
 
@@ -37,8 +37,8 @@ pip install -r requirements.txt
 
 ```bash
 python prepare_model.py \
-    --mxq-path ../../compilation/llm/Llama-3.2-1B-Instruct.mxq \
-    --embedding-path ../../compilation/llm/embedding.pt \
+    --mxq-path ../../../compilation/llm/Llama-3.2-1B-Instruct.mxq \
+    --embedding-path ../../../compilation/llm/embedding.pt \
     --output-folder ./llama-mxq \
     --model-id mobilint/Llama-3.2-1B-Instruct
 ```
@@ -84,8 +84,8 @@ python inference_mblt_model_zoo.py --model-folder ./llama-mxq --model-id mobilin
 
 ```bash
 python inference_mxq.py \
-    --mxq-path ../../compilation/llm/Llama-3.2-1B-Instruct.mxq \
-    --embedding-weight-path ../../compilation/llm/embedding.pt
+    --mxq-path ../../../compilation/llm/Llama-3.2-1B-Instruct.mxq \
+    --embedding-weight-path ../../../compilation/llm/embedding.pt
 ```
 
 **추가 옵션:**
@@ -115,8 +115,8 @@ NPU는 다양한 코어 모드를 지원합니다. 코어 모드는 `config.json
 
 | 인자 | 기본값 | 설명 |
 | --- | ----- | --- |
-| `--mxq-path` | `../../compilation/llm/Llama-3.2-1B-Instruct.mxq` | 컴파일된 MXQ 파일 경로 |
-| `--embedding-path` | `../../compilation/llm/embedding.pt` | 임베딩 가중치 파일 경로 |
+| `--mxq-path` | `../../../compilation/llm/Llama-3.2-1B-Instruct.mxq` | 컴파일된 MXQ 파일 경로 |
+| `--embedding-path` | `../../../compilation/llm/embedding.pt` | 임베딩 가중치 파일 경로 |
 | `--output-folder` | `./llama-mxq` | 준비된 모델의 저장 폴더 |
 | `--model-id` | `mobilint/Llama-3.2-1B-Instruct` | config 및 토크나이저 다운로드용 HuggingFace 모델 ID |
 
@@ -133,8 +133,8 @@ NPU는 다양한 코어 모드를 지원합니다. 코어 모드는 `config.json
 
 | 인자 | 기본값 | 설명 |
 | --- | ----- | --- |
-| `--mxq-path` | `../../compilation/llm/Llama-3.2-1B-Instruct.mxq` | 컴파일된 MXQ 파일 경로 |
-| `--embedding-weight-path` | `../../compilation/llm/embedding.pt` | 임베딩 가중치 파일 경로 |
+| `--mxq-path` | `../../../compilation/llm/Llama-3.2-1B-Instruct.mxq` | 컴파일된 MXQ 파일 경로 |
+| `--embedding-weight-path` | `../../../compilation/llm/embedding.pt` | 임베딩 가중치 파일 경로 |
 | `--prompt` | `"Explain the concept of NPU..."` | 모델에 전달할 프롬프트 |
 | `--max-new-tokens` | `256` | 최대 생성 토큰 수 |
 
@@ -161,7 +161,7 @@ llm/
 
 ## 참조
 
-- [컴파일 튜토리얼](../../compilation/llm/README.md)
+- [컴파일 튜토리얼](../../../compilation/llm/README.md)
 - [Llama-3.2-1B-Instruct 모델 카드](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct)
 - [mblt-model-zoo Documentation](https://docs.mobilint.com/model-zoo)
 - [Mobilint Documentation](https://docs.mobilint.com)

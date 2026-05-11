@@ -2,11 +2,11 @@
 
 This tutorial provides instructions for running inference with the compiled Whisper speech-to-text model on Mobilint NPU hardware.
 
-In this tutorial, we will use the [Whisper Small](https://huggingface.co/mobilint/whisper-small) model compiled in the [compilation tutorial](../../compilation/stt/README.md). **You must complete the compilation tutorial first** to have the following files ready:
+In this tutorial, we will use the [Whisper Small](https://huggingface.co/mobilint/whisper-small) model compiled in the [compilation tutorial](../../../compilation/stt/README.md). **You must complete the compilation tutorial first** to have the following files ready:
 
-- `compilation/stt/mxq/whisper-small_encoder.mxq` - Compiled encoder
-- `compilation/stt/mxq/whisper-small_decoder.mxq` - Compiled decoder
-- `compilation/stt/audio_files/` - Audio samples for testing
+- `../../../compilation/stt/mxq/whisper-small_encoder.mxq` - Compiled encoder
+- `../../../compilation/stt/mxq/whisper-small_decoder.mxq` - Compiled decoder
+- `../../../compilation/stt/audio_files/` - Audio samples for testing
 
 ## Overview
 
@@ -31,8 +31,8 @@ Organize the compiled MXQ files and download the required configuration from Hug
 
 ```bash
 python prepare_model.py \
-    --encoder-mxq ../../compilation/stt/mxq/whisper-small_encoder.mxq \
-    --decoder-mxq ../../compilation/stt/mxq/whisper-small_decoder.mxq \
+    --encoder-mxq ../../../compilation/stt/mxq/whisper-small_encoder.mxq \
+    --decoder-mxq ../../../compilation/stt/mxq/whisper-small_decoder.mxq \
     --output-folder ./whisper-small-mxq \
     --base-model openai/whisper-small
 ```
@@ -53,7 +53,7 @@ Run speech-to-text inference on an audio file. The script uses mblt-model-zoo's 
 
 ```bash
 python inference_mblt_model_zoo.py \
-    --audio ../../compilation/stt/audio_files/en_us_0000.wav \
+    --audio ../../../compilation/stt/audio_files/en_us_0000.wav \
     --model-folder ./whisper-small-mxq \
     --model-id mobilint/whisper-small
 ```
@@ -101,8 +101,8 @@ Edit `whisper-small-mxq/config.json`:
 
 | Argument | Default | Description |
 | -------- | ------- | ----------- |
-| `--encoder-mxq` | `../../compilation/stt/mxq/whisper-small_encoder.mxq` | Path to the compiled encoder MXQ file |
-| `--decoder-mxq` | `../../compilation/stt/mxq/whisper-small_decoder.mxq` | Path to the compiled decoder MXQ file |
+| `--encoder-mxq` | `../../../compilation/stt/mxq/whisper-small_encoder.mxq` | Path to the compiled encoder MXQ file |
+| `--decoder-mxq` | `../../../compilation/stt/mxq/whisper-small_decoder.mxq` | Path to the compiled decoder MXQ file |
 | `--output-folder` | `./whisper-small-mxq` | Destination folder for the prepared model |
 | `--base-model` | `openai/whisper-small` | HuggingFace model ID for base configuration and embedding extraction |
 | `--model-id` | `mobilint/whisper-small` | HuggingFace model ID for mblt-model-zoo |
@@ -111,7 +111,7 @@ Edit `whisper-small-mxq/config.json`:
 
 | Argument | Default | Description |
 | -------- | ------- | ----------- |
-| `--audio` | `../../compilation/stt/audio_files/en_us_0000.wav` | Path to the input audio file |
+| `--audio` | `../../../compilation/stt/audio_files/en_us_0000.wav` | Path to the input audio file |
 | `--model-folder` | `./whisper-small-mxq` | Path to the prepared model folder |
 | `--model-id` | `mobilint/whisper-small` | HuggingFace model ID for processor download |
 | `--language` | `None` (auto-detect) | Source language code (e.g., `en`, `ko`, `ja`) |

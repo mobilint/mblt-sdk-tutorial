@@ -2,9 +2,9 @@
 
 This tutorial provides step-by-step instructions for running inference with compiled object detection models using the Mobilint `qbruntime`.
 
-This guide is a continuation of [../../compilation/object_detection/README.md](../../compilation/object_detection/README.md). It is assumed that you have successfully compiled the model and have the following file ready:
+This guide is a continuation of [../../../compilation/object_detection/README.md](../../../compilation/object_detection/README.md). It is assumed that you have successfully compiled the model and have the following file ready:
 
-- `./yolo11m.mxq` - Compiled model file
+- `../../../compilation/object_detection/yolo11m.mxq` - Compiled model file
 
 ## Prerequisites
 
@@ -71,7 +71,7 @@ Finally, execute the model with the preprocessed input and apply postprocessing 
 To run the example inference script, use the following command:
 
 ```bash
-python inference_mxq.py --model-path ../../compilation/object_detection/yolo11m.mxq --image-path ../rc/cr7.jpg --output-path ./tmp/cr_demo.jpg --conf-thres 0.25 --iou-thres 0.45
+python inference_mxq.py --model-path ../../../compilation/object_detection/yolo11m.mxq --image-path ../rc/cr7.jpg --output-path ./tmp/cr_demo.jpg --conf-thres 0.25 --iou-thres 0.45
 ```
 
 ### Script Breakdown

@@ -2,7 +2,7 @@
 
 This tutorial provides instructions for running inference with the compiled Qwen2-VL-2B-Instruct model on ARIES hardware.
 
-In this tutorial, we will use the [Qwen2-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct) model compiled in the [compilation tutorial](../../compilation/vlm/README.md). **You must complete the compilation tutorial first** to have the following files ready in `compilation/vlm/mxq/`:
+In this tutorial, we will use the [Qwen2-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct) model compiled in the [compilation tutorial](../../../compilation/vlm/README.md). **You must complete the compilation tutorial first** to have the following files ready in `../../../compilation/vlm/mxq/`:
 
 - `Qwen2-VL-2B-Instruct_text_model.mxq` - Compiled language model
 - `Qwen2-VL-2B-Instruct_vision_transformer.mxq` - Compiled vision encoder
@@ -32,7 +32,7 @@ Copy compilation output and configure NPU core allocation.
 
 ```bash
 python prepare_model.py \
-    --compilation-dir ../../compilation/vlm/mxq \
+    --compilation-dir ../../../compilation/vlm/mxq \
     --output-folder ./qwen2-vl-mxq \
     --model-id mobilint/Qwen2-VL-2B-Instruct
 ```
@@ -104,7 +104,7 @@ Edit `qwen2-vl-mxq/config.json`:
 
 | Argument | Default | Description |
 | -------- | ------- | ----------- |
-| `--compilation-dir` | `../../compilation/vlm/mxq` | Path to the compilation output directory |
+| `--compilation-dir` | `../../../compilation/vlm/mxq` | Path to the compilation output directory |
 | `--output-folder` | `./qwen2-vl-mxq` | Destination folder for the prepared model |
 | `--model-id` | `mobilint/Qwen2-VL-2B-Instruct` | HuggingFace model ID stored in config for mblt-model-zoo model registration |
 
@@ -152,7 +152,7 @@ pip install -r requirements.txt
 
 ## References
 
-- [Compilation Tutorial](../../compilation/vlm/README.md)
+- [Compilation Tutorial](../../../compilation/vlm/README.md)
 - [Qwen2-VL Model Card](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct)
 - [mblt-model-zoo Documentation](https://docs.mobilint.com/model-zoo)
 - [Mobilint Documentation](https://docs.mobilint.com)

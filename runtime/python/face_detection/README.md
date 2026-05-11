@@ -4,9 +4,9 @@ This tutorial explains how to run inference with a compiled face detection model
 
 The structure follows [../object_detection/README.md](../object_detection/README.md), but the postprocessing and labels are adapted for a single-class face detector.
 
-This guide continues from [../../compilation/face_detection/README.md](../../compilation/face_detection/README.md). It assumes you already have a compiled model such as:
+This guide continues from [../../../compilation/face_detection/README.md](../../../compilation/face_detection/README.md). It assumes you already have a compiled model such as:
 
-- `../../compilation/face_detection/yolov12m-face.mxq`
+- `../../../compilation/face_detection/yolov12m-face.mxq`
 
 ## Prerequisites
 
@@ -71,7 +71,7 @@ Finally, `YoloVisualizer` rescales the boxes back to the original image size and
 Run the example with:
 
 ```bash
-python inference_mxq.py --model-path ../../compilation/face_detection/yolov12m-face.mxq --image-path ../rc/cr7.jpg --output-path ./tmp/cr_demo.jpg --conf-thres 0.25 --iou-thres 0.45
+python inference_mxq.py --model-path ../../../compilation/face_detection/yolov12m-face.mxq --image-path ../rc/cr7.jpg --output-path ./tmp/cr_demo.jpg --conf-thres 0.25 --iou-thres 0.45
 ```
 
 This example passes the model path explicitly so it matches the compiled artifact from the compilation tutorial.

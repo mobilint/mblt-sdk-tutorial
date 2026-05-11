@@ -2,11 +2,11 @@
 
 이 튜토리얼은 Mobilint NPU 하드웨어에서 컴파일된 Whisper 음성 인식 모델로 추론을 실행하는 방법을 안내합니다.
 
-이 튜토리얼에서는 [컴파일 튜토리얼](../../compilation/stt/README.md)에서 컴파일한 [Whisper Small](https://huggingface.co/mobilint/whisper-small) 모델을 사용합니다. **먼저 컴파일 튜토리얼을 완료해야** 다음 파일들이 준비됩니다:
+이 튜토리얼에서는 [컴파일 튜토리얼](../../../compilation/stt/README.md)에서 컴파일한 [Whisper Small](https://huggingface.co/mobilint/whisper-small) 모델을 사용합니다. **먼저 컴파일 튜토리얼을 완료해야** 다음 파일들이 준비됩니다:
 
-- `compilation/stt/mxq/whisper-small_encoder.mxq` - 컴파일된 인코더
-- `compilation/stt/mxq/whisper-small_decoder.mxq` - 컴파일된 디코더
-- `compilation/stt/audio_files/` - 테스트용 오디오 샘플
+- `../../../compilation/stt/mxq/whisper-small_encoder.mxq` - 컴파일된 인코더
+- `../../../compilation/stt/mxq/whisper-small_decoder.mxq` - 컴파일된 디코더
+- `../../../compilation/stt/audio_files/` - 테스트용 오디오 샘플
 
 ## 개요
 
@@ -31,8 +31,8 @@ pip install -r requirements.txt
 
 ```bash
 python prepare_model.py \
-    --encoder-mxq ../../compilation/stt/mxq/whisper-small_encoder.mxq \
-    --decoder-mxq ../../compilation/stt/mxq/whisper-small_decoder.mxq \
+    --encoder-mxq ../../../compilation/stt/mxq/whisper-small_encoder.mxq \
+    --decoder-mxq ../../../compilation/stt/mxq/whisper-small_decoder.mxq \
     --output-folder ./whisper-small-mxq \
     --base-model openai/whisper-small
 ```
@@ -53,7 +53,7 @@ python prepare_model.py \
 
 ```bash
 python inference_mblt_model_zoo.py \
-    --audio ../../compilation/stt/audio_files/en_us_0000.wav \
+    --audio ../../../compilation/stt/audio_files/en_us_0000.wav \
     --model-folder ./whisper-small-mxq \
     --model-id mobilint/whisper-small
 ```
@@ -101,8 +101,8 @@ NPU는 다양한 코어 모드를 지원합니다. 코어 모드는 `config.json
 
 | 인자 | 기본값 | 설명 |
 | --- | ----- | --- |
-| `--encoder-mxq` | `../../compilation/stt/mxq/whisper-small_encoder.mxq` | 컴파일된 인코더 MXQ 파일 경로 |
-| `--decoder-mxq` | `../../compilation/stt/mxq/whisper-small_decoder.mxq` | 컴파일된 디코더 MXQ 파일 경로 |
+| `--encoder-mxq` | `../../../compilation/stt/mxq/whisper-small_encoder.mxq` | 컴파일된 인코더 MXQ 파일 경로 |
+| `--decoder-mxq` | `../../../compilation/stt/mxq/whisper-small_decoder.mxq` | 컴파일된 디코더 MXQ 파일 경로 |
 | `--output-folder` | `./whisper-small-mxq` | 준비된 모델의 저장 폴더 |
 | `--base-model` | `openai/whisper-small` | 기본 구성 및 임베딩 추출용 HuggingFace 모델 ID |
 | `--model-id` | `mobilint/whisper-small` | mblt-model-zoo용 HuggingFace 모델 ID |
@@ -111,7 +111,7 @@ NPU는 다양한 코어 모드를 지원합니다. 코어 모드는 `config.json
 
 | 인자 | 기본값 | 설명 |
 | --- | ----- | --- |
-| `--audio` | `../../compilation/stt/audio_files/en_us_0000.wav` | 입력 오디오 파일 경로 |
+| `--audio` | `../../../compilation/stt/audio_files/en_us_0000.wav` | 입력 오디오 파일 경로 |
 | `--model-folder` | `./whisper-small-mxq` | 준비된 모델 폴더 경로 |
 | `--model-id` | `mobilint/whisper-small` | 프로세서 다운로드용 HuggingFace 모델 ID |
 | `--language` | `None` (자동 감지) | 소스 언어 코드 (예: `en`, `ko`, `ja`) |

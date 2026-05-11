@@ -2,9 +2,9 @@
 
 This tutorial provides step-by-step instructions for running inference with compiled image classification models using the Mobilint `qbruntime`.
 
-This guide is a continuation of [../../compilation/image_classification/README.md](../../compilation/image_classification/README.md). It is assumed that you have successfully compiled the model and have the following file ready:
+This guide is a continuation of [../../../compilation/image_classification/README.md](../../../compilation/image_classification/README.md). It is assumed that you have successfully compiled the model and have the following file ready:
 
-- `./resnet50.mxq` - Compiled model file
+- `../../../compilation/image_classification/resnet50.mxq` - Compiled model file
 
 ## Prerequisites
 
@@ -67,7 +67,7 @@ output = np.exp(output) / np.sum(np.exp(output)) # softmax
 To run the example inference script, use the following command:
 
 ```bash
-python inference_mxq.py --mxq-path ../../compilation/image_classification/resnet50.mxq --image-path ../rc/volcano.jpg
+python inference_mxq.py --mxq-path ../../../compilation/image_classification/resnet50.mxq --image-path ../rc/volcano.jpg
 ```
 
 ### Script Breakdown

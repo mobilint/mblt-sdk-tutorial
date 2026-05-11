@@ -2,10 +2,10 @@
 
 This tutorial provides instructions for running inference with the compiled Llama-3.2-1B-Instruct model on Mobilint NPU hardware.
 
-In this tutorial, we will use the [Llama-3.2-1B-Instruct](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct) model compiled in the [compilation tutorial](../../compilation/llm/README.md). **You must complete the compilation tutorial first** to have the following files ready:
+In this tutorial, we will use the [Llama-3.2-1B-Instruct](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct) model compiled in the [compilation tutorial](../../../compilation/llm/README.md). **You must complete the compilation tutorial first** to have the following files ready:
 
-- `compilation/llm/Llama-3.2-1B-Instruct.mxq` - Compiled model
-- `compilation/llm/embedding.pt` - Embedding layer weights
+- `../../../compilation/llm/Llama-3.2-1B-Instruct.mxq` - Compiled model
+- `../../../compilation/llm/embedding.pt` - Embedding layer weights
 
 ## Overview
 
@@ -37,8 +37,8 @@ Copy the compiled MXQ files and download the required config and tokenizer from 
 
 ```bash
 python prepare_model.py \
-    --mxq-path ../../compilation/llm/Llama-3.2-1B-Instruct.mxq \
-    --embedding-path ../../compilation/llm/embedding.pt \
+    --mxq-path ../../../compilation/llm/Llama-3.2-1B-Instruct.mxq \
+    --embedding-path ../../../compilation/llm/embedding.pt \
     --output-folder ./llama-mxq \
     --model-id mobilint/Llama-3.2-1B-Instruct
 ```
@@ -84,8 +84,8 @@ Uses a local wrapper class (`wrapper/llama_model.py`) that directly calls `qbrun
 
 ```bash
 python inference_mxq.py \
-    --mxq-path ../../compilation/llm/Llama-3.2-1B-Instruct.mxq \
-    --embedding-weight-path ../../compilation/llm/embedding.pt
+    --mxq-path ../../../compilation/llm/Llama-3.2-1B-Instruct.mxq \
+    --embedding-weight-path ../../../compilation/llm/embedding.pt
 ```
 
 **Additional options:**
@@ -115,8 +115,8 @@ The NPU supports multiple core modes for different performance characteristics. 
 
 | Argument | Default | Description |
 | -------- | ------- | ----------- |
-| `--mxq-path` | `../../compilation/llm/Llama-3.2-1B-Instruct.mxq` | Path to the compiled MXQ file |
-| `--embedding-path` | `../../compilation/llm/embedding.pt` | Path to the embedding weight file |
+| `--mxq-path` | `../../../compilation/llm/Llama-3.2-1B-Instruct.mxq` | Path to the compiled MXQ file |
+| `--embedding-path` | `../../../compilation/llm/embedding.pt` | Path to the embedding weight file |
 | `--output-folder` | `./llama-mxq` | Destination folder for the prepared model |
 | `--model-id` | `mobilint/Llama-3.2-1B-Instruct` | HuggingFace model ID for config and tokenizer download |
 
@@ -133,8 +133,8 @@ The NPU supports multiple core modes for different performance characteristics. 
 
 | Argument | Default | Description |
 | -------- | ------- | ----------- |
-| `--mxq-path` | `../../compilation/llm/Llama-3.2-1B-Instruct.mxq` | Path to the compiled MXQ file |
-| `--embedding-weight-path` | `../../compilation/llm/embedding.pt` | Path to the embedding weight file |
+| `--mxq-path` | `../../../compilation/llm/Llama-3.2-1B-Instruct.mxq` | Path to the compiled MXQ file |
+| `--embedding-weight-path` | `../../../compilation/llm/embedding.pt` | Path to the embedding weight file |
 | `--prompt` | `"Explain the concept of NPU..."` | User prompt for the model |
 | `--max-new-tokens` | `256` | Maximum number of new tokens to generate |
 
@@ -161,7 +161,7 @@ llm/
 
 ## References
 
-- [Compilation Tutorial](../../compilation/llm/README.md)
+- [Compilation Tutorial](../../../compilation/llm/README.md)
 - [Llama-3.2-1B-Instruct Model Card](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct)
 - [mblt-model-zoo Documentation](https://docs.mobilint.com/model-zoo)
 - [Mobilint Documentation](https://docs.mobilint.com)
