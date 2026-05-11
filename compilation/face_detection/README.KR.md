@@ -143,4 +143,4 @@ python model_compile.py --onnx-path ./yolov12m-face.onnx --calib-data-path ./wid
 - `yolov12m-face.mxq`
 - `yolov12m-face.mblt`
 
-명령이 끝나면 [../../runtime/face_detection/README.KR.md](../../runtime/face_detection/README.KR.md)에서 컴파일된 모델로 추론을 실행할 수 있습니다.
+명령이 끝나면 [../../runtime/python/face_detection/README.KR.md](../../runtime/python/face_detection/README.KR.md)에서 컴파일된 모델로 추론을 실행할 수 있습니다.

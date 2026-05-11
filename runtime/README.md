@@ -13,24 +13,13 @@ The runtime is available in two languages: Python and C++.
 
 ## Python Runtime
 
-Run MXQ models using the Python `qbruntime` library. Both ARIES and REGULUS can perform inference with the same API.
-
-- `image_classification/` - Image Classification (ResNet-50)
-- `object_detection/` - Object Detection (YOLO)
-- `instance_segmentation/` - Instance Segmentation
-- `pose_estimation/` - Pose Estimation
-- `face_detection/` - Face Detection
-- `bert/` - BERT Embedding
-- `llm/` - Large Language Model
-- `stt/` - Speech-to-Text
-- `tts/` - Text-to-Speech
-- `vlm/` - Vision Language Model
+Run MXQ models using the Python `qbruntime` library. Both ARIES and REGULUS share the same API.
 
 ### Runtime Preparation
 
-The Mobilint `qbruntime` tutorial assumes you are working on a system equipped with a Mobilint NPU.
+The Mobilint `qbruntime` tutorial assumes you are working on a system or target board equipped with a Mobilint NPU.
 
-> **Note**: The runtime environment does not need to be the same as the compilation environment. The runtime only requires a system equipped with a Mobilint NPU.
+> **Note**: The runtime environment does not need to match the compilation environment. It only needs to be a system equipped with a Mobilint NPU (e.g. ARIES) or a target board (e.g. REGULUS). On target boards, the driver, runtime library, and utility tool come preinstalled, so the corresponding installation steps below can be skipped.
 
 #### 1. Driver Installation
 
@@ -65,9 +54,11 @@ Refer to the [Utility Tool Installation Guide](https://docs.mobilint.com/v0.29/e
 
 ---
 
-## Cross-Compilation (C++)
+## C++ Runtime
 
-For environments where the host (x86_64) and target board (ARM64) are separate, such as REGULUS, you can cross-compile C++ inference binaries optimized for the target.
-The built binaries are then transferred to the target board for execution.
-This tutorial covers the process of building inference binaries using the C++ `qbruntime`.
-For toolchain installation, CMake cross-build, and target board deployment, refer to the [`cross_compile/`](cross_compile/README.md) directory.
+The C++ `qbruntime` library runs on both ARIES and REGULUS. The build flow differs by device:
+
+- **ARIES** (x86_64): build the inference binary natively on the host and run it there.
+- **REGULUS** (ARM64): cross-compile on an x86_64 host and deploy the resulting binary to the target board.
+
+The [`cpp/`](cpp/README.md) directory currently walks through the REGULUS cross-compilation flow — toolchain setup, CMake cross-build, and on-board deployment.

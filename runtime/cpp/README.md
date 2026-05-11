@@ -1,8 +1,17 @@
-# Cross-Compilation Runtime (C++)
+# C++ Runtime
 
-This section covers cross-compiling C++ inference binaries on the host (x86_64) and running them on the target board (ARM64).
+The C++ `qbruntime` library runs on both ARIES and REGULUS. The build flow differs by device:
 
-## Prerequisites
+- **ARIES** (x86_64): build the inference binary natively on the host and run it there.
+- **REGULUS** (ARM64): cross-compile the inference binary on an x86_64 host, then deploy it to the target board.
+
+This tutorial walks through the **REGULUS cross-compilation flow** — toolchain setup, CMake cross-build, and on-board deployment.
+
+> **Note**: The target board ships with the Mobilint NPU driver, runtime library, and utility tool preinstalled, so only the toolchain and cross-build steps below are required.
+
+## Prerequisites (REGULUS target only)
+
+The steps below set up an x86_64 host for cross-compiling binaries that target a REGULUS board. ARIES native builds do **not** require any of this — skip this section if you are only building for ARIES.
 
 ### 1. Cross-Compilation Toolchain Installation
 
@@ -12,7 +21,7 @@ Extract and run the toolchain installation script:
 
 ```bash
 tar -xzf {downloaded_tar_gz_file}
-sudo ./install-regulus-toolchain.sh
+./install-regulus-toolchain.sh
 ```
 
 Once installed, activate the cross-compilation environment:

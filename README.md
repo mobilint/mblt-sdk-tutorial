@@ -54,7 +54,8 @@ For more information, please refer to the [compiler](compilation/README.md) and 
 
 - `compilation/` - Tutorials for compiling models using the Mobilint qbcompiler
 - `runtime/` - Tutorials for running compiled models using the Mobilint qbruntime
-  - `runtime/cross_compile/` - Tutorials for C++ cross-compiled inference
+  - `runtime/python/` - Python runtime tutorials
+  - `runtime/cpp/` - C++ cross-compiled runtime tutorials
 - `assets/` - Images and diagrams used in the documentation
 
 ## Support & Issues

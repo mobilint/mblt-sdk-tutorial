@@ -143,4 +143,4 @@ This example passes the paths explicitly so the command matches the output from 
 - `yolov12m-face.mxq`
 - `yolov12m-face.mblt`
 
-After the command finishes, continue to [../../runtime/face_detection/README.md](../../runtime/face_detection/README.md) to run inference with the compiled model.
+After the command finishes, continue to [../../runtime/python/face_detection/README.md](../../runtime/python/face_detection/README.md) to run inference with the compiled model.

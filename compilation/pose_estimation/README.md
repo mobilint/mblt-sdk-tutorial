@@ -8,7 +8,7 @@ We will use the [YOLO11m-pose](https://docs.ultralytics.com/models/yolo11/) mode
 
 Before starting, ensure you have the following installed:
 
-- qbcompiler v1.0.0
+- qbcompiler
 - HuggingFace account with access to the COCO dataset (to use the gated dataset)
 
 Also, you need to install the following packages:
