@@ -81,7 +81,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--compilation-dir",
         type=str,
-        default="../../compilation/vlm/mxq",
+        default="../../../compilation/vlm/mxq",
         help="Path to the compilation output directory",
     )
     parser.add_argument(

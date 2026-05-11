@@ -21,12 +21,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--mxq_path",
         type=str,
-        default="../../compilation/bert/mxq/stsb-bert-tiny-safetensors.mxq",
+        default="../../../compilation/bert/mxq/stsb-bert-tiny-safetensors.mxq",
     )
     parser.add_argument(
         "--weight_path",
         type=str,
-        default="../../compilation/bert/weights/weight_dict.pth",
+        default="../../../compilation/bert/weights/weight_dict.pth",
     )
     args = parser.parse_args()
 

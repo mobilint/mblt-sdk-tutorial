@@ -34,7 +34,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model-path",
         type=str,
-        default="../../compilation/pose_estimation/yolo11m-pose.mxq",
+        default="../../../compilation/pose_estimation/yolo11m-pose.mxq",
         help="Path to the compiled MXQ model",
     )
     parser.add_argument("--image-path", type=str, default="../rc/cr7.jpg", help="Path to the input image")

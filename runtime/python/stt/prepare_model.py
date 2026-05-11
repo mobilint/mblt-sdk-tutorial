@@ -120,13 +120,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--encoder-mxq",
         type=str,
-        default="../../compilation/stt/mxq/whisper-small_encoder.mxq",
+        default="../../../compilation/stt/mxq/whisper-small_encoder.mxq",
         help="Path to the compiled encoder MXQ file",
     )
     parser.add_argument(
         "--decoder-mxq",
         type=str,
-        default="../../compilation/stt/mxq/whisper-small_decoder.mxq",
+        default="../../../compilation/stt/mxq/whisper-small_decoder.mxq",
         help="Path to the compiled decoder MXQ file",
     )
     parser.add_argument(

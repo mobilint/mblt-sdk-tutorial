@@ -12,7 +12,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--mxq-path",
         type=str,
-        default="../../compilation/image_classification/resnet50.mxq",
+        default="../../../compilation/image_classification/resnet50.mxq",
         help="Path to the compiled MXQ model",
     )
     parser.add_argument(

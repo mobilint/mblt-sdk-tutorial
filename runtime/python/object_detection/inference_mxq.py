@@ -34,7 +34,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model-path",
         type=str,
-        default="../../compilation/object_detection/yolo11m.mxq",
+        default="../../../compilation/object_detection/yolo11m.mxq",
         help="Path to the compiled MXQ model",
     )
     parser.add_argument(

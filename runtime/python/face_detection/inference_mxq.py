@@ -40,7 +40,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model-path",
         type=str,
-        default="../../compilation/face_detection/yolov11m-face.mxq",
+        default="../../../compilation/face_detection/yolov11m-face.mxq",
         help="Path to the compiled MXQ model",
     )
     parser.add_argument(

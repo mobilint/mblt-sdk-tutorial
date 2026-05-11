@@ -99,13 +99,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--mxq-path",
         type=str,
-        default="../../compilation/llm/Llama-3.2-1B-Instruct.mxq",
+        default="../../../compilation/llm/Llama-3.2-1B-Instruct.mxq",
         help="Path to the compiled MXQ file",
     )
     parser.add_argument(
         "--embedding-path",
         type=str,
-        default="../../compilation/llm/embedding.pt",
+        default="../../../compilation/llm/embedding.pt",
         help="Path to the embedding weight file",
     )
     parser.add_argument(

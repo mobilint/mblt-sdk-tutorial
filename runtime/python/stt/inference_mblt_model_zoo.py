@@ -15,7 +15,7 @@ def main():
     parser.add_argument(
         "--audio",
         type=str,
-        default="../../compilation/stt/audio_files/en_us_0000.wav",
+        default="../../../compilation/stt/audio_files/en_us_0000.wav",
         help="Path to the audio file to transcribe",
     )
     parser.add_argument(
