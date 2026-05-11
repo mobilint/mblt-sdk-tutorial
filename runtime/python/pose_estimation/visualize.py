@@ -29,8 +29,8 @@ def compute_ratio_pad(input_shape, img_shape, ratio_pad=None):
 def clip_coords(coords, img_shape):
     """Clip xy coordinates to image shape (height, width)"""
 
-    coords[:, 0] = coords[:, 0].clip(0, img_shape[1])  # x
-    coords[:, 1] = coords[:, 1].clip(0, img_shape[0])  # y
+    coords[..., 0] = coords[..., 0].clip(0, img_shape[1])  # x
+    coords[..., 1] = coords[..., 1].clip(0, img_shape[0])  # y
 
     return coords
 
@@ -67,7 +67,7 @@ def scale_coords_kpts(img1_shape, coords, img0_shape, ratio_pad=None):
 def draw_boxes(img, xyxy, desc, cls_color):
     """plot bounding boxes on image"""
     h, w, c = img.shape
-    tl = 1 or round(0.002 * (h + w) / 2) + 1  # line/font thickness
+    tl = round(0.002 * (h + w) / 2) + 1  # line/font thickness
     x1 = int(xyxy[0])
     y1 = int(xyxy[1])
     x2 = int(xyxy[2])
