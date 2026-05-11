@@ -2,7 +2,7 @@
 
 이 튜토리얼은 컴파일된 BERT 모델을 사용하여 추론(Inference)을 수행하는 세부 지침을 제공합니다.
 
-이 가이드는 `mblt-sdk-tutorial/compilation/bert/README.md`의 내용을 이어받아 진행됩니다. 모델이 성공적으로 컴파일되었으며 다음 파일들이 준비되어 있다고 가정합니다.
+이 가이드는 [BERT 컴파일 튜토리얼](../../../compilation/bert/README.KR.md) 의 내용을 이어받아 진행됩니다. 모델이 성공적으로 컴파일되었으며 다음 파일들이 준비되어 있다고 가정합니다.
 
 - `../../../compilation/bert/mxq/stsb-bert-tiny-safetensors.mxq` - 컴파일된 모델 파일
 - `../../../compilation/bert/weights/weight_dict.pth` - 임베딩 레이어 가중치

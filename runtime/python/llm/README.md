@@ -23,7 +23,7 @@ This tutorial provides two inference methods:
 
 **Method B** uses a local wrapper class that directly calls `qbruntime`, without depending on mblt-model-zoo for model loading.
 
-All scripts are run from the `runtime/llm/` directory.
+All scripts are run from the `runtime/python/llm/` directory.
 
 ## Prerequisites
 

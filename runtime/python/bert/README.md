@@ -2,7 +2,7 @@
 
 This tutorial provides detailed instructions for performing inference with the compiled BERT model.
 
-This guide follows `mblt-sdk-tutorial/compilation/bert/README.md`. We assume you have successfully compiled the model and have the following files ready:
+This guide follows the [BERT compilation tutorial](../../../compilation/bert/README.md). We assume you have successfully compiled the model and have the following files ready:
 
 - `../../../compilation/bert/mxq/stsb-bert-tiny-safetensors.mxq` - Compiled model file
 - `../../../compilation/bert/weights/weight_dict.pth` - Embedding layer weights

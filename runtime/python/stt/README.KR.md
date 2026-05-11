@@ -17,7 +17,7 @@
 
 이 튜토리얼은 [mblt-model-zoo](https://docs.mobilint.com/model-zoo)를 사용하여 간편한 추론 방식을 제공합니다. mblt-model-zoo를 통해 컴파일된 MXQ 모델을 한 줄(`AutoModelForSpeechSeq2Seq.from_pretrained()`)로 로드할 수 있으며, 일반 HuggingFace 모델과 동일한 방식으로 사용할 수 있습니다. NPU 코어 할당, KV cache, 리소스 관리는 자동으로 처리됩니다.
 
-모든 스크립트는 `runtime/stt/` 디렉토리에서 실행합니다.
+모든 스크립트는 `runtime/python/stt/` 디렉토리에서 실행합니다.
 
 ## 사전 요구 사항
 

@@ -75,7 +75,7 @@ python generate_mxq.py \
 
 ## 다음 단계
 
-컴파일 완료 후, 추론 실행 방법은 `mblt-sdk-tutorial/runtime/python/llm/README.KR.md`를 참조하세요.
+컴파일 완료 후, 추론 실행 방법은 [LLM 런타임 튜토리얼](../../runtime/python/llm/README.KR.md) 을 참조한다.
 
 ---
 

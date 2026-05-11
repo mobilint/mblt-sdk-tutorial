@@ -23,7 +23,7 @@
 
 **방법 B**는 로컬 wrapper 클래스를 사용하여 `qbruntime`을 직접 호출하며, 모델 로딩에 mblt-model-zoo에 의존하지 않습니다.
 
-모든 스크립트는 `runtime/llm/` 디렉토리에서 실행합니다.
+모든 스크립트는 `runtime/python/llm/` 디렉토리에서 실행합니다.
 
 ## 사전 요구 사항
 
