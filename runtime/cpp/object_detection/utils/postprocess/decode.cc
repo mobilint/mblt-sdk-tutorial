@@ -144,6 +144,20 @@ std::vector<YoloDecoder::Detection> YoloDecoder::decode(
         }
     }
 
+    // Invariant: every anchor slot in `access` must be populated before the
+    // pre-filter loop dereferences it. stage_outputs() only checks that the
+    // det/cls tensor counts match each other, so a partial input (one stride
+    // pair missing) could leave the trailing anchor slots uninitialized.
+    // (KR: pre-filter 가 access 를 deref 하기 전 모든 anchor slot 이 채워졌
+    // 는지 확인. stage_outputs() 는 det/cls 개수 일치만 검사하므로 한 stride
+    // 짝이 빠진 입력에서는 뒤쪽 anchor slot 이 초기화되지 않은 상태로 남는다.)
+    if (anchor_idx != total_anchors) {
+        throw std::runtime_error(
+            "YoloDecoder::decode: NPU outputs do not cover all anchors ("
+            + std::to_string(anchor_idx) + " of "
+            + std::to_string(total_anchors) + " populated)");
+    }
+
     // Pre-filter: keep only anchors whose max cls logit exceeds invconf_ (cheap logit-space threshold).
     // (KR: 사전 필터: max cls logit 이 invconf_ 를 초과하는 anchor 만 유지(저렴한 logit 공간 임계값).)
     std::vector<int> active;

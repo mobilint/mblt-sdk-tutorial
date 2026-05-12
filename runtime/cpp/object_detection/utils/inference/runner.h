@@ -1,8 +1,20 @@
 // NPU runner wrapping qbruntime Accelerator and Model, plus a NumPy .npy save utility.
-// NPU access is only available on the target ARM64 board; host builds will link-fail on qbruntime symbols.
+// Supported execution paths:
+//   - ARIES (x86_64 host with the Mobilint NPU): native build links against the
+//     host's libqbruntime and runs inference on the host NPU.
+//   - REGULUS (ARM64 target board): the binary is cross-compiled on an x86_64
+//     host using the Mobilint SDK toolchain, then deployed to the board where
+//     libqbruntime is preinstalled.
+// Both paths share this header and runner.cc; only -march and the toolchain
+// differ.
 //
 // (KR) qbruntime Accelerator 와 Model 을 래핑하는 NPU 실행기, NumPy .npy 저장 유틸 포함.
-// NPU 접근은 대상 ARM64 보드에서만 가능하며, 호스트 빌드는 qbruntime 심벌에서 링크 오류가 발생한다.
+// 지원 실행 경로:
+//   - ARIES (x86_64 호스트 + Mobilint NPU): 호스트에서 네이티브 빌드해 호스트
+//     의 libqbruntime 과 링크, 호스트 NPU 로 추론한다.
+//   - REGULUS (ARM64 타겟 보드): x86_64 호스트에서 Mobilint SDK 툴체인으로
+//     크로스 컴파일한 뒤, libqbruntime 이 사전 설치된 보드에 배포해 실행한다.
+// 두 경로는 이 헤더와 runner.cc 를 공유하며 -march 와 툴체인만 다르다.
 #pragma once
 #include <qbruntime/qbruntime.h>
 
