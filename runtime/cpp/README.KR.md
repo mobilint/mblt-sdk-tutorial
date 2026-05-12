@@ -27,5 +27,5 @@ tar -xzf {downloaded_tar_gz_file}
 설치가 완료되면 크로스 컴파일 환경을 활성화할 수 있습니다:
 
 ```bash
-source /opt/crosstools/mobilint/{version}/environment-setup-cortexa53-mobilint-linux
+source /opt/crosstools/mobilint/{version}/{sdk}/environment-setup-cortexa53-mobilint-linux
 ```

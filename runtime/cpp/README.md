@@ -27,5 +27,5 @@ tar -xzf {downloaded_tar_gz_file}
 Once installed, activate the cross-compilation environment:
 
 ```bash
-source /opt/crosstools/mobilint/{version}/environment-setup-cortexa53-mobilint-linux
+source /opt/crosstools/mobilint/{version}/{sdk}/environment-setup-cortexa53-mobilint-linux
 ```
