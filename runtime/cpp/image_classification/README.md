@@ -18,7 +18,7 @@ Supports both **ARIES native build** (x86_64 host with NPU) and **REGULUS cross-
 
 ### Common requirements (both paths)
 
-- CMake >= 3.18
+- CMake >= 3.21
 - C++17 compiler (gcc / clang)
 - `qbruntime` library (installed together with the Mobilint NPU SDK)
 

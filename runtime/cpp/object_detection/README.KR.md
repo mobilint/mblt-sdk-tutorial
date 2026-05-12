@@ -23,7 +23,7 @@ YOLO11m (ARIES) 와 YOLOv9m (REGULUS) MXQ 둘 다 처리합니다.
 
 ### 공통 요구 사항 (두 경로 모두)
 
-- CMake >= 3.18
+- CMake >= 3.21
 - C++17 컴파일러 (gcc / clang)
 - `qbruntime` 라이브러리 (Mobilint NPU SDK 설치 시 함께 설치됨)
 
