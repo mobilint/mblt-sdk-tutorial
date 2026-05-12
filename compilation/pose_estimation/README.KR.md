@@ -8,7 +8,7 @@ Ultralytics에서 만든 COCO 데이터셋으로 사전 학습된 [YOLO11m-pose]
 
 시작하기 전에 다음이 설치되어 있는지 확인하세요:
 
-- qbcompiler v1.0.0
+- qbcompiler
 - COCO 데이터셋에 접근 가능한 HuggingFace 계정 (gated 데이터셋 사용을 위해)
 
 또한, 다음 패키지들을 설치해야 합니다:

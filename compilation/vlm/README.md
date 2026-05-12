@@ -532,7 +532,7 @@ These files are ready for deployment on NPU using the Mobilint runtime.
 
 ## Next Steps: Running Inference
 
-To run inference with your compiled models, see the [Runtime Inference Tutorial](../../runtime/vlm/README.md).
+To run inference with your compiled models, see the [Runtime Inference Tutorial](../../runtime/python/vlm/README.md).
 
 The runtime tutorial demonstrates how to:
 

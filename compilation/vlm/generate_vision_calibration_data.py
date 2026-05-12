@@ -16,6 +16,7 @@ calibration_data/vision/
 └── npy_files.txt            # List of all .npy file paths (absolute paths)
 """
 
+import argparse
 import glob
 import json
 import os
@@ -394,8 +395,6 @@ def generate_vision_calibration_data(
 
 
 if __name__ == "__main__":
-    import argparse
-
     parser = argparse.ArgumentParser(
         description="Generate calibration data for Qwen2-VL vision encoder quantization (image size fixed at 224x224)"
     )

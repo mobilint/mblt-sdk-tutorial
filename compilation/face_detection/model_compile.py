@@ -12,7 +12,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--onnx-path",
         type=str,
-        default="./yolov11m-face.onnx",
+        default="./yolov12m-face.onnx",
         help="Path to the ONNX model",
     )
     parser.add_argument(
@@ -24,7 +24,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--save-path",
         type=str,
-        default="./yolov11m-face.mxq",
+        default="./yolov12m-face.mxq",
         help="Path to save the MXQ model",
     )
 

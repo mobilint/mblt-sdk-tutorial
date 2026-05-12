@@ -532,7 +532,7 @@ python download_images.py
 
 ## 다음 단계: 추론 실행
 
-컴파일된 모델로 추론을 실행하려면 [런타임 추론 튜토리얼](../../runtime/vlm/README.md)을 참조하세요.
+컴파일된 모델로 추론을 실행하려면 [런타임 추론 튜토리얼](../../runtime/python/vlm/README.KR.md)을 참조하세요.
 
 런타임 튜토리얼에서는 다음 방법을 보여줍니다:
 

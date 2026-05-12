@@ -21,6 +21,7 @@ calibration_data/language/
 └── npy_files.txt            # List of all .npy file paths (one per line)
 """
 
+import argparse
 import glob
 import json
 import os
@@ -501,8 +502,6 @@ def generate_language_calibration_data(
 
 
 if __name__ == "__main__":
-    import argparse
-
     parser = argparse.ArgumentParser(description="Generate calibration data for Qwen2-VL language model quantization")
     parser.add_argument(
         "--model-name",

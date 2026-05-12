@@ -5,8 +5,12 @@
 *.egg-info
 *.h5
 *.jpg
-!runtime/rc/
-!runtime/rc/**
+!runtime/python/rc/
+!runtime/python/rc/**
+!runtime/cpp/rc/
+!runtime/cpp/rc/**
+runtime/python/rc/output.jpg
+runtime/cpp/rc/output.jpg
 *.json
 *.keras
 *.log

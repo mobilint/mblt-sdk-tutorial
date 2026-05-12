@@ -75,7 +75,7 @@ python generate_mxq.py \
 
 ## Next Steps
 
-After compilation, see `mblt-sdk-tutorial/runtime/transformers/llm/README.md` for inference instructions.
+After compilation, see the [runtime LLM tutorial](../../runtime/python/llm/README.md) for inference instructions.
 
 ---
 

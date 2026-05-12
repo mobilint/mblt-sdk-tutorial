@@ -39,9 +39,11 @@ can stay aligned.
   `compilation/instance_segmentation`, `compilation/pose_estimation`, `compilation/bert`,
   `compilation/llm`, `compilation/stt`, `compilation/tts`, `compilation/vlm`,
   `compilation/face_detection`: Model-specific compilation walkthroughs
-- `runtime/image_classification`, `runtime/object_detection`, `runtime/instance_segmentation`,
-  `runtime/pose_estimation`, `runtime/bert`, `runtime/llm`, `runtime/stt`, `runtime/tts`,
-  `runtime/vlm`, `runtime/face_detection`: Model-specific runtime walkthroughs
+- `runtime/python/image_classification`, `runtime/python/object_detection`,
+  `runtime/python/instance_segmentation`, `runtime/python/pose_estimation`, `runtime/python/bert`,
+  `runtime/python/llm`, `runtime/python/stt`, `runtime/python/tts`, `runtime/python/vlm`,
+  `runtime/python/face_detection`: Python runtime walkthroughs
+- `runtime/cpp/image_classification`, `runtime/cpp/object_detection`: C++ cross-compiled runtime walkthroughs
 - `assets/`: Shared diagrams and logo assets
 - Per-directory helper modules such as `imagenet.py`, `coco.py`, `postprocess.py`, `utils.py`,
   and `visualize.py`: Local helpers for one tutorial family
