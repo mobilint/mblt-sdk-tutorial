@@ -19,7 +19,7 @@ This tutorial provides two inference methods:
 | API | HuggingFace `AutoModelForCausalLM` | Custom `LlamaMXQ` class |
 | NPU core mode config | `config.json` | Hardcoded in wrapper |
 
-**Method A** uses [mblt-model-zoo](https://docs.mobilint.com/model-zoo) to provide a simple inference experience with HuggingFace-compatible API. Compiled MXQ models can be loaded with a single line (`AutoModelForCausalLM.from_pretrained()`) — just like standard HuggingFace models. NPU core allocation, KV cache, and resource management are handled automatically.
+**Method A** uses [mblt-model-zoo](https://docs.mobilint.com/v1.2/en/model_zoo.html) to provide a simple inference experience with HuggingFace-compatible API. Compiled MXQ models can be loaded with a single line (`AutoModelForCausalLM.from_pretrained()`) — just like standard HuggingFace models. NPU core allocation, KV cache, and resource management are handled automatically.
 
 **Method B** uses a local wrapper class that directly calls `qbruntime`, without depending on mblt-model-zoo for model loading.
 
@@ -163,5 +163,5 @@ llm/
 
 - [Compilation Tutorial](../../../compilation/llm/README.md)
 - [Llama-3.2-1B-Instruct Model Card](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct)
-- [mblt-model-zoo Documentation](https://docs.mobilint.com/model-zoo)
+- [mblt-model-zoo Documentation](https://docs.mobilint.com/v1.2/en/model_zoo.html)
 - [Mobilint Documentation](https://docs.mobilint.com)

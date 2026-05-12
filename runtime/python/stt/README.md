@@ -15,7 +15,7 @@ The inference process consists of two steps:
 1. **Model Preparation**: Organize MXQ files and download required configurations
 2. **Inference**: Run speech-to-text on audio files using mblt-model-zoo
 
-This tutorial uses [mblt-model-zoo](https://docs.mobilint.com/model-zoo) to provide a simple inference experience with HuggingFace-compatible API. With mblt-model-zoo, compiled MXQ models can be loaded with a single line (`AutoModelForSpeechSeq2Seq.from_pretrained()`) — just like standard HuggingFace models. NPU core allocation, KV cache, and resource management are handled automatically.
+This tutorial uses [mblt-model-zoo](https://docs.mobilint.com/v1.2/en/model_zoo.html) to provide a simple inference experience with HuggingFace-compatible API. With mblt-model-zoo, compiled MXQ models can be loaded with a single line (`AutoModelForSpeechSeq2Seq.from_pretrained()`) — just like standard HuggingFace models. NPU core allocation, KV cache, and resource management are handled automatically.
 
 All scripts are run from the `runtime/python/stt/` directory.
 
@@ -140,5 +140,5 @@ stt/
 
 - [OpenAI Whisper](https://github.com/openai/whisper)
 - [HuggingFace Whisper](https://huggingface.co/mobilint/whisper-small)
-- [mblt-model-zoo Documentation](https://docs.mobilint.com/model-zoo)
+- [mblt-model-zoo Documentation](https://docs.mobilint.com/v1.2/en/model_zoo.html)
 - [Mobilint Documentation](https://docs.mobilint.com)

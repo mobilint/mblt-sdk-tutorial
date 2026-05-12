@@ -79,7 +79,7 @@ bert/
 
 ## 참조
 
-- [컴파일 튜토리얼](../../../compilation/bert/README.md)
+- [컴파일 튜토리얼](../../../compilation/bert/README.KR.md)
 - [stsb-bert-tiny-safetensors 모델 카드](https://huggingface.co/sentence-transformers-testing/stsb-bert-tiny-safetensors)
 - [STS Benchmark 데이터셋](https://huggingface.co/datasets/mteb/stsbenchmark-sts)
 - [Mobilint Documentation](https://docs.mobilint.com)

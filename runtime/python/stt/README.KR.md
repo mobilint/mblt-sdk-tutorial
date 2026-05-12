@@ -2,7 +2,7 @@
 
 이 튜토리얼은 Mobilint NPU 하드웨어에서 컴파일된 Whisper 음성 인식 모델로 추론을 실행하는 방법을 안내합니다.
 
-이 튜토리얼에서는 [컴파일 튜토리얼](../../../compilation/stt/README.md)에서 컴파일한 [Whisper Small](https://huggingface.co/mobilint/whisper-small) 모델을 사용합니다. **먼저 컴파일 튜토리얼을 완료해야** 다음 파일들이 준비됩니다:
+이 튜토리얼에서는 [컴파일 튜토리얼](../../../compilation/stt/README.KR.md)에서 컴파일한 [Whisper Small](https://huggingface.co/mobilint/whisper-small) 모델을 사용합니다. **먼저 컴파일 튜토리얼을 완료해야** 다음 파일들이 준비됩니다:
 
 - `../../../compilation/stt/mxq/whisper-small_encoder.mxq` - 컴파일된 인코더
 - `../../../compilation/stt/mxq/whisper-small_decoder.mxq` - 컴파일된 디코더
@@ -15,7 +15,7 @@
 1. **모델 준비**: MXQ 파일 정리 및 필요한 구성 파일 다운로드
 2. **추론 실행**: mblt-model-zoo를 사용하여 오디오 파일에 대한 음성 인식 수행
 
-이 튜토리얼은 [mblt-model-zoo](https://docs.mobilint.com/model-zoo)를 사용하여 간편한 추론 방식을 제공합니다. mblt-model-zoo를 통해 컴파일된 MXQ 모델을 한 줄(`AutoModelForSpeechSeq2Seq.from_pretrained()`)로 로드할 수 있으며, 일반 HuggingFace 모델과 동일한 방식으로 사용할 수 있습니다. NPU 코어 할당, KV cache, 리소스 관리는 자동으로 처리됩니다.
+이 튜토리얼은 [mblt-model-zoo](https://docs.mobilint.com/v1.2/en/model_zoo.html)를 사용하여 간편한 추론 방식을 제공합니다. mblt-model-zoo를 통해 컴파일된 MXQ 모델을 한 줄(`AutoModelForSpeechSeq2Seq.from_pretrained()`)로 로드할 수 있으며, 일반 HuggingFace 모델과 동일한 방식으로 사용할 수 있습니다. NPU 코어 할당, KV cache, 리소스 관리는 자동으로 처리됩니다.
 
 모든 스크립트는 `runtime/python/stt/` 디렉토리에서 실행합니다.
 
@@ -140,5 +140,5 @@ stt/
 
 - [OpenAI Whisper](https://github.com/openai/whisper)
 - [HuggingFace Whisper](https://huggingface.co/mobilint/whisper-small)
-- [mblt-model-zoo Documentation](https://docs.mobilint.com/model-zoo)
+- [mblt-model-zoo Documentation](https://docs.mobilint.com/v1.2/en/model_zoo.html)
 - [Mobilint Documentation](https://docs.mobilint.com)

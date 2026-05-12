@@ -2,7 +2,7 @@
 
 이 튜토리얼은 Mobilint NPU 하드웨어에서 컴파일된 Llama-3.2-1B-Instruct 모델로 추론을 실행하는 방법을 안내합니다.
 
-이 튜토리얼에서는 [컴파일 튜토리얼](../../../compilation/llm/README.md)에서 컴파일한 [Llama-3.2-1B-Instruct](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct) 모델을 사용합니다. **먼저 컴파일 튜토리얼을 완료해야** 다음 파일들이 준비됩니다:
+이 튜토리얼에서는 [컴파일 튜토리얼](../../../compilation/llm/README.KR.md)에서 컴파일한 [Llama-3.2-1B-Instruct](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct) 모델을 사용합니다. **먼저 컴파일 튜토리얼을 완료해야** 다음 파일들이 준비됩니다:
 
 - `../../../compilation/llm/Llama-3.2-1B-Instruct.mxq` - 컴파일된 모델
 - `../../../compilation/llm/embedding.pt` - 임베딩 레이어 가중치
@@ -19,7 +19,7 @@
 | API | HuggingFace `AutoModelForCausalLM` | 커스텀 `LlamaMXQ` 클래스 |
 | NPU 코어 모드 설정 | `config.json` | wrapper 내 하드코딩 |
 
-**방법 A**는 [mblt-model-zoo](https://docs.mobilint.com/model-zoo)를 사용하여 간편한 추론 방식을 제공합니다. 컴파일된 MXQ 모델을 한 줄(`AutoModelForCausalLM.from_pretrained()`)로 로드할 수 있으며, 일반 HuggingFace 모델과 동일한 방식으로 사용할 수 있습니다. NPU 코어 할당, KV cache, 리소스 관리는 자동으로 처리됩니다.
+**방법 A**는 [mblt-model-zoo](https://docs.mobilint.com/v1.2/en/model_zoo.html)를 사용하여 간편한 추론 방식을 제공합니다. 컴파일된 MXQ 모델을 한 줄(`AutoModelForCausalLM.from_pretrained()`)로 로드할 수 있으며, 일반 HuggingFace 모델과 동일한 방식으로 사용할 수 있습니다. NPU 코어 할당, KV cache, 리소스 관리는 자동으로 처리됩니다.
 
 **방법 B**는 로컬 wrapper 클래스를 사용하여 `qbruntime`을 직접 호출하며, 모델 로딩에 mblt-model-zoo에 의존하지 않습니다.
 
@@ -161,7 +161,7 @@ llm/
 
 ## 참조
 
-- [컴파일 튜토리얼](../../../compilation/llm/README.md)
+- [컴파일 튜토리얼](../../../compilation/llm/README.KR.md)
 - [Llama-3.2-1B-Instruct 모델 카드](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct)
-- [mblt-model-zoo Documentation](https://docs.mobilint.com/model-zoo)
+- [mblt-model-zoo Documentation](https://docs.mobilint.com/v1.2/en/model_zoo.html)
 - [Mobilint Documentation](https://docs.mobilint.com)

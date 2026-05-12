@@ -16,7 +16,7 @@ The inference process consists of two steps:
 1. **Model Preparation**: Copy MXQ files and configure NPU core allocation
 2. **Inference**: Run image-text-to-text inference using mblt-model-zoo
 
-This tutorial uses [mblt-model-zoo](https://docs.mobilint.com/model-zoo) to provide a simple inference experience with HuggingFace-compatible API. With mblt-model-zoo, compiled MXQ models can be loaded with a single line (`AutoModelForImageTextToText.from_pretrained()`) — just like standard HuggingFace models. NPU core allocation, KV cache, and resource management are handled automatically.
+This tutorial uses [mblt-model-zoo](https://docs.mobilint.com/v1.2/en/model_zoo.html) to provide a simple inference experience with HuggingFace-compatible API. With mblt-model-zoo, compiled MXQ models can be loaded with a single line (`AutoModelForImageTextToText.from_pretrained()`) — just like standard HuggingFace models. NPU core allocation, KV cache, and resource management are handled automatically.
 
 All scripts are run from the `runtime/python/vlm/` directory.
 
@@ -154,5 +154,5 @@ pip install -r requirements.txt
 
 - [Compilation Tutorial](../../../compilation/vlm/README.md)
 - [Qwen2-VL Model Card](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct)
-- [mblt-model-zoo Documentation](https://docs.mobilint.com/model-zoo)
+- [mblt-model-zoo Documentation](https://docs.mobilint.com/v1.2/en/model_zoo.html)
 - [Mobilint Documentation](https://docs.mobilint.com)

@@ -2,7 +2,7 @@
 
 이 튜토리얼은 ARIES 하드웨어에서 컴파일된 Qwen2-VL-2B-Instruct 모델로 추론을 실행하는 방법을 안내합니다.
 
-이 튜토리얼에서는 [컴파일 튜토리얼](../../../compilation/vlm/README.md)에서 컴파일한 [Qwen2-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct) 모델을 사용합니다. **먼저 컴파일 튜토리얼을 완료해야** `../../../compilation/vlm/mxq/`에 다음 파일들이 준비됩니다:
+이 튜토리얼에서는 [컴파일 튜토리얼](../../../compilation/vlm/README.KR.md)에서 컴파일한 [Qwen2-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct) 모델을 사용합니다. **먼저 컴파일 튜토리얼을 완료해야** `../../../compilation/vlm/mxq/`에 다음 파일들이 준비됩니다:
 
 - `Qwen2-VL-2B-Instruct_text_model.mxq` - 컴파일된 언어 모델
 - `Qwen2-VL-2B-Instruct_vision_transformer.mxq` - 컴파일된 비전 인코더
@@ -16,7 +16,7 @@
 1. **모델 준비**: MXQ 파일 복사 및 NPU 코어 할당 설정
 2. **추론 실행**: mblt-model-zoo를 사용하여 이미지-텍스트-대-텍스트 추론 수행
 
-이 튜토리얼은 [mblt-model-zoo](https://docs.mobilint.com/model-zoo)를 사용하여 간편한 추론 방식을 제공합니다. mblt-model-zoo를 통해 컴파일된 MXQ 모델을 한 줄(`AutoModelForImageTextToText.from_pretrained()`)로 로드할 수 있으며, 일반 HuggingFace 모델과 동일한 방식으로 사용할 수 있습니다. NPU 코어 할당, KV cache, 리소스 관리는 자동으로 처리됩니다.
+이 튜토리얼은 [mblt-model-zoo](https://docs.mobilint.com/v1.2/en/model_zoo.html)를 사용하여 간편한 추론 방식을 제공합니다. mblt-model-zoo를 통해 컴파일된 MXQ 모델을 한 줄(`AutoModelForImageTextToText.from_pretrained()`)로 로드할 수 있으며, 일반 HuggingFace 모델과 동일한 방식으로 사용할 수 있습니다. NPU 코어 할당, KV cache, 리소스 관리는 자동으로 처리됩니다.
 
 모든 스크립트는 `runtime/python/vlm/` 디렉토리에서 실행합니다.
 
@@ -152,7 +152,7 @@ pip install -r requirements.txt
 
 ## 참조
 
-- [컴파일 튜토리얼](../../../compilation/vlm/README.md)
+- [컴파일 튜토리얼](../../../compilation/vlm/README.KR.md)
 - [Qwen2-VL 모델 카드](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct)
-- [mblt-model-zoo Documentation](https://docs.mobilint.com/model-zoo)
+- [mblt-model-zoo Documentation](https://docs.mobilint.com/v1.2/en/model_zoo.html)
 - [Mobilint Documentation](https://docs.mobilint.com)

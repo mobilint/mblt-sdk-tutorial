@@ -5,7 +5,7 @@ The C++ `qbruntime` library runs on both ARIES and REGULUS. The build flow diffe
 - **ARIES** (x86_64): build the inference binary natively on the host and run it there.
 - **REGULUS** (ARM64): cross-compile the inference binary on an x86_64 host, then deploy it to the target board.
 
-This tutorial walks through the **REGULUS cross-compilation flow** — toolchain setup, CMake cross-build, and on-board deployment.
+This tutorial walks through both flows from the same `CMakeLists.txt`: the **ARIES native build** on an x86_64 host with the NPU, and the **REGULUS cross-compile flow** (toolchain setup, CMake cross-build, on-board deployment).
 
 > **Note**: The target board ships with the Mobilint NPU driver, runtime library, and utility tool preinstalled, so only the toolchain and cross-build steps below are required.
 
