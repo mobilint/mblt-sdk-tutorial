@@ -6,7 +6,7 @@ The Python `qbruntime` library exposes the same NPU API on both ARIES and REGULU
 
 #### 1. Enable the Driver
 
-Make sure the Mobilint NPU driver is running on the host. If it is not installed, follow the [Driver Installation Guide](https://docs.mobilint.com/v0.29/en/installation.html#driver-installation). When running inside Docker, expose the NPU to the container with `--device /dev/aries0:/dev/aries0`.
+Make sure the Mobilint NPU driver is running on the host. If it is not installed, follow the [Driver Installation Guide](https://docs.mobilint.com/v1.2/en/installing_driver.html). When running inside Docker, expose the NPU to the container with `--device /dev/aries0:/dev/aries0`.
 
 #### 2. Install the Python Runtime Library
 

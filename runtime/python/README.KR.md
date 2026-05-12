@@ -6,7 +6,7 @@ Python `qbruntime` 라이브러리는 ARIES 와 REGULUS 양쪽에서 동일한 N
 
 #### 1. 드라이버 활성화
 
-호스트에서 Mobilint NPU 드라이버가 동작 중인지 확인합니다. 설치되지 않았다면 [드라이버 설치 가이드](https://docs.mobilint.com/v0.29/en/installation.html#driver-installation) 를 따릅니다. Docker 환경에서는 컨테이너에 `--device /dev/aries0:/dev/aries0` 플래그로 NPU 를 노출합니다.
+호스트에서 Mobilint NPU 드라이버가 동작 중인지 확인합니다. 설치되지 않았다면 [드라이버 설치 가이드](https://docs.mobilint.com/v1.2/en/installing_driver.html) 를 따릅니다. Docker 환경에서는 컨테이너에 `--device /dev/aries0:/dev/aries0` 플래그로 NPU 를 노출합니다.
 
 #### 2. Python 런타임 라이브러리 설치
 
@@ -29,4 +29,4 @@ REGULUS 타겟 보드는 드라이버, `qbruntime` 라이브러리, 유틸리티
 ## 디바이스 권장 사항
 
 - **ARIES** (x86_64): **권장**. x86_64 호스트는 CPU 여유가 충분하고 Python 생태계가 완전히 갖춰져 있어 NPU 추론이 호스트의 전처리 또는 후처리에 병목되는 경우가 거의 없습니다.
-- **REGULUS** (ARM64): **지원되지만 매우 느릴 수 있음**. Cortex-A53 호스트 CPU 는 일반적인 x86_64 호스트보다 훨씬 약하므로, NPU 추론 자체가 빠르더라도 Python 수준의 전처리·후처리·텐서 조작 (`numpy`, `torch`) 이 end-to-end 지연을 지배하는 경우가 많습니다. REGULUS 의 프로덕션 워크로드에는 [C++ 런타임](../cpp/README.KR.md) 을 사용하십시오.
+- **REGULUS** (ARM64): **지원되지만 매우 느릴 수 있음**. Cortex-A53 호스트 CPU 는 일반적인 x86_64 호스트보다 훨씬 약하므로, NPU 추론 자체가 빠르더라도 Python 수준의 전처리·후처리·텐서 조작 (`numpy`, `torch`) 이 end-to-end 지연을 지배하는 경우가 많습니다. REGULUS 의 프로덕션 워크로드에는 [C++ 런타임](../cpp/README.KR.md) 을 권장합니다.
