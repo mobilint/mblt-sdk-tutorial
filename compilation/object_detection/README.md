@@ -111,10 +111,12 @@ After configuring the settings, run the script for your target device.
 **Output:**
 
 - `{path_to_save_model}` file path containing the compiled model
+- An intermediate `.mblt` graph saved next to the ONNX model
 
 ### ARIES
 
 ARIES uses `inference_scheme="all"` to support multiple inference schemes in a single MXQ model.
+This tutorial script compiles with `target_device="aries2"` internally, so the ARIES command below targets ARIES2.
 
 ```bash
 python model_compile.py --onnx-path ./yolo11m.onnx --calib-data-path ./coco-selected --save-path ./yolo11m.mxq

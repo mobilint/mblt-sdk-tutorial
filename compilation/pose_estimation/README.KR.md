@@ -108,11 +108,14 @@ calibration_config = CalibrationConfig(
 python model_compile.py --onnx-path {path_to_onnx_model} --calib-data-path {path_to_calibration_dataset} --save-path {path_to_save_model}
 ```
 
+ARIES 튜토리얼 스크립트는 내부적으로 `target_device="aries2"`로 컴파일하므로, 이 디렉토리의 기본 ARIES 흐름은 ARIES2를 대상으로 합니다.
+
 **수행 작업:**
 
 - ONNX 모델 로드
 - 캘리브레이션 데이터 로드
 - `.mxq` 형식으로 모델 컴파일
+- ONNX 모델 옆에 중간 `.mblt` 그래프 저장
 
 **파라미터:**
 

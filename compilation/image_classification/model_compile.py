@@ -61,6 +61,7 @@ if __name__ == "__main__":
 
     mxq_compile(
         model=args.onnx_path,
+        target_device="aries2",
         calib_data_path=args.calib_data_path,
         save_path=args.save_path,
         save_subgraph_type=2,  # save mblt file before quantization
