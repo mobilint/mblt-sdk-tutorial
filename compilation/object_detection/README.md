@@ -126,7 +126,9 @@ After executing the above command, the compiled model will be saved as `yolo11m.
 
 REGULUS only supports `inference_scheme="single"`. Use `model_compile_regulus.py`.
 
-> **Note**: REGULUS does not currently support YOLO11. Use YOLOv9 or earlier models.
+Select the device with `--target-device` (`regulus2`, the default, for the 2026.06 release onward; `regulus` for earlier devices).
+
+> **Note**: regulus1 supports only YOLOv9 and earlier. regulus2 covers the same model range as ARIES. This example uses YOLOv9m so it works on both generations.
 
 Model preparation:
 
@@ -137,7 +139,7 @@ yolo export model=yolov9m.pt format=onnx # Export YOLOv9m model to ONNX format
 Compilation:
 
 ```bash
-python model_compile_regulus.py --onnx-path ./yolov9m.onnx --calib-data-path ./coco-selected --save-path ./yolov9m.mxq
+python model_compile_regulus.py --onnx-path ./yolov9m.onnx --calib-data-path ./coco-selected --save-path ./yolov9m.mxq --target-device regulus2
 ```
 
 After executing the above command, the compiled model will be saved as `yolov9m.mxq` in the current directory.

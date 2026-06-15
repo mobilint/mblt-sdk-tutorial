@@ -128,7 +128,9 @@ python model_compile.py --onnx-path ./yolo11m.onnx --calib-data-path ./coco-sele
 
 REGULUS는 `inference_scheme="single"`만 지원합니다. `model_compile_regulus.py`를 사용하세요.
 
-> **참고**: REGULUS는 현재 YOLO11을 지원하지 않습니다. YOLOv9 이하 모델을 사용하세요.
+`--target-device`로 디바이스를 선택합니다 (기본값 `regulus2`는 2026.06 릴리즈 이후, `regulus`는 이전 디바이스용).
+
+> **참고**: regulus1은 YOLOv9 이하만 지원하고, regulus2는 ARIES와 동일한 모델 범위를 지원합니다. 이 예제는 두 세대 모두에서 동작하도록 YOLOv9m을 사용합니다.
 
 모델 준비:
 
@@ -139,7 +141,7 @@ yolo export model=yolov9m.pt format=onnx # YOLOv9m 모델을 ONNX 형식으로 �
 컴파일:
 
 ```bash
-python model_compile_regulus.py --onnx-path ./yolov9m.onnx --calib-data-path ./coco-selected --save-path ./yolov9m.mxq
+python model_compile_regulus.py --onnx-path ./yolov9m.onnx --calib-data-path ./coco-selected --save-path ./yolov9m.mxq --target-device regulus2
 ```
 
 위의 명령어를 실행한 후, 컴파일된 모델은 현재 디렉토리에 `yolov9m.mxq`로 저장됩니다.

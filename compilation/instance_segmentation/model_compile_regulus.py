@@ -8,23 +8,23 @@ from qbcompiler import (
 )
 
 if __name__ == "__main__":
-    parser = ArgumentParser(description="Compile ResNet-50 ONNX model to MXQ model (Regulus)")
+    parser = ArgumentParser(description="Compile YOLOv8 Seg ONNX model to MXQ model (Regulus)")
     parser.add_argument(
         "--onnx-path",
         type=str,
-        default="./resnet50.onnx",
+        default="./yolov8m-seg.onnx",
         help="Path to the ONNX model",
     )
     parser.add_argument(
         "--calib-data-path",
         type=str,
-        default="./imagenet-1k-selected",
+        default="./coco-selected",
         help="Path to the calibration data",
     )
     parser.add_argument(
         "--save-path",
         type=str,
-        default="./resnet50.mxq",
+        default="./yolov8m-seg.mxq",
         help="Path to save the MXQ model",
     )
     parser.add_argument(
@@ -37,17 +37,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    preprocess_pipeline = [
-        {"op": "resize", "height": 256, "width": 256, "mode": "bilinear"},
-        {"op": "centerCrop", "height": 224, "width": 224},
-        {
-            "op": "normalize",
-            "mean": [0.485, 0.456, 0.406],
-            "std": [0.229, 0.224, 0.225],
-            "scaleToUint8": True,  # [0, 255] -> [0, 1]
-            "fuseIntoFirstLayer": True,
-        },
-    ]  # preprocessing operations for resnet 50
+    preprocess_pipeline = [{"op": "letterbox", "height": 640, "width": 640, "padValue": 114}]
 
     preprocessing_config = PreprocessingConfig(
         apply=True,
@@ -58,21 +48,20 @@ if __name__ == "__main__":
 
     calibration_config = CalibrationConfig(
         method=1,  # 0 for per tensor, 1 for per channel
-        output=0,  # 0 for layer, 1 for channel
+        output=1,  # 0 for layer, 1 for channel
         mode=1,  # maxpercentile
         max_percentile={
             "percentile": 0.9999,  # quantization percentile
             "topk_ratio": 0.01,  # quantization topk
         },
     )
-
     mxq_compile(
         model=args.onnx_path,
-        calib_data_path=args.calib_data_path,
         target_device=args.target_device,
-        save_path=args.save_path,
+        calib_data_path=args.calib_data_path,
         save_subgraph_type=2,  # save mblt file before quantization
         output_subgraph_path=args.onnx_path.replace(".onnx", ".mblt"),
+        save_path=args.save_path,
         image_channels=3,  # If there is grayscale image in calibration dataset, convert to RGB
         backend="onnx",
         inference_scheme="single",  # Regulus only supports single scheme

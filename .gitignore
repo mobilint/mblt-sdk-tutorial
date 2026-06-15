@@ -51,6 +51,7 @@ val2017/
 .omc
 .bak
 test_bash_script
+venv*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

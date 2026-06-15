@@ -27,6 +27,13 @@ if __name__ == "__main__":
         default="./yolov9m.mxq",
         help="Path to save the MXQ model",
     )
+    parser.add_argument(
+        "--target-device",
+        type=str,
+        default="regulus2",
+        choices=["regulus", "regulus2"],
+        help="Target NPU. Use 'regulus2' for the 2026.06 release onward, 'regulus' for earlier devices.",
+    )
 
     args = parser.parse_args()
 
@@ -50,6 +57,7 @@ if __name__ == "__main__":
     )
     mxq_compile(
         model=args.onnx_path,
+        target_device=args.target_device,
         calib_data_path=args.calib_data_path,
         save_subgraph_type=2,  # save mblt file before quantization
         output_subgraph_path=args.onnx_path.replace(".onnx", ".mblt"),

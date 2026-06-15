@@ -143,4 +143,16 @@ python model_compile.py --onnx-path ./yolov12m-face.onnx --calib-data-path ./wid
 - `yolov12m-face.mxq`
 - `yolov12m-face.mblt`
 
+### REGULUS
+
+REGULUS는 `inference_scheme="single"`만 지원합니다. `model_compile_regulus.py`를 `--target-device`와 함께 사용하세요.
+
+> **참고**: face detection 은 **regulus2 에서만** 지원됩니다. `yolo-face` 프로젝트가 YOLOv8 기반 face weight 를 제공하지 않고 regulus1 은 YOLOv9 이하만 지원하므로, YOLOv12 face 모델은 regulus1 을 대상으로 할 수 없습니다.
+
+```bash
+python model_compile_regulus.py --onnx-path ./yolov12m-face.onnx --calib-data-path ./widerface-selected --save-path ./yolov12m-face.mxq --target-device regulus2
+```
+
+현재 디렉토리에 `yolov12m-face.mxq` (및 중간 산출물 `yolov12m-face.mblt`) 가 생성됩니다.
+
 명령이 끝나면 [../../runtime/python/face_detection/README.KR.md](../../runtime/python/face_detection/README.KR.md)에서 컴파일된 모델로 추론을 실행할 수 있습니다.

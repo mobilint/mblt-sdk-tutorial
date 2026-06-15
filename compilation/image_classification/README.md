@@ -133,6 +133,7 @@ After configuring the settings, run the script for your target device.
 - `--onnx-path`: Path to the ONNX model
 - `--calib-data-path`: Path to the calibration data
 - `--save-path`: Path to save the MXQ model
+- `--target-device` (REGULUS script only): Target NPU, one of `regulus` or `regulus2`. Defaults to `regulus2`.
 
 **Output:**
 
@@ -152,8 +153,14 @@ After executing the above command, the compiled model will be saved as `resnet50
 
 REGULUS only supports `inference_scheme="single"`. Use `model_compile_regulus.py`.
 
+Set `--target-device` to match your hardware. The REGULUS2 generation was released to customers in June 2026; use `regulus2` (the default) for it and `regulus` for earlier devices.
+
 ```bash
-python model_compile_regulus.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq
+# REGULUS2 (released 2026.06, default)
+python model_compile_regulus.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq --target-device regulus2
+
+# REGULUS (earlier devices)
+python model_compile_regulus.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq --target-device regulus
 ```
 
 After executing the above command, the compiled model will be saved as `resnet50.mxq` in the current directory.

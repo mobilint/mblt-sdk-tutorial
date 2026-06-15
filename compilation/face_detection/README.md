@@ -143,4 +143,16 @@ This example passes the paths explicitly so the command matches the output from 
 - `yolov12m-face.mxq`
 - `yolov12m-face.mblt`
 
+### REGULUS
+
+REGULUS only supports `inference_scheme="single"`. Use `model_compile_regulus.py` with `--target-device`.
+
+> **Note**: Face detection is supported on **regulus2 only**. The `yolo-face` project does not ship a YOLOv8-based face weight, and regulus1 supports only YOLOv9 and earlier, so the YOLOv12 face model cannot target regulus1.
+
+```bash
+python model_compile_regulus.py --onnx-path ./yolov12m-face.onnx --calib-data-path ./widerface-selected --save-path ./yolov12m-face.mxq --target-device regulus2
+```
+
+This produces `yolov12m-face.mxq` (and the intermediate `yolov12m-face.mblt`) in the current directory.
+
 After the command finishes, continue to [../../runtime/python/face_detection/README.md](../../runtime/python/face_detection/README.md) to run inference with the compiled model.

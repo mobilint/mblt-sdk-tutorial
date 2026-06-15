@@ -133,6 +133,7 @@ calibration_config = CalibrationConfig(
 - `--onnx-path`: ONNX 모델 경로
 - `--calib-data-path`: 캘리브레이션 데이터 경로
 - `--save-path`: MXQ 모델을 저장할 경로
+- `--target-device` (REGULUS 스크립트 전용): 대상 NPU. `regulus` 또는 `regulus2` 중 하나. 기본값은 `regulus2`.
 
 **출력:**
 
@@ -152,8 +153,14 @@ python model_compile.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet
 
 REGULUS는 `inference_scheme="single"`만 지원합니다. `model_compile_regulus.py`를 사용하세요.
 
+하드웨어에 맞게 `--target-device`를 설정하세요. REGULUS2 세대는 2026년 6월 고객에게 릴리즈되었습니다. 해당 디바이스에는 `regulus2`(기본값)를, 이전 디바이스에는 `regulus`를 사용하세요.
+
 ```bash
-python model_compile_regulus.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq
+# REGULUS2 (2026.06 릴리즈, 기본값)
+python model_compile_regulus.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq --target-device regulus2
+
+# REGULUS (이전 디바이스)
+python model_compile_regulus.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq --target-device regulus
 ```
 
 위의 명령어를 실행하면, 컴파일된 모델이 현재 디렉토리에 `resnet50.mxq`로 저장됩니다.
