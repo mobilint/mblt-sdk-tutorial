@@ -138,10 +138,12 @@ calibration_config = CalibrationConfig(
 **출력:**
 
 - 컴파일된 모델이 포함된 `{path_to_save_model}` 파일 경로
+- ONNX 모델 옆에 저장되는 중간 `.mblt` 그래프
 
 ### ARIES
 
 ARIES는 `inference_scheme="all"`을 사용하여 하나의 MXQ 모델에서 여러 추론 스킴을 지원합니다.
+이 튜토리얼 스크립트는 내부적으로 `target_device="aries2"`로 컴파일하므로, 아래 ARIES 명령은 ARIES2를 대상으로 합니다.
 
 ```bash
 python model_compile.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq
