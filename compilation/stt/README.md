@@ -104,6 +104,17 @@ python compile_decoder.py
 - `./mblt/whisper-small_decoder.mblt` - Intermediate MBLT format
 - `./mxq/whisper-small_decoder.mxq` - Final quantized model for NPU
 
+### Compile for REGULUS2
+
+REGULUS2 supports STT compilation. Use the `_regulus` variants, which mirror the ARIES scripts but set `target_device="regulus2"` (on both `mblt_compile` and `mxq_compile`) and `inference_scheme="single"`. (REGULUS1 does not support this task.)
+
+```bash
+python compile_encoder_regulus.py
+python compile_decoder_regulus.py
+```
+
+Outputs are written to the same `./mblt/` and `./mxq/` paths as the ARIES scripts.
+
 ## Troubleshooting
 
 ### Out of Memory Errors

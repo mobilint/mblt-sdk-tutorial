@@ -73,6 +73,27 @@ python generate_mxq.py \
 
 - `Llama-3.2-1B-Instruct.mxq` — Compiled model for NPU execution
 
+### Compile for REGULUS2
+
+REGULUS2 supports LLM compilation. Use the `_regulus` variants, which mirror the ARIES scripts but set `target_device="regulus2"` and `inference_scheme="single"`. (REGULUS1 does not support this task.)
+
+```bash
+# 8-bit
+python generate_mxq_regulus.py \
+  --model-path meta-llama/Llama-3.2-1B-Instruct \
+  --calib-data-path ./calibration_data/datas/meta-llama-Llama-3.2-1B-Instruct/en \
+  --save-path ./Llama-3.2-1B-Instruct.mxq
+
+# 4-bit (SpinQuant)
+python generate_mxq_4bit_regulus.py \
+  --model-path meta-llama/Llama-3.2-1B-Instruct \
+  --calib-data-path ./calibration_data/datas/meta-llama-Llama-3.2-1B-Instruct/en \
+  --save-path ./Llama-3.2-1B-Instruct_w4.mxq \
+  --bit w4
+```
+
+The 4-bit variant also requires the embedding rotation step below.
+
 ## Next Steps
 
 After compilation, see the [runtime LLM tutorial](../../runtime/python/llm/README.md) for inference instructions.

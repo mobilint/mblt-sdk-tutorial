@@ -282,6 +282,17 @@ python mxq_compile_vision.py
 
 - `./mxq/Qwen2-VL-2B-Instruct_vision_transformer.mxq`: ARIES 배포 준비가 된 양자화된 모델
 
+### REGULUS2 컴파일
+
+REGULUS2는 VLM 컴파일을 지원합니다. `_regulus` 변형을 사용하며, ARIES 스크립트와 동일하되 `target_device="regulus2"`와 `inference_scheme="single"`을 설정합니다. (REGULUS1은 이 task를 지원하지 않습니다.) ARIES 흐름과 마찬가지로, 비전 인코더 컴파일 전에 회전 행렬이 생성되도록 언어 모델을 먼저 실행하세요.
+
+```bash
+python mxq_compile_language_regulus.py
+python mxq_compile_vision_regulus.py
+```
+
+출력은 ARIES 스크립트와 동일한 `./mxq/` 경로에 저장됩니다.
+
 ### Step 3.3: 추론 구성 파일 준비
 
 두 모델을 모두 MXQ 형식으로 컴파일한 후 추론을 위한 구성 파일을 준비해야 합니다. 이 단계는 필요한 모델 구성 파일을 다운로드하고 컴파일된 MXQ 모델과 함께 사용할 수 있도록 준비합니다.

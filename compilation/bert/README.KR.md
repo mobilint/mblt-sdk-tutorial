@@ -102,6 +102,16 @@ python compile_mxq.py
 
 - `./mxq/stsb-bert-tiny-safetensors.mxq` - NPU용 최종 양자화 모델
 
+### REGULUS2 컴파일
+
+REGULUS2는 BERT 컴파일을 지원합니다. `compile_mxq_regulus.py`를 사용하며, `compile_mxq.py`와 동일하되 `target_device="regulus2"`와 `inference_scheme="single"`을 설정합니다. (REGULUS1은 이 task를 지원하지 않습니다.)
+
+```bash
+python compile_mxq_regulus.py
+```
+
+출력은 동일한 `./mxq/stsb-bert-tiny-safetensors.mxq` 경로에 저장됩니다.
+
 ## 파일 구조
 
 ```text

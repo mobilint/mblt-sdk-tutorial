@@ -102,6 +102,16 @@ python compile_mxq.py
 
 - `./mxq/stsb-bert-tiny-safetensors.mxq` - Final quantized model for NPU
 
+### Compile for REGULUS2
+
+REGULUS2 supports BERT compilation. Use `compile_mxq_regulus.py`, which mirrors `compile_mxq.py` but sets `target_device="regulus2"` and `inference_scheme="single"`. (REGULUS1 does not support this task.)
+
+```bash
+python compile_mxq_regulus.py
+```
+
+The output is written to the same `./mxq/stsb-bert-tiny-safetensors.mxq` path.
+
 ## File Structure
 
 ```text

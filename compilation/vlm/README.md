@@ -282,6 +282,17 @@ The vision encoder's output must be properly aligned with the language model's i
 
 - `./mxq/Qwen2-VL-2B-Instruct_vision_transformer.mxq`: Quantized model ready for ARIES deployment
 
+### Compile for REGULUS2
+
+REGULUS2 supports VLM compilation. Use the `_regulus` variants, which mirror the ARIES scripts but set `target_device="regulus2"` and `inference_scheme="single"`. (REGULUS1 does not support this task.) As with the ARIES flow, run the language model first so the rotation matrix exists before the vision encoder is compiled.
+
+```bash
+python mxq_compile_language_regulus.py
+python mxq_compile_vision_regulus.py
+```
+
+Outputs are written to the same `./mxq/` paths as the ARIES scripts.
+
 ### Step 3.3: Prepare Inference Configuration Files
 
 After compiling both models to MXQ format, you need to prepare the configuration files for inference. This step downloads the necessary model configuration files and prepares them for use with the compiled MXQ models.

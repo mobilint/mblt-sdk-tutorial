@@ -73,6 +73,27 @@ python generate_mxq.py \
 
 - `Llama-3.2-1B-Instruct.mxq` — NPU 실행을 위한 컴파일된 모델
 
+### REGULUS2 컴파일
+
+REGULUS2는 LLM 컴파일을 지원합니다. `_regulus` 변형을 사용하며, ARIES 스크립트와 동일하되 `target_device="regulus2"`와 `inference_scheme="single"`을 설정합니다. (REGULUS1은 이 task를 지원하지 않습니다.)
+
+```bash
+# 8-bit
+python generate_mxq_regulus.py \
+  --model-path meta-llama/Llama-3.2-1B-Instruct \
+  --calib-data-path ./calibration_data/datas/meta-llama-Llama-3.2-1B-Instruct/en \
+  --save-path ./Llama-3.2-1B-Instruct.mxq
+
+# 4-bit (SpinQuant)
+python generate_mxq_4bit_regulus.py \
+  --model-path meta-llama/Llama-3.2-1B-Instruct \
+  --calib-data-path ./calibration_data/datas/meta-llama-Llama-3.2-1B-Instruct/en \
+  --save-path ./Llama-3.2-1B-Instruct_w4.mxq \
+  --bit w4
+```
+
+4-bit 변형은 아래의 임베딩 회전 단계도 필요합니다.
+
 ## 다음 단계
 
 컴파일 완료 후, 추론 실행 방법은 [LLM 런타임 튜토리얼](../../runtime/python/llm/README.KR.md) 을 참조한다.
