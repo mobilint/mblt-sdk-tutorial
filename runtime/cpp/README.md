@@ -9,6 +9,16 @@ This tutorial walks through both flows from the same `CMakeLists.txt`: the **ARI
 
 > **Note**: The target board ships with the Mobilint NPU driver, runtime library, and utility tool preinstalled, so only the toolchain and cross-build steps below are required.
 
+## Available Tasks
+
+The C++ runtime covers the vision tasks, where inference is a single tensor-in/tensor-out call followed by C++ post-processing:
+
+- `image_classification`
+- `object_detection`
+- `face_detection`
+- `instance_segmentation`
+- `pose_estimation`
+
 ## Prerequisites (REGULUS target only)
 
 The steps below set up an x86_64 host for cross-compiling binaries that target a REGULUS board. ARIES native builds do **not** require any of this — skip this section if you are only building for ARIES.
