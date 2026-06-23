@@ -109,7 +109,7 @@ class YoloPostProcessAnchorless:
             ic = torch.amax(box_cls[-self.nc - self.n_extra : -self.n_extra, :], dim=0) > self.invconf_thres
         box_cls = box_cls[:, ic]  # (144, *)
         if box_cls.numel() == 0:
-            return torch.zeros((0, 4 + self.nc + self.n_extra), dtype=torch.float32)  # (0, 84)
+            return torch.zeros((0, 4 + self.nc + self.n_extra), dtype=torch.float32, device=self.device)  # (0, 84)
 
         box, scores, extra = torch.split(
             box_cls[None], [self.reg_max * 4, self.nc, self.n_extra], dim=1
@@ -158,24 +158,32 @@ class YoloPostProcessAnchorless:
         assert 0 <= self.iou_thres <= 1, f"Invalid IoU {self.iou_thres}, valid values are between 0.0 and 1.0"
 
         def nms_single(x):
-            box, conf, mask = torch.split(x, [4, self.nc, self.n_extra], dim=1)
+            if x.numel() == 0:
+                return torch.zeros((0, 6 + self.n_extra), dtype=torch.float32, device=self.device)
 
-            i, j = torch.nonzero(conf > self.conf_thres).T  # use multi-label as default
-            x = torch.cat(
-                (box[i], x[i, 4 + j, None], j[:, None].to(torch.float32), mask[i]),
-                dim=1,
-            )
+            box, score, extra = x[:, :4], x[:, 4 : 4 + self.nc], x[:, 4 + self.nc :]
+            conf, cls_idx = score.max(dim=1)
+            filt = conf > self.conf_thres
+            if not torch.any(filt):
+                return torch.zeros((0, 6 + self.n_extra), dtype=torch.float32, device=self.device)
 
-            if x.numel() == 0:  # no boxes
-                return torch.zeros((0, 6 + self.n_extra), dtype=torch.float32)
+            box = box[filt]
+            conf = conf[filt]
+            cls_idx = cls_idx[filt]
+            extra = extra[filt]
 
-            x = x[
-                x[:, 4].argsort(descending=True)[:max_nms]
-            ]  # sort by confidence with descending order and remove excess boxes
+            x = torch.empty((box.shape[0], 6 + self.n_extra), dtype=box.dtype, device=box.device)
+            x[:, :4] = box
+            x[:, 4] = conf
+            x[:, 5] = cls_idx.to(box.dtype)
+            if self.n_extra > 0:
+                x[:, 6:] = extra
 
-            c = x[:, 5:6] * (0.0 if agnostic else max_wh)  # classes
-            boxes, scores = x[:, :4] + c, x[:, 4]  # boxes (offset by class), scores
-            i = non_max_suppression(boxes, scores, self.iou_thres, max_det)  # NMS
+            x = x[torch.argsort(x[:, 4], descending=True)[:max_nms]]
+
+            c = x[:, 5:6] * (0.0 if agnostic else max_wh)
+            boxes, scores = x[:, :4] + c, x[:, 4]
+            i = non_max_suppression(boxes, scores, self.iou_thres, max_det)
 
             return x[i, :]
 
