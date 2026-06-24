@@ -167,15 +167,13 @@ class YoloPostProcessAnchorless:
                 return torch.zeros((0, 6 + self.n_extra), dtype=torch.float32, device=self.device)
 
             box, score, extra = x[:, :4], x[:, 4 : 4 + self.nc], x[:, 4 + self.nc :]
-            conf, cls_idx = score.max(dim=1)
-            filt = conf > self.conf_thres
-            if not torch.any(filt):
+            box_idx, cls_idx = torch.nonzero(score > self.conf_thres, as_tuple=True)
+            if box_idx.numel() == 0:
                 return torch.zeros((0, 6 + self.n_extra), dtype=torch.float32, device=self.device)
 
-            box = box[filt]
-            conf = conf[filt]
-            cls_idx = cls_idx[filt]
-            extra = extra[filt]
+            conf = score[box_idx, cls_idx]
+            box = box[box_idx]
+            extra = extra[box_idx]
 
             x = torch.empty((box.shape[0], 6 + self.n_extra), dtype=box.dtype, device=box.device)
             x[:, :4] = box

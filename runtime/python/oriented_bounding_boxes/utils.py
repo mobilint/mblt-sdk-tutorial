@@ -173,8 +173,19 @@ def batch_probiou(obb1: torch.Tensor, obb2: torch.Tensor, eps: float = 1e-7) -> 
 def rotated_nms(boxes: torch.Tensor, scores: torch.Tensor, iou_threshold: float) -> torch.Tensor:
     if boxes.numel() == 0:
         return torch.empty((0,), dtype=torch.int64, device=boxes.device)
+
     sorted_idx = torch.argsort(scores, descending=True)
-    sorted_boxes = boxes[sorted_idx]
-    ious = batch_probiou(sorted_boxes, sorted_boxes).triu_(diagonal=1)
-    keep = torch.nonzero((ious >= iou_threshold).sum(0) <= 0).squeeze(-1)
-    return sorted_idx[keep]
+    remaining = boxes[sorted_idx]
+    keep: list[torch.Tensor] = []
+
+    while remaining.shape[0] > 0:
+        keep.append(sorted_idx[0])
+        if remaining.shape[0] == 1:
+            break
+
+        ious = batch_probiou(remaining[:1], remaining[1:]).squeeze(0)
+        keep_mask = ious < iou_threshold
+        remaining = remaining[1:][keep_mask]
+        sorted_idx = sorted_idx[1:][keep_mask]
+
+    return torch.stack(keep)

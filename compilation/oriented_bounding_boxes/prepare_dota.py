@@ -13,6 +13,8 @@ DEFAULT_ZIP_PATH = SCRIPT_DIR / "DOTAv1.zip"
 DEFAULT_EXTRACT_DIR = SCRIPT_DIR / "DOTAv1"
 DEFAULT_OUTPUT_DIR = SCRIPT_DIR / "dota-selected"
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"}
+OUTPUT_MARKER = ".prepare_dota_output"
+OUTPUT_MANIFEST = ".prepare_dota_manifest.txt"
 
 
 def parse_args() -> argparse.Namespace:
@@ -120,30 +122,61 @@ def select_images(images: list[Path], num_images: int, seed: int) -> list[Path]:
     return selected
 
 
+def prepare_output_dir(output_dir: Path) -> None:
+    marker_path = output_dir / OUTPUT_MARKER
+    manifest_path = output_dir / OUTPUT_MANIFEST
+
+    if output_dir.exists() and not output_dir.is_dir():
+        raise ValueError(f"--output-dir must be a directory path, got existing file: {output_dir}")
+
+    if not output_dir.exists():
+        output_dir.mkdir(parents=True, exist_ok=True)
+        marker_path.write_text("generated\n", encoding="ascii")
+        return
+
+    if marker_path.exists():
+        if manifest_path.exists():
+            for relative_path in manifest_path.read_text(encoding="utf-8").splitlines():
+                owned_path = output_dir / relative_path
+                if owned_path.exists() and owned_path.is_file():
+                    owned_path.unlink()
+        return
+
+    if any(output_dir.iterdir()):
+        raise ValueError(
+            f"Refusing to clear non-generated existing directory: {output_dir}. "
+            "Use a new directory or one previously created by this script."
+        )
+
+    marker_path.write_text("generated\n", encoding="ascii")
+
+
 def copy_selected_images(selected_images: list[Path], output_dir: Path) -> None:
-    if output_dir.exists():
-        shutil.rmtree(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    prepare_output_dir(output_dir)
+    written_files: list[str] = []
 
     for image_path in selected_images:
         destination = output_dir / image_path.name
         if destination.exists():
             destination = output_dir / f"{image_path.parent.name}_{image_path.name}"
         shutil.copy2(image_path, destination)
+        written_files.append(destination.name)
         print(f"Copied {image_path} -> {destination}")
 
+    (output_dir / OUTPUT_MANIFEST).write_text("\n".join(written_files) + "\n", encoding="utf-8")
     print(f"Saved {len(selected_images)} calibration images to: {output_dir}")
 
 
 def main() -> None:
     args = parse_args()
+    extract_marker = args.extract_dir / ".extracted"
 
     if args.skip_download and not args.zip_path.exists() and not args.extract_dir.exists():
         raise FileNotFoundError(
             "--skip-download was set, but neither the archive nor the extracted dataset exists locally."
         )
 
-    if args.extract_dir.exists():
+    if extract_marker.exists():
         print(f"Using existing extracted dataset: {args.extract_dir}")
     else:
         zip_path = args.zip_path if args.skip_download else download_archive(args.download_url, args.zip_path)

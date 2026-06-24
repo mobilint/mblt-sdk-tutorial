@@ -104,7 +104,7 @@ if __name__ == "__main__":
     if result is None:
         cv2.imwrite(output_path, img_bgr)
         model.dispose()
-        raise SystemExit("No detections found. Saved the original image.")
-
-    visualizer.save(result, input_path=args.image_path, output_path=output_path)
-    model.dispose()
+        print("No detections found. Saved the original image.")
+    else:
+        visualizer.save(result, input_path=args.image_path, output_path=output_path)
+        model.dispose()
