@@ -21,16 +21,16 @@ The format of the original model is specified via the `backend` parameter:
 from qbcompiler import mxq_compile, mblt_compile
 
 # Converting an ONNX model (image_classification)
-mxq_compile(model="./resnet50.onnx", backend="onnx", ...)
+mxq_compile(model="./resnet50.onnx", backend="onnx", target_device="aries-rb", ...)
 
 # Converting a PyTorch / HuggingFace model (llm)
-mxq_compile(model="meta-llama/Llama-3.2-1B-Instruct", backend="torch", ...)
+mxq_compile(model="meta-llama/Llama-3.2-1B-Instruct", backend="torch", target_device="aries-rb", ...)
 
 # Specifying a sub-model of a HuggingFace model (stt)
 # model= takes a model object loaded via from_pretrained()
 model = AutoModelForSpeechSeq2Seq.from_pretrained("openai/whisper-small")
-mblt_compile(model=model, backend="hf", target="encoder", ...)
-mblt_compile(model=model, backend="hf", target="decoder", ...)
+mblt_compile(model=model, backend="hf", target_device="aries-rb", target="encoder", ...)
+mblt_compile(model=model, backend="hf", target_device="aries-rb", target="decoder", ...)
 ```
 
 ## Compilation Pipeline
@@ -64,6 +64,7 @@ from qbcompiler import mxq_compile
 
 mxq_compile(
     model="./resnet50.onnx",          # Original model path
+    target_device="aries-rb",         # Target device
     calib_data_path="./calib_data",   # Calibration data path
     save_path="./resnet50.mxq",       # MXQ save path
     backend="onnx",                   # Original model format
@@ -90,6 +91,7 @@ the MBLT file is saved alongside the MXQ conversion.
 ```python
 mxq_compile(
     model="./resnet50.onnx",
+    target_device="aries-rb",
     save_subgraph_type=2,                     # Also save MBLT file
     output_subgraph_path="./resnet50.mblt",   # MBLT save path
     ...
@@ -109,6 +111,7 @@ mblt_compile(
     model=whisper_model,
     mblt_save_path="./whisper_encoder.mblt",
     backend="hf",
+    target_device="aries-rb",
     target="encoder",
     device="cpu",
 )
@@ -116,6 +119,7 @@ mblt_compile(
 # 2. MBLT → MXQ conversion
 mxq_compile(
     model="./whisper_encoder.mblt",   # Pass MBLT path
+    target_device="aries-rb",
     calib_data_path="./calib_data",
     save_path="./whisper_encoder.mxq",
     ...

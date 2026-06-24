@@ -57,6 +57,7 @@ if __name__ == "__main__":
 
     mxq_compile(
         model=args.model_path,
+        target_device="aries-rb",
         calib_data_path=args.calib_data_path,
         save_path=args.save_path,
         backend="torch",

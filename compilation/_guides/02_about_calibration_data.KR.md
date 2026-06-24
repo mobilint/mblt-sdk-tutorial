@@ -139,6 +139,7 @@ calibration_data/language/sample_002/inputs_embeds.npy
 ```python
 mxq_compile(
     ...,
+    target_device="aries-rb",
     calib_data_path="calibration_data/language/npy_files.txt",
 )
 ```

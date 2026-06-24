@@ -21,14 +21,14 @@ qbcompiler는 다양한 프레임워크의 모델 변환을 지원합니다.
 from qbcompiler import mxq_compile, mblt_compile
 
 # ONNX 모델을 변환하는 경우 (image_classification)
-mxq_compile(model="./resnet50.onnx", backend="onnx", ...)
+mxq_compile(model="./resnet50.onnx", backend="onnx", target_device="aries-rb", ...)
 
 # PyTorch / HuggingFace 모델을 변환하는 경우 (llm)
-mxq_compile(model="meta-llama/Llama-3.2-1B-Instruct", backend="torch", ...)
+mxq_compile(model="meta-llama/Llama-3.2-1B-Instruct", backend="torch", target_device="aries-rb", ...)
 
 # HuggingFace 모델의 서브모델을 지정하는 경우 (stt)
-mblt_compile(model=whisper_model, backend="hf", target="encoder", ...)
-mblt_compile(model=whisper_model, backend="hf", target="decoder", ...)
+mblt_compile(model=whisper_model, backend="hf", target_device="aries-rb", target="encoder", ...)
+mblt_compile(model=whisper_model, backend="hf", target_device="aries-rb", target="decoder", ...)
 ```
 
 ## 컴파일 파이프라인
@@ -62,6 +62,7 @@ from qbcompiler import mxq_compile
 
 mxq_compile(
     model="./resnet50.onnx",          # 원본 모델 경로
+    target_device="aries-rb",         # 타깃 디바이스
     calib_data_path="./calib_data",   # calibration 데이터 경로
     save_path="./resnet50.mxq",       # MXQ 저장 경로
     backend="onnx",                   # 원본 모델 형식
@@ -88,6 +89,7 @@ MXQ 변환 과정에서 MBLT 파일을 함께 저장합니다.
 ```python
 mxq_compile(
     model="./resnet50.onnx",
+    target_device="aries-rb",
     save_subgraph_type=2,                     # MBLT 파일도 저장
     output_subgraph_path="./resnet50.mblt",   # MBLT 저장 경로
     ...
@@ -107,6 +109,7 @@ mblt_compile(
     model=whisper_model,
     mblt_save_path="./whisper_encoder.mblt",
     backend="hf",
+    target_device="aries-rb",
     target="encoder",
     device="cpu",
 )
@@ -114,6 +117,7 @@ mblt_compile(
 # 2. MBLT → MXQ 변환
 mxq_compile(
     model="./whisper_encoder.mblt",   # MBLT 경로를 넘김
+    target_device="aries-rb",
     calib_data_path="./calib_data",
     save_path="./whisper_encoder.mxq",
     ...

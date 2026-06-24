@@ -31,6 +31,7 @@ if __name__ == "__main__":
     mblt_compile(
         model=model,
         mblt_save_path=MBLT_PATH,
+        target_device="aries-rb",
         backend="torch",
         feed_dict=feed_dict,
         cpu_offload=True,
