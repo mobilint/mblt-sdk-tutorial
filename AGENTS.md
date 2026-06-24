@@ -18,9 +18,12 @@ Markdown guides, example scripts, or both.
 - `compilation/`: Tutorials and helper scripts for qbcompiler workflows
 - `runtime/`: Tutorials and helper scripts for qbruntime workflows
 - `assets/`: Shared images used by the docs
+- `compilation/oriented_bounding_boxes/`: `YOLO11m-obb` compilation tutorial for DOTAv1-style OBB models
+- `runtime/python/oriented_bounding_boxes/`: Self-contained MXQ runtime tutorial for OBB inference and visualization
 - `compilation/*/README.md`, `runtime/*/README.md`: English task-specific guides
 - `compilation/*/README.KR.md`, `runtime/*/README.KR.md`: Korean counterparts when available
 - `compilation/*/*.py`, `runtime/*/*.py`: Standalone example scripts used by the guides
+- `runtime/python/*/{postprocess,visualize,utils}.py`: Local helper modules that intentionally stay close to each tutorial
 - `*/**/requirements.txt`: Per-tutorial dependency hints for heavier examples such as LLM, STT,
   and VLM flows
 
@@ -31,6 +34,8 @@ Markdown guides, example scripts, or both.
   describes.
 - Prefer small, explicit scripts over shared abstractions unless the repo already has a local
   utility module for that example.
+- For runtime vision tutorials, prefer local preprocessing, postprocessing, dataset-label, and
+  visualization helpers when that keeps the example easier to follow end to end.
 - Assume users follow the docs step by step on Linux or in Docker, often with Mobilint NPU access.
 
 ## Documentation Rules
@@ -92,6 +97,9 @@ Markdown guides, example scripts, or both.
   downloads, or external packages, document that explicitly in the README.
 - Keep preprocessing, postprocessing, and model-loading logic close to the example unless there is
   already a local helper module such as `imagenet.py`, `coco.py`, `utils.py`, or `visualize.py`.
+- For OBB examples, keep the row format and dataset assumptions explicit in code and docs, for
+  example `cx, cy, w, h, conf, cls, angle` with DOTAv1 labels when the tutorial is tied to
+  `YOLO11m-obb`.
 
 ### Dependency Awareness
 
