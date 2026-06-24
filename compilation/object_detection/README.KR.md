@@ -122,7 +122,7 @@ calibration_config = CalibrationConfig(
 ### ARIES
 
 ARIES는 `inference_scheme="all"`을 사용하여 하나의 MXQ 모델에서 여러 추론 스킴을 지원합니다.
-이 튜토리얼 스크립트는 내부적으로 `target_device="aries2"`로 컴파일하므로, 아래 ARIES 명령은 ARIES2를 대상으로 합니다.
+이 튜토리얼 스크립트는 내부적으로 `target_device="aries-rb"`로 컴파일하므로, 아래 ARIES 명령은 ARIES2를 대상으로 합니다.
 
 ```bash
 python model_compile.py --onnx-path ./yolo11m.onnx --calib-data-path ./coco-selected --save-path ./yolo11m.mxq

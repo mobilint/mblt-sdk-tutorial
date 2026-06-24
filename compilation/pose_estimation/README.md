@@ -110,7 +110,7 @@ After configuring the settings, the code can be executed as follows.
 python model_compile.py --onnx-path {path_to_onnx_model} --calib-data-path {path_to_calibration_dataset} --save-path {path_to_save_model}
 ```
 
-The ARIES tutorial script compiles with `target_device="aries2"` internally, so the default ARIES flow in this directory targets ARIES2.
+The ARIES tutorial script compiles with `target_device="aries-rb"` internally, so the default ARIES flow in this directory targets ARIES2.
 
 **What this does:**
 

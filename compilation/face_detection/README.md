@@ -124,7 +124,7 @@ python model_compile.py --onnx-path ./yolov12m-face.onnx --calib-data-path ./wid
 ```
 
 This example passes the paths explicitly so the command matches the output from `prepare_model.py`.
-The ARIES tutorial script now compiles with `target_device="aries2"` internally, so this command targets ARIES2 by default.
+The ARIES tutorial script now compiles with `target_device="aries-rb"` internally, so this command targets ARIES2 by default.
 
 **What this does:**
 
