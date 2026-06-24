@@ -13,6 +13,10 @@ from utils import (
     process_mask_upsample,
 )
 
+DetectionPostprocessOutput = list[torch.Tensor]
+SegmentationPostprocessOutput = list[tuple[torch.Tensor, torch.Tensor]]
+PostprocessOutput = DetectionPostprocessOutput | SegmentationPostprocessOutput
+
 
 class YoloPostProcessAnchorless:
     """YOLO object detection postprocess for anchorless models."""
@@ -59,7 +63,7 @@ class YoloPostProcessAnchorless:
 
         raise NotImplementedError(f"Input type {type(x)} not supported.")
 
-    def __call__(self, x):
+    def __call__(self, x) -> PostprocessOutput | None:
         x = self.check_input(x)
         x = self.rearrange_npu_out(x)
         x = self.decode(x)
@@ -68,7 +72,7 @@ class YoloPostProcessAnchorless:
             return None
         return x
 
-    def rearrange_npu_out(self, x):
+    def rearrange_npu_out(self, x: list[torch.Tensor]) -> list[torch.Tensor]:
         y_det = []
         y_cls = []
         for xi in x:  # list of bchw outputs
@@ -94,7 +98,7 @@ class YoloPostProcessAnchorless:
 
         return y
 
-    def decode(self, x):
+    def decode(self, x: list[torch.Tensor]) -> list[torch.Tensor]:
         batch_box_cls = torch.cat(x, dim=-1)  # (b, 144, 8400)
 
         if self.device.type == "cpu":
@@ -103,7 +107,7 @@ class YoloPostProcessAnchorless:
 
         return [self.process_box_cls(box_cls) for box_cls in batch_box_cls]
 
-    def process_box_cls(self, box_cls):
+    def process_box_cls(self, box_cls: torch.Tensor) -> torch.Tensor:
         if self.n_extra == 0:
             ic = torch.amax(box_cls[-self.nc :, :], dim=0) > self.invconf_thres
         else:
@@ -129,12 +133,12 @@ class YoloPostProcessAnchorless:
 
     def nms(
         self,
-        prediction,
+        prediction: list[torch.Tensor],
         agnostic=False,
         max_det=300,
         max_nms=30000,
         max_wh=7680,
-    ):
+    ) -> list[torch.Tensor]:
         """
         https://github.com/ultralytics/ultralytics/blob/main/ultralytics/utils/ops.py#L162
         Perform non-maximum suppression (NMS) on a set of boxes, with support for masks and multiple labels per box.
@@ -158,7 +162,7 @@ class YoloPostProcessAnchorless:
         )
         assert 0 <= self.iou_thres <= 1, f"Invalid IoU {self.iou_thres}, valid values are between 0.0 and 1.0"
 
-        def nms_single(x):
+        def nms_single(x: torch.Tensor) -> torch.Tensor:
             if x.numel() == 0:
                 return torch.zeros((0, 6 + self.n_extra), dtype=torch.float32, device=self.device)
 
@@ -200,16 +204,16 @@ class YoloSegPostProcessAnchorless(YoloPostProcessAnchorless):
         super().__init__(conf_thres, iou_thres)
         self.n_extra = 32
 
-    def __call__(self, x):
+    def __call__(self, x) -> SegmentationPostprocessOutput | None:
         x = self.check_input(x)
-        x, proto_outs = self.rearrange_npu_out(x)
+        x, proto_outs = self.rearrange_npu_seg_out(x)
         x = self.decode(x)
         x = self.nms(x)
         if x[0].nelement() == 0:
             return None
         return self.masking(x, proto_outs)
 
-    def rearrange_npu_out(self, x):
+    def rearrange_npu_seg_out(self, x: list[torch.Tensor]) -> tuple[list[torch.Tensor], torch.Tensor]:
         y_det = []
         y_cls = []
         y_ext = []
@@ -245,7 +249,7 @@ class YoloSegPostProcessAnchorless(YoloPostProcessAnchorless):
 
         return y, proto
 
-    def masking(self, nms_outs, proto_outs):
+    def masking(self, nms_outs: list[torch.Tensor], proto_outs: torch.Tensor) -> SegmentationPostprocessOutput:
         """Masking for segmentation"""
 
         masks = []
@@ -261,4 +265,4 @@ class YoloSegPostProcessAnchorless(YoloPostProcessAnchorless):
                         [self.imh, self.imw],
                     )
                 )
-        return [[nms_out, mask] for nms_out, mask in zip(nms_outs, masks)]
+        return [(nms_out, mask) for nms_out, mask in zip(nms_outs, masks)]

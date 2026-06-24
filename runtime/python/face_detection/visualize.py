@@ -67,7 +67,13 @@ class BaseVisualizer(ABC):
         self.get_color = get_face_det_palette
 
     @abstractmethod
-    def save(self, out_post_processed, **kwargs):
+    def save(
+        self,
+        out_post_processed: list[torch.Tensor] | None,
+        input_path: str,
+        output_path: str | None = None,
+        is_yolox: bool = False,
+    ) -> np.ndarray:
         raise NotImplementedError
 
     def set_video_writer(self, output_path: str, fps: float, video_size: tuple[int, int]) -> None:

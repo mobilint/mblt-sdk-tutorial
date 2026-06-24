@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-NUM_THREADS = min(16, max(1, os.cpu_count() - 1))
+NUM_THREADS = min(16, max(1, (os.cpu_count() or 1) - 1))
 
 if torch.cuda.is_available():
     DEVICE = torch.device("cuda")

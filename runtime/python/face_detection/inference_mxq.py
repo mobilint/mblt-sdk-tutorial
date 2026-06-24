@@ -93,14 +93,13 @@ if __name__ == "__main__":
         img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
         img = preprocess_yolo(img_rgb, input_shape)
         outputs = model.infer([img])
+        if outputs is None:
+            raise RuntimeError("Model inference returned no outputs.")
 
         # postprocess expects channel-first (BCHW). When the model runs in HWC, the NPU
         # returns channel-last outputs, so transpose them here and leave postprocess.py untouched.
         if input_shape[-1] == 3:
-            outputs = [
-                np.transpose(o, (0, 3, 1, 2)) if o.ndim == 4 else np.transpose(o, (2, 0, 1))
-                for o in outputs
-            ]
+            outputs = [np.transpose(o, (0, 3, 1, 2)) if o.ndim == 4 else np.transpose(o, (2, 0, 1)) for o in outputs]
         result = postprocess(outputs)
 
         output_path = args.output_path or os.path.join(os.path.dirname(args.image_path), "output.jpg")
