@@ -170,16 +170,24 @@ def copy_selected_images(selected_images: list[Path], output_dir: Path) -> None:
 def main() -> None:
     args = parse_args()
     extract_marker = args.extract_dir / ".extracted"
+    extract_dir_exists = args.extract_dir.exists()
 
-    if args.skip_download and not args.zip_path.exists() and not args.extract_dir.exists():
+    if args.skip_download and not args.zip_path.exists() and not extract_dir_exists:
         raise FileNotFoundError(
             "--skip-download was set, but neither the archive nor the extracted dataset exists locally."
         )
 
     if extract_marker.exists():
         print(f"Using existing extracted dataset: {args.extract_dir}")
+    elif args.skip_download and extract_dir_exists:
+        print(f"Using existing extracted dataset without marker: {args.extract_dir}")
     else:
         zip_path = args.zip_path if args.skip_download else download_archive(args.download_url, args.zip_path)
+        if args.skip_download and not zip_path.exists():
+            raise FileNotFoundError(
+                f"--skip-download was set, but the archive does not exist: {zip_path}. "
+                "Provide an extracted dataset with --extract-dir or a local archive with --zip-path."
+            )
         extract_archive(zip_path, args.extract_dir)
 
     candidate_images = collect_candidate_images(args.extract_dir)

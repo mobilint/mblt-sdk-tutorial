@@ -70,6 +70,9 @@ If you extracted the dataset yourself and only want to create the calibration su
 python prepare_dota.py --skip-download --extract-dir ./DOTAv1 --output-dir ./dota-selected --num-images 100
 ```
 
+When `--skip-download` is set, an existing `--extract-dir` is reused even if it was extracted manually and does not
+contain the script's `.extracted` marker file.
+
 ## Step 3: Model Compilation
 
 Before compiling, verify the preprocessing required by the exported model. Ultralytics OBB models use letterbox resizing, and this tutorial matches that behavior during calibration.

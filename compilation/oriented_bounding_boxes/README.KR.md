@@ -70,6 +70,9 @@ python prepare_dota.py --skip-download --zip-path ./DOTAv1.zip
 python prepare_dota.py --skip-download --extract-dir ./DOTAv1 --output-dir ./dota-selected --num-images 100
 ```
 
+`--skip-download`를 사용하면 수동으로 압축을 푼 디렉토리처럼 스크립트의 `.extracted` 마커 파일이 없는
+`--extract-dir`도 기존 추출본으로 그대로 재사용합니다.
+
 ## 단계 3: 모델 컴파일
 
 컴파일 전에 내보낸 모델에 필요한 전처리를 확인해야 합니다. Ultralytics OBB 모델은 letterbox 리사이즈를 사용하며, 이 튜토리얼도 캘리브레이션 시 동일한 동작을 맞춰 사용합니다.
