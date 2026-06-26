@@ -84,22 +84,27 @@ if __name__ == "__main__":
     # Read the image, then let preprocess match the model's expected input layout/shape.
     input_shape = model.get_model_input_shape()[0]  # e.g. (640, 640, 3) HWC or (3, 640, 640) CHW
     img_bgr = cv2.imread(args.image_path, cv2.IMREAD_COLOR)
+    if img_bgr is None:
+        raise FileNotFoundError(f"Failed to read image: {args.image_path}")
     img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
     img = preprocess_yolo(img_rgb, input_shape)
     outputs = model.infer([img])
+    if outputs is None:
+        raise RuntimeError("Model inference returned no outputs.")
 
     # postprocess expects channel-first (BCHW). When the model runs in HWC, the NPU
     # returns channel-last outputs, so transpose them here and leave postprocess.py untouched.
     if input_shape[-1] == 3:
-        outputs = [
-            np.transpose(o, (0, 3, 1, 2)) if o.ndim == 4 else np.transpose(o, (2, 0, 1))
-            for o in outputs
-        ]
-    result = postprocess(outputs)
-
+        outputs = [np.transpose(o, (0, 3, 1, 2)) if o.ndim == 4 else np.transpose(o, (2, 0, 1)) for o in outputs]
     output_path = args.output_path or os.path.join(os.path.dirname(args.image_path), "output.jpg")
-
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
-    visualizer.save(result, input_path=args.image_path, output_path=output_path)
-    model.dispose()
+    output_dir = os.path.dirname(output_path)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+    result = postprocess(outputs)
+    if result is None:
+        cv2.imwrite(output_path, img_bgr)
+        model.dispose()
+        print("No detections found. Saved the original image.")
+    else:
+        visualizer.save(result, input_path=args.image_path, output_path=output_path)
+        model.dispose()

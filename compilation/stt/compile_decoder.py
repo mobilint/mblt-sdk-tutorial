@@ -30,6 +30,7 @@ def compile_decoder(calib_path, mblt_path=MBLT_PATH, mxq_path=MXQ_PATH):
         model=model,
         mblt_save_path=mblt_path,
         backend="hf",
+        target_device="aries-rb",
         target="decoder",
         device="cpu",
     )
@@ -45,6 +46,7 @@ def compile_decoder(calib_path, mblt_path=MBLT_PATH, mxq_path=MXQ_PATH):
     )
     mxq_compile(
         model=mblt_path,
+        target_device="aries-rb",
         calib_data_path=calib_path,
         save_path=mxq_path,
         device=device,

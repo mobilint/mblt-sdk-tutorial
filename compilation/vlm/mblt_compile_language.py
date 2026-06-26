@@ -171,7 +171,7 @@ if __name__ == "__main__":
         processor=processor,
         messages=messages,
         output_path=output_path,
-        target_device="aries2",
+        target_device="aries-rb",
         num_blocks=None,
         ignore_weight=False,
         debug=False,

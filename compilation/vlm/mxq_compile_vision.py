@@ -30,6 +30,7 @@ if __name__ == "__main__":
 
     mxq_compile(
         mblt_path,
+        target_device="aries-rb",
         save_path=save_path,
         calib_data_path=calib_data_path,
         device=device,

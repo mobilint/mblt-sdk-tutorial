@@ -8,29 +8,29 @@ from qbcompiler import (
 )
 
 if __name__ == "__main__":
-    parser = ArgumentParser(description="Compile YOLO11 ONNX model to MXQ model")
+    parser = ArgumentParser(description="Compile a YOLO11 OBB ONNX model to an MXQ model")
     parser.add_argument(
         "--onnx-path",
         type=str,
-        default="./yolo11m-seg.onnx",
+        default="./yolo11m-obb.onnx",
         help="Path to the ONNX model",
     )
     parser.add_argument(
         "--calib-data-path",
         type=str,
-        default="./coco-selected",
+        default="./dota-selected",
         help="Path to the calibration data",
     )
     parser.add_argument(
         "--save-path",
         type=str,
-        default="./yolo11m-seg.mxq",
+        default="./yolo11m-obb.mxq",
         help="Path to save the MXQ model",
     )
 
     args = parser.parse_args()
 
-    preprocess_pipeline = [{"op": "letterbox", "height": 640, "width": 640, "padValue": 114}]
+    preprocess_pipeline = [{"op": "letterbox", "height": 1024, "width": 1024, "padValue": 114}]
 
     preprocessing_config = PreprocessingConfig(
         apply=True,

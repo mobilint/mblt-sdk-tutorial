@@ -165,7 +165,7 @@ if __name__ == "__main__":
         messages=messages,
         image_size=(224, 224),
         output_path=output_path,
-        target_device="aries2",
+        target_device="aries-rb",
         ignore_weight=False,
         debug=False,
     )

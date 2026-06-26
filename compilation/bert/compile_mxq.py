@@ -41,6 +41,7 @@ if __name__ == "__main__":
     os.makedirs(os.path.dirname(MXQ_PATH), exist_ok=True)
     mxq_compile(
         model=model,
+        target_device="aries-rb",
         save_path=MXQ_PATH,
         calib_data_path=CALIB_PATH,
         backend="torch",

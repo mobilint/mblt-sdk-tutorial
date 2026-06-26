@@ -52,11 +52,11 @@ def scale_masks(img1_shape, masks, img0_shape, ratio_pad=None):
 
     masks = masks[:, top:bottom, left:right]
     masks = F.interpolate(masks.unsqueeze(0), scale_factor=1 / gain, mode="bilinear", align_corners=False).squeeze(0)
+    if masks.shape[0] == 0:
+        return masks.cpu().numpy()
 
-    masks = torch.cat(
-        [torch.from_numpy(cv2.resize(m.cpu().numpy(), img0_shape[:2][::-1])[None]) for m in masks],
-        axis=0,
-    )
+    resized_masks = [torch.from_numpy(cv2.resize(m.cpu().numpy(), img0_shape[:2][::-1])[None]) for m in masks]
+    masks = torch.cat(resized_masks, dim=0)
 
     return masks.gt_(0.5).cpu().numpy()
 
@@ -115,8 +115,16 @@ class BaseVisualizer(ABC):
             raise NotImplementedError("Got unsupported dataset: ", self.dataset)
 
     @abstractmethod
-    def save(self, out_post_processed, **kwargs):
-        pass
+    def save(
+        self,
+        out_post_processed: list[torch.Tensor],
+        input_path: str,
+        output_path: str | None = None,
+        is_yolox: bool = False,
+        masks: list[torch.Tensor] | None = None,
+        kpts: list[torch.Tensor] | None = None,
+    ) -> np.ndarray:
+        raise NotImplementedError
 
     def set_video_writer(self, output_path: str, fps: float, video_size: tuple[int, int]) -> None:
         self.writer = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, video_size)
@@ -138,20 +146,22 @@ class YoloVisualizer(BaseVisualizer):
         self,
         out_post_processed: list[torch.Tensor],
         input_path: str,
-        output_path: str = None,
+        output_path: str | None = None,
         is_yolox: bool = False,
-        masks: list[torch.Tensor] = None,
-        kpts: list[torch.Tensor] = None,
-    ):
+        masks: list[torch.Tensor] | None = None,
+        kpts: list[torch.Tensor] | None = None,
+    ) -> np.ndarray:
         assert not (masks is not None and kpts is not None), "masks and kpts cannot be used together."
 
         img = cv2.imread(input_path)
+        if img is None:
+            raise FileNotFoundError(f"Failed to read image: {input_path}")
 
         img, col_list = self.draw_det(out_post_processed, img, is_yolox)
 
         if masks is not None:
-            masks = masks[0]
-            img = self.add_mask(img, masks, col_list)
+            mask_tensor = masks[0]
+            img = self.add_mask(img, mask_tensor, col_list)
 
         if output_path is not None:  # image demo
             cv2.imwrite(output_path, img)

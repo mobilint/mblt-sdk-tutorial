@@ -124,7 +124,7 @@ python model_compile.py --onnx-path ./yolov12m-face.onnx --calib-data-path ./wid
 ```
 
 이 예제는 `prepare_model.py`의 출력 파일명과 맞추기 위해 경로를 명시적으로 전달합니다.
-ARIES 튜토리얼 스크립트는 내부적으로 `target_device="aries2"`로 컴파일하므로, 이 명령은 기본적으로 ARIES2를 대상으로 합니다.
+ARIES 튜토리얼 스크립트는 내부적으로 `target_device="aries-rb"`로 컴파일하므로, 이 명령은 기본적으로 ARIES2를 대상으로 합니다.
 
 **수행 작업:**
 

@@ -35,6 +35,8 @@ yolo export model=yolo11m-seg.pt format=onnx # Export the model to ONNX format
 
 After execution, the exported ONNX model is saved as `yolo11m-seg.onnx` in the current directory.
 
+## Step 2: Calibration Dataset Preparation
+
 The calibration dataset consists of images that represent the model's typical input distribution. Since YOLO11m is trained on the [COCO dataset](https://cocodataset.org/#download), we will use COCO samples for calibration.
 
 Before using the dataset, sign up for an account on [HuggingFace](https://huggingface.co/). Then, log in to HuggingFace using the following command and replace <your_huggingface_token> with your actual HuggingFace token:
@@ -62,6 +64,8 @@ python prepare_coco.py
 - `coco-selected`: Calibration dataset
 
 The selected image dataset is the calibration dataset we will use.
+
+## Step 3: Model Compilation
 
 Before running the compilation, verify the required preprocessing steps. YOLO models typically use the `LetterBox` operation, as detailed on the [Ultralytics GitHub](https://github.com/ultralytics/ultralytics).
 
@@ -106,7 +110,7 @@ After configuring the settings, the code can be executed as follows.
 python model_compile.py --onnx-path {path_to_onnx_model} --calib-data-path {path_to_calibration_dataset} --save-path {path_to_save_model}
 ```
 
-The ARIES tutorial script compiles with `target_device="aries2"` internally, so the default ARIES flow in this directory targets ARIES2.
+The ARIES tutorial script compiles with `target_device="aries-rb"` internally, so the default ARIES flow in this directory targets ARIES2.
 
 **What this does:**
 

@@ -161,6 +161,8 @@ class LlamaMXQ(LlamaPreTrainedModel, GenerationMixin):
                 None,
                 self.current_cache_position,
             )
+            if tmp_logits is None:
+                raise RuntimeError("Model inference returned no outputs.")
             self.current_cache_position += seq_end - seq_start
         out_logits = tmp_logits[0][0, 0, -1:, :]
         out_logits = torch.tensor(np.array([out_logits]), dtype=torch.float32)
@@ -173,6 +175,8 @@ class LlamaMXQ(LlamaPreTrainedModel, GenerationMixin):
                 None,
                 self.current_cache_position,
             )
+            if tmp_logits is None:
+                raise RuntimeError("Model inference returned no outputs.")
             self.current_cache_position += 1
             out_logits = tmp_logits[0][0, 0, -1:, :]
             out_logits = torch.tensor(np.array([out_logits]), dtype=torch.float32)

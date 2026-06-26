@@ -35,6 +35,8 @@ yolo export model=yolo11m-pose.pt format=onnx # 모델을 ONNX 형식으로 내�
 
 실행 후, 내보낸 ONNX 모델은 현재 디렉토리에 `yolo11m-pose.onnx`로 저장됩니다.
 
+## 단계 2: 캘리브레이션 데이터셋 준비
+
 캘리브레이션 데이터셋은 모델의 전형적인 입력 분포를 나타내는 이미지들의 집합으로 구성됩니다. YOLO11m은 [COCO 데이터셋](https://cocodataset.org/#download)을 기반으로 학습되었으므로 캘리브레이션에 COCO 샘플을 사용할 것입니다.
 
 데이터셋을 사용하기 전에 [HuggingFace](https://huggingface.co/)에 가입하세요. 그 다음, 아래 명령어를 사용하여 HuggingFace에 로그인하고 `<your_huggingface_token>`을 실제 HuggingFace 토큰으로 변경하세요:
@@ -62,6 +64,8 @@ python prepare_coco.py
 - `coco-selected`: 캘리브레이션 데이터셋
 
 선택한 이미지 데이터셋이 우리가 사용할 캘리브레이션 데이터셋입니다.
+
+## 단계 3: 모델 컴파일
 
 컴파일을 실행하기 전에 필요한 전처리 단계를 확인하세요.
 
@@ -108,7 +112,7 @@ calibration_config = CalibrationConfig(
 python model_compile.py --onnx-path {path_to_onnx_model} --calib-data-path {path_to_calibration_dataset} --save-path {path_to_save_model}
 ```
 
-ARIES 튜토리얼 스크립트는 내부적으로 `target_device="aries2"`로 컴파일하므로, 이 디렉토리의 기본 ARIES 흐름은 ARIES2를 대상으로 합니다.
+ARIES 튜토리얼 스크립트는 내부적으로 `target_device="aries-rb"`로 컴파일하므로, 이 디렉토리의 기본 ARIES 흐름은 ARIES2를 대상으로 합니다.
 
 **수행 작업:**
 
