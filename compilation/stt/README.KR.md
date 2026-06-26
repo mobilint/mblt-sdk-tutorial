@@ -104,6 +104,17 @@ python compile_decoder.py
 - `./mblt/whisper-small_decoder.mblt` - 중간 MBLT 형식
 - `./mxq/whisper-small_decoder.mxq` - NPU용 최종 양자화 모델
 
+### REGULUS2 컴파일
+
+REGULUS2는 STT 컴파일을 지원합니다. `_regulus` 변형을 사용하며, ARIES 스크립트와 동일하되 `target_device="regulus2"` (`mblt_compile`과 `mxq_compile` 양쪽) 와 `inference_scheme="single"`을 설정합니다. (REGULUS1은 이 task를 지원하지 않습니다.)
+
+```bash
+python compile_encoder_regulus.py
+python compile_decoder_regulus.py
+```
+
+출력은 ARIES 스크립트와 동일한 `./mblt/`, `./mxq/` 경로에 저장됩니다.
+
 ## 문제 해결
 
 ### 메모리 부족 오류

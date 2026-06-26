@@ -7,7 +7,17 @@ C++ `qbruntime` 라이브러리는 ARIES 와 REGULUS 모두에서 동작합니�
 
 본 튜토리얼은 같은 `CMakeLists.txt` 로 두 흐름을 모두 다룹니다. x86_64 호스트에서 NPU 를 직접 쓰는 **ARIES 네이티브 빌드** 와, 호스트에서 크로스 컴파일해 타겟 보드로 배포하는 **REGULUS 크로스 컴파일** (툴체인 설치, CMake 크로스 빌드, 타겟 보드 배포).
 
-> **참고**: 타겟 보드에는 Mobilint NPU 드라이버, 런타임 라이브러리, 유틸리티 도구가 미리 설치되어 있으므로 아래의 툴체인 설치와 크로스 빌드 단계만 진행하면 됩니다.
+> **참고**: 타겟 보드에는 Mobilint NPU 드라이버, 런타임 라이브러리, 유틸리티 도구가 미리 설치되어 있으므로 호스트 PC에서는 아래의 툴체인 설치와 크로스 빌드 단계만 진행하면 됩니다.
+
+## 제공 Task
+
+C++ 런타임은 추론이 tensor 입력 -> tensor 출력 한 번의 호출과 C++ 후처리로 끝나는 vision task 를 다룹니다.
+
+- `image_classification`
+- `object_detection`
+- `face_detection`
+- `instance_segmentation`
+- `pose_estimation`
 
 ## 사전 준비 (REGULUS 전용)
 
