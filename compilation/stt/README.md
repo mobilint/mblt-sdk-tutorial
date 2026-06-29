@@ -104,16 +104,24 @@ python compile_decoder.py
 - `./mblt/whisper-small_decoder.mblt` - Intermediate MBLT format
 - `./mxq/whisper-small_decoder.mxq` - Final quantized model for NPU
 
-### Compile for REGULUS2
+### Target device (`--target-device`)
 
-REGULUS2 supports STT compilation. Use the `_regulus` variants, which mirror the ARIES scripts but set `target_device="regulus2"` (on both `mblt_compile` and `mxq_compile`) and `inference_scheme="single"`. (REGULUS1 does not support this task.)
+Both the encoder and decoder scripts select the target NPU with `--target-device` (default `aries-rb`). REGULUS only supports `inference_scheme="single"`, which is set automatically when a `regulus` device is selected.
+
+| User | `--target-device` |
+|---|---|
+| ARIES | `aries-rb` (default) |
+| REGULUS (customers from 2026-06) | `regulus-rb` |
+
+> **Note**: STT compilation is supported on newer REGULUS (`regulus-rb`, customers from 2026-06). Older REGULUS (`regulus-ra`, customers before 2026-06) does not support this task.
 
 ```bash
-python compile_encoder_regulus.py
-python compile_decoder_regulus.py
+# REGULUS (customers from 2026-06)
+python compile_encoder.py --target-device regulus-rb
+python compile_decoder.py --target-device regulus-rb
 ```
 
-Outputs are written to the same `./mblt/` and `./mxq/` paths as the ARIES scripts.
+Outputs are written to the same `./mblt/` and `./mxq/` paths as the ARIES flow.
 
 ## Troubleshooting
 

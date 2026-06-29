@@ -104,16 +104,24 @@ python compile_decoder.py
 - `./mblt/whisper-small_decoder.mblt` - 중간 MBLT 형식
 - `./mxq/whisper-small_decoder.mxq` - NPU용 최종 양자화 모델
 
-### REGULUS2 컴파일
+### 대상 디바이스 (`--target-device`)
 
-REGULUS2는 STT 컴파일을 지원합니다. `_regulus` 변형을 사용하며, ARIES 스크립트와 동일하되 `target_device="regulus2"` (`mblt_compile`과 `mxq_compile` 양쪽) 와 `inference_scheme="single"`을 설정합니다. (REGULUS1은 이 task를 지원하지 않습니다.)
+인코더·디코더 스크립트 모두 `--target-device` 로 대상 NPU 를 지정합니다 (기본값 `aries-rb`). REGULUS 는 `inference_scheme="single"` 만 지원하므로, `regulus` 디바이스를 지정하면 자동으로 설정됩니다.
+
+| 사용자 | `--target-device` |
+|---|---|
+| ARIES | `aries-rb` (기본값) |
+| REGULUS (2026-06 이후 고객) | `regulus-rb` |
+
+> **참고**: STT 컴파일은 신버전 REGULUS(`regulus-rb`, 2026-06 이후 고객)에서 지원됩니다. 구버전 REGULUS(`regulus-ra`, 2026-06 이전 고객)는 이 task 를 지원하지 않습니다.
 
 ```bash
-python compile_encoder_regulus.py
-python compile_decoder_regulus.py
+# REGULUS (2026-06 이후 고객)
+python compile_encoder.py --target-device regulus-rb
+python compile_decoder.py --target-device regulus-rb
 ```
 
-출력은 ARIES 스크립트와 동일한 `./mblt/`, `./mxq/` 경로에 저장됩니다.
+출력은 ARIES 와 동일한 `./mblt/`, `./mxq/` 경로에 저장됩니다.
 
 ## 문제 해결
 
