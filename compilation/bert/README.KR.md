@@ -67,8 +67,14 @@ python prepare_calib.py
 BERT 모델을 MBLT (Mobilint Binary LayouT) 중간 형식으로 컴파일합니다.
 
 ```bash
+# ARIES (기본값)
 python compile_mblt.py
+
+# REGULUS (2026-06 이후 고객)
+python compile_mblt.py --target-device regulus-rb
 ```
+
+`compile_mblt.py` 는 `mblt_compile()` 을 사용하며, `--target-device` 로 대상 NPU 를 지정합니다 (기본값 `aries-rb`).
 
 **실행 내용:**
 
@@ -86,8 +92,14 @@ python compile_mblt.py
 캘리브레이션 데이터를 사용하여 최종 `.mxq` 형식으로 양자화 컴파일합니다.
 
 ```bash
+# ARIES (기본값)
 python compile_mxq.py
+
+# REGULUS (2026-06 이후 고객)
+python compile_mxq.py --target-device regulus-rb
 ```
+
+`compile_mxq.py` 는 `--target-device` 로 대상 NPU 를 지정합니다 (기본값 `aries-rb`). REGULUS 는 `inference_scheme="single"` 만 지원하므로, `regulus` 디바이스를 지정하면 자동으로 설정됩니다.
 
 **실행 내용:**
 
@@ -102,15 +114,14 @@ python compile_mxq.py
 
 - `./mxq/stsb-bert-tiny-safetensors.mxq` - NPU용 최종 양자화 모델
 
-### REGULUS2 컴파일
+### 대상 디바이스 (`--target-device`)
 
-REGULUS2는 BERT 컴파일을 지원합니다. `compile_mxq_regulus.py`를 사용하며, `compile_mxq.py`와 동일하되 `target_device="regulus2"`와 `inference_scheme="single"`을 설정합니다. (REGULUS1은 이 task를 지원하지 않습니다.)
+| 사용자 | `--target-device` |
+|---|---|
+| ARIES | `aries-rb` (기본값) |
+| REGULUS (2026-06 이후 고객) | `regulus-rb` |
 
-```bash
-python compile_mxq_regulus.py
-```
-
-출력은 동일한 `./mxq/stsb-bert-tiny-safetensors.mxq` 경로에 저장됩니다.
+> **참고**: REGULUS 는 신버전(`regulus-rb`, 2026-06 이후 고객)에서 BERT 컴파일을 지원합니다. 구버전 REGULUS(`regulus-ra`, 2026-06 이전 고객)는 이 task 를 지원하지 않습니다. 동일한 `compile_mblt.py` / `compile_mxq.py` 에 `--target-device regulus-rb` 를 전달하면 됩니다.
 
 ## 파일 구조
 

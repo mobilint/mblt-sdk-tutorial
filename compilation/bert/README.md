@@ -67,8 +67,14 @@ python prepare_calib.py
 Compile the BERT model to MBLT (Mobilint Binary LayouT) intermediate format.
 
 ```bash
+# ARIES (default)
 python compile_mblt.py
+
+# REGULUS (customers from 2026-06)
+python compile_mblt.py --target-device regulus-rb
 ```
+
+`compile_mblt.py` uses `mblt_compile()` and selects the target NPU with `--target-device` (default `aries-rb`).
 
 **What this does:**
 
@@ -86,8 +92,14 @@ python compile_mblt.py
 Compile the model to final `.mxq` format with quantization using the calibration data.
 
 ```bash
+# ARIES (default)
 python compile_mxq.py
+
+# REGULUS (customers from 2026-06)
+python compile_mxq.py --target-device regulus-rb
 ```
+
+`compile_mxq.py` selects the target NPU with `--target-device` (default `aries-rb`). REGULUS only supports `inference_scheme="single"`, which is set automatically when a `regulus` device is selected.
 
 **What this does:**
 
@@ -102,15 +114,14 @@ python compile_mxq.py
 
 - `./mxq/stsb-bert-tiny-safetensors.mxq` - Final quantized model for NPU
 
-### Compile for REGULUS2
+### Target device (`--target-device`)
 
-REGULUS2 supports BERT compilation. Use `compile_mxq_regulus.py`, which mirrors `compile_mxq.py` but sets `target_device="regulus2"` and `inference_scheme="single"`. (REGULUS1 does not support this task.)
+| User | `--target-device` |
+|---|---|
+| ARIES | `aries-rb` (default) |
+| REGULUS (customers from 2026-06) | `regulus-rb` |
 
-```bash
-python compile_mxq_regulus.py
-```
-
-The output is written to the same `./mxq/stsb-bert-tiny-safetensors.mxq` path.
+> **Note**: BERT compilation is supported on newer REGULUS (`regulus-rb`, customers from 2026-06). Older REGULUS (`regulus-ra`, customers before 2026-06) does not support this task. Pass `--target-device regulus-rb` to the same `compile_mblt.py` / `compile_mxq.py` scripts.
 
 ## File Structure
 
