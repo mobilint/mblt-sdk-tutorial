@@ -10,6 +10,16 @@ from qbcompiler import (
     mxq_compile,
 )
 
+
+def get_device_inference_scheme(target_device):
+    # REGULUS only supports the single scheme; ARIES supports all schemes in one model.
+    if "regulus" in target_device:
+        return "single"
+    elif "aries" in target_device:
+        return "all"
+    raise ValueError(f"{target_device} not supported in current qbcompiler version")
+
+
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--model-path", type=str, default="meta-llama/Llama-3.2-1B-Instruct")
@@ -19,6 +29,7 @@ if __name__ == "__main__":
         default="./calibration_data/datas/meta-llama-Llama-3.2-1B-Instruct/en",
     )
     parser.add_argument("--save-path", type=str, default="./Llama-3.2-1B-Instruct.mxq")
+    parser.add_argument("--target-device", type=str, default="aries-rb", help="Target NPU (e.g. aries-rb, regulus-rb)")
     args = parser.parse_args()
 
     device = "gpu" if torch.cuda.is_available() else "cpu"
@@ -57,11 +68,12 @@ if __name__ == "__main__":
 
     mxq_compile(
         model=args.model_path,
-        target_device="aries-rb",
+        target_device=args.target_device,
         calib_data_path=args.calib_data_path,
         save_path=args.save_path,
         backend="torch",
         device=device,
+        inference_scheme=get_device_inference_scheme(args.target_device),
         calibration_config=calib_config,
         bit_config=bit_config,
         llm_config=llm_config,
