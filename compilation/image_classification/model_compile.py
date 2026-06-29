@@ -5,7 +5,20 @@ from qbcompiler import (
     PreprocessingConfig,
     Uint8InputConfig,
     mxq_compile,
+    mblt_compile
 )
+
+
+def get_device_inference_sheme(target_device):
+    # regulus device only support single
+    if 'regulus' in target_device:
+        return 'single'
+    # aries device support all
+    elif 'aries' in target_device:
+        return 'all'
+    else:
+        raise ValueError(f"{target_device} not supported current qbcompiler version")
+
 
 if __name__ == "__main__":
     parser = ArgumentParser(description="Compile ResNet-50 ONNX model to MXQ model")
@@ -22,10 +35,22 @@ if __name__ == "__main__":
         help="Path to the calibration data",
     )
     parser.add_argument(
+        "--mblt-path",
+        type=str,
+        default="./resnet50.mblt",
+        help="Path to save the MBLT model",
+    )
+    parser.add_argument(
         "--save-path",
         type=str,
         default="./resnet50.mxq",
         help="Path to save the MXQ model",
+    )
+    parser.add_argument(
+        "--target-device",
+        type=str,
+        default=None,
+        required=True
     )
 
     args = parser.parse_args()
@@ -59,17 +84,28 @@ if __name__ == "__main__":
         },
     )
 
+    # inference_sheme is difference device by device
+    inferece_sheme = get_device_inference_sheme(args.target_device)
+
+    # ONNX -> MBLT : intermediate graph only (no quantization), for inspection/visualization
+    mblt_compile(
+        model=args.onnx_path,
+        mblt_save_path=args.mblt_path,
+        target_device=args.target_device,
+        backend="onnx",
+        device="cpu",
+    )
+
+    # ONNX -> MXQ : quantized package that runs on the NPU
     mxq_compile(
         model=args.onnx_path,
-        target_device="aries-rb",
         calib_data_path=args.calib_data_path,
         save_path=args.save_path,
-        save_subgraph_type=2,  # save mblt file before quantization
-        output_subgraph_path=args.onnx_path.replace(".onnx", ".mblt"),
         image_channels=3,  # If there is grayscale image in calibration dataset, convert to RGB
         backend="onnx",
         device="gpu",
-        inference_scheme="all",  # now support all scheme in one model
+        target_device=args.target_device,
+        inference_scheme=inferece_sheme,
         preprocessing_config=preprocessing_config,
         uint8_input_config=Uint8InputConfig(apply=True, inputs=[]),
         calibration_config=calibration_config,

@@ -126,43 +126,38 @@ calibration_config = CalibrationConfig(
     )
 ```
 
-설정을 구성한 후 대상 디바이스에 맞는 스크립트를 실행합니다.
+설정을 구성한 후, `--target-device` 로 대상 디바이스를 지정해 실행합니다. 하나의 `model_compile.py` 로 ARIES / REGULUS 를 모두 컴파일합니다.
 
 **파라미터:**
 
 - `--onnx-path`: ONNX 모델 경로
 - `--calib-data-path`: 캘리브레이션 데이터 경로
-- `--save-path`: MXQ 모델을 저장할 경로
-- `--target-device` (REGULUS 스크립트 전용): 대상 NPU. `regulus` 또는 `regulus2` 중 하나. 기본값은 `regulus2`.
+- `--save-path`: MXQ 모델을 저장할 경로 (onnx -> mxq 산출물)
+- `--mblt-path`: MBLT 중간 그래프를 저장할 경로 (onnx -> mblt 산출물)
+- `--target-device` (필수): 대상 NPU. 아래 표 참고. 디바이스에 따라 inference scheme 이 자동 결정됩니다 (ARIES = `all`, REGULUS = `single`).
 
 **출력:**
 
-- 컴파일된 모델이 포함된 `{path_to_save_model}` 파일 경로
-- ONNX 모델 옆에 저장되는 중간 `.mblt` 그래프
+- `--save-path` 의 MXQ 모델 (onnx -> mxq, 양자화 NPU 패키지)
+- `--mblt-path` 의 MBLT 중간 그래프 (onnx -> mblt, 양자화 전 그래프)
 
-### ARIES
+### 대상 디바이스 선택 (`--target-device`)
 
-ARIES는 `inference_scheme="all"`을 사용하여 하나의 MXQ 모델에서 여러 추론 스킴을 지원합니다.
-이 튜토리얼 스크립트는 내부적으로 `target_device="aries-rb"`로 컴파일하므로, 아래 ARIES 명령은 ARIES2를 대상으로 합니다.
-
-```bash
-python model_compile.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq
-```
-
-위의 명령어를 실행하면, 컴파일된 모델이 현재 디렉토리에 `resnet50.mxq`로 저장됩니다.
-
-### REGULUS
-
-REGULUS는 `inference_scheme="single"`만 지원합니다. `model_compile_regulus.py`를 사용하세요.
-
-하드웨어에 맞게 `--target-device`를 설정하세요. REGULUS2 세대는 2026년 6월 고객에게 릴리즈되었습니다. 해당 디바이스에는 `regulus2`(기본값)를, 이전 디바이스에는 `regulus`를 사용하세요.
+| 사용자 | `--target-device` |
+|---|---|
+| ARIES | `aries-rb` |
+| REGULUS (2026-06 이전 고객) | `regulus-ra` |
+| REGULUS (2026-06 이후 고객) | `regulus-rb` |
 
 ```bash
-# REGULUS2 (2026.06 릴리즈, 기본값)
-python model_compile_regulus.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq --target-device regulus2
+# ARIES
+python model_compile.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq --mblt-path ./resnet50.mblt --target-device aries-rb
 
-# REGULUS (이전 디바이스)
-python model_compile_regulus.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq --target-device regulus
+# REGULUS (2026-06 이전 고객)
+python model_compile.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq --mblt-path ./resnet50.mblt --target-device regulus-ra
+
+# REGULUS (2026-06 이후 고객)
+python model_compile.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq --mblt-path ./resnet50.mblt --target-device regulus-rb
 ```
 
-위의 명령어를 실행하면, 컴파일된 모델이 현재 디렉토리에 `resnet50.mxq`로 저장됩니다.
+위의 명령어를 실행하면 현재 디렉토리에 MXQ(`resnet50.mxq`)와 MBLT(`resnet50.mblt`)가 저장됩니다.
