@@ -105,23 +105,42 @@ calibration_config = CalibrationConfig(
 )
 ```
 
-### ARIES
+After configuring the settings, run with `--target-device` for your hardware. A single `model_compile.py` produces both outputs: the quantized MXQ (`--save-path`) and the intermediate MBLT graph (`--mblt-path`).
 
-This tutorial script compiles for `aries2` and uses `inference_scheme="all"` so a single MXQ file can contain multiple inference schemes.
+**Parameters:**
 
-Run the compiler with:
+- `--onnx-path`: Path to the ONNX model
+- `--calib-data-path`: Path to the calibration data
+- `--save-path`: Path to save the MXQ model (onnx -> mxq output)
+- `--mblt-path`: Path to save the MBLT intermediate graph (onnx -> mblt output)
+- `--target-device` (required): Target NPU. See the table below. The inference scheme is derived automatically (ARIES = `all`, REGULUS = `single`).
+
+**Output:**
+
+- MXQ model at `--save-path` (onnx -> mxq, quantized NPU package)
+- MBLT intermediate graph at `--mblt-path` (onnx -> mblt, pre-quantization graph)
+
+### Selecting the target device (`--target-device`)
+
+| User | `--target-device` | Model |
+|---|---|---|
+| ARIES | `aries-rb` | `yolo11m-obb` |
+| REGULUS (customers from 2026-06) | `regulus-rb` | `yolo11m-obb` |
+
+> **Note**: OBB uses the YOLO11 `yolo11m-obb` model, which is **not supported on older REGULUS (`regulus-ra`, customers before 2026-06)** — that generation supports only YOLOv9 and earlier, and OBB is available only on later models. Use `aries-rb` or `regulus-rb`.
 
 ```bash
-python model_compile.py --onnx-path ./yolo11m-obb.onnx --calib-data-path ./dota-selected --save-path ./yolo11m-obb.mxq
+# ARIES
+python model_compile.py --onnx-path ./yolo11m-obb.onnx --calib-data-path ./dota-selected --save-path ./yolo11m-obb.mxq --mblt-path ./yolo11m-obb.mblt --target-device aries-rb
+
+# REGULUS (customers from 2026-06)
+python model_compile.py --onnx-path ./yolo11m-obb.onnx --calib-data-path ./dota-selected --save-path ./yolo11m-obb.mxq --mblt-path ./yolo11m-obb.mblt --target-device regulus-rb
 ```
 
-After the command completes:
-
-- `yolo11m-obb.mxq` is saved in the current directory.
-- `yolo11m-obb.mblt` is generated next to the ONNX file as an intermediate graph.
+After executing a command, the MXQ (`yolo11m-obb.mxq`) and MBLT (`yolo11m-obb.mblt`) are saved in the current directory.
 
 ## Files in This Tutorial
 
-- `model_compile.py`: Compiles the ONNX model into MXQ for ARIES2.
+- `model_compile.py`: Compiles the ONNX model into MXQ / MBLT for the selected `--target-device`.
 - `prepare_dota.py`: Downloads or reuses DOTAv1 and prepares calibration images.
 - `README.md`: Documents the end-to-end workflow for this example.

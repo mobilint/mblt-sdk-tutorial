@@ -117,43 +117,38 @@ calibration_config = CalibrationConfig(
 )
 ```
 
-다음 명령으로 ONNX 모델과 캘리브레이션 데이터셋을 사용해 컴파일합니다.
-
-```bash
-python model_compile.py --onnx-path ./yolov12m-face.onnx --calib-data-path ./widerface-selected --save-path ./yolov12m-face.mxq
-```
-
-이 예제는 `prepare_model.py`의 출력 파일명과 맞추기 위해 경로를 명시적으로 전달합니다.
-ARIES 튜토리얼 스크립트는 내부적으로 `target_device="aries-rb"`로 컴파일하므로, 이 명령은 기본적으로 ARIES2를 대상으로 합니다.
-
-**수행 작업:**
-
-- ONNX 모델을 로드합니다.
-- 캘리브레이션 이미지를 로드합니다.
-- 모델을 `.mxq` 형식으로 컴파일합니다.
-- ONNX 파일 옆에 중간 산출물인 `.mblt` 그래프도 저장합니다.
+`--target-device` 로 대상 디바이스를 지정해 실행합니다. 하나의 `model_compile.py` 가 두 산출물을 만듭니다: 양자화 MXQ(`--save-path`)와 중간 MBLT 그래프(`--mblt-path`).
 
 **파라미터:**
 
 - `--onnx-path`: ONNX 모델 파일 경로
 - `--calib-data-path`: 캘리브레이션 이미지 디렉토리 경로
-- `--save-path`: 컴파일된 `.mxq` 모델을 저장할 경로
+- `--save-path`: MXQ 모델을 저장할 경로 (onnx -> mxq 산출물)
+- `--mblt-path`: MBLT 중간 그래프를 저장할 경로 (onnx -> mblt 산출물)
+- `--target-device` (필수): 대상 NPU. 아래 표 참고. 디바이스에 따라 inference scheme 이 자동 결정됩니다 (ARIES = `all`, REGULUS = `single`).
 
 **출력:**
 
-- `yolov12m-face.mxq`
-- `yolov12m-face.mblt`
+- `yolov12m-face.mxq` (onnx -> mxq, 양자화 NPU 패키지)
+- `yolov12m-face.mblt` (onnx -> mblt, 양자화 전 그래프)
 
-### REGULUS
+### 대상 디바이스 선택 (`--target-device`)
 
-REGULUS는 `inference_scheme="single"`만 지원합니다. `model_compile_regulus.py`를 `--target-device`와 함께 사용하세요.
+| 사용자 | `--target-device` |
+|---|---|
+| ARIES | `aries-rb` |
+| REGULUS (2026-06 이후 고객) | `regulus-rb` |
 
-> **참고**: face detection 은 **regulus2 에서만** 지원됩니다. `yolo-face` 프로젝트가 YOLOv8 기반 face weight 를 제공하지 않고 regulus1 은 YOLOv9 이하만 지원하므로, YOLOv12 face 모델은 regulus1 을 대상으로 할 수 없습니다.
+> **참고**: face detection 은 YOLOv12 `yolo-face` 모델을 사용하며, 이는 **구버전 REGULUS(`regulus-ra`, 2026-06 이전 고객)에서는 지원되지 않습니다** — 해당 세대는 YOLOv9 이하만 지원합니다. `aries-rb` 또는 `regulus-rb` 를 사용하세요.
 
 ```bash
-python model_compile_regulus.py --onnx-path ./yolov12m-face.onnx --calib-data-path ./widerface-selected --save-path ./yolov12m-face.mxq --target-device regulus2
+# ARIES
+python model_compile.py --onnx-path ./yolov12m-face.onnx --calib-data-path ./widerface-selected --save-path ./yolov12m-face.mxq --mblt-path ./yolov12m-face.mblt --target-device aries-rb
+
+# REGULUS (2026-06 이후 고객)
+python model_compile.py --onnx-path ./yolov12m-face.onnx --calib-data-path ./widerface-selected --save-path ./yolov12m-face.mxq --mblt-path ./yolov12m-face.mblt --target-device regulus-rb
 ```
 
-현재 디렉토리에 `yolov12m-face.mxq` (및 중간 산출물 `yolov12m-face.mblt`) 가 생성됩니다.
+위의 명령어를 실행하면 현재 디렉토리에 MXQ(`yolov12m-face.mxq`)와 MBLT(`yolov12m-face.mblt`)가 저장됩니다.
 
 명령이 끝나면 [../../runtime/python/face_detection/README.KR.md](../../runtime/python/face_detection/README.KR.md)에서 컴파일된 모델로 추론을 실행할 수 있습니다.

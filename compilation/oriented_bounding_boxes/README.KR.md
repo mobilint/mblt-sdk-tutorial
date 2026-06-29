@@ -105,24 +105,43 @@ calibration_config = CalibrationConfig(
 )
 ```
 
-### ARIES
+설정을 구성한 후, `--target-device` 로 대상 디바이스를 지정해 실행합니다. 하나의 `model_compile.py` 가 두 산출물을 만듭니다: 양자화 MXQ(`--save-path`)와 중간 MBLT 그래프(`--mblt-path`).
 
-이 튜토리얼 스크립트는 `aries2`를 대상으로 컴파일하며, 하나의 MXQ 파일에 여러 추론 스킴을 담기 위해 `inference_scheme="all"`을 사용합니다.
+**파라미터:**
 
-다음 명령으로 컴파일을 실행합니다:
+- `--onnx-path`: ONNX 모델의 경로
+- `--calib-data-path`: 캘리브레이션 데이터의 경로
+- `--save-path`: MXQ 모델을 저장할 경로 (onnx -> mxq 산출물)
+- `--mblt-path`: MBLT 중간 그래프를 저장할 경로 (onnx -> mblt 산출물)
+- `--target-device` (필수): 대상 NPU. 아래 표 참고. 디바이스에 따라 inference scheme 이 자동 결정됩니다 (ARIES = `all`, REGULUS = `single`).
+
+**출력:**
+
+- `--save-path` 의 MXQ 모델 (onnx -> mxq, 양자화 NPU 패키지)
+- `--mblt-path` 의 MBLT 중간 그래프 (onnx -> mblt, 양자화 전 그래프)
+
+### 대상 디바이스 선택 (`--target-device`)
+
+| 사용자 | `--target-device` | 모델 |
+|---|---|---|
+| ARIES | `aries-rb` | `yolo11m-obb` |
+| REGULUS (2026-06 이후 고객) | `regulus-rb` | `yolo11m-obb` |
+
+> **참고**: OBB 는 YOLO11 `yolo11m-obb` 모델을 사용하며, 이는 **구버전 REGULUS(`regulus-ra`, 2026-06 이전 고객)에서는 지원되지 않습니다** — 해당 세대는 YOLOv9 이하만 지원하고 OBB 는 그보다 상위 모델에서만 제공됩니다. `aries-rb` 또는 `regulus-rb` 를 사용하세요.
 
 ```bash
-python model_compile.py --onnx-path ./yolo11m-obb.onnx --calib-data-path ./dota-selected --save-path ./yolo11m-obb.mxq
+# ARIES
+python model_compile.py --onnx-path ./yolo11m-obb.onnx --calib-data-path ./dota-selected --save-path ./yolo11m-obb.mxq --mblt-path ./yolo11m-obb.mblt --target-device aries-rb
+
+# REGULUS (2026-06 이후 고객)
+python model_compile.py --onnx-path ./yolo11m-obb.onnx --calib-data-path ./dota-selected --save-path ./yolo11m-obb.mxq --mblt-path ./yolo11m-obb.mblt --target-device regulus-rb
 ```
 
-명령이 완료되면:
-
-- `yolo11m-obb.mxq`가 현재 디렉토리에 저장됩니다.
-- 중간 그래프 파일인 `yolo11m-obb.mblt`가 ONNX 파일 옆에 생성됩니다.
+명령을 실행하면 현재 디렉토리에 MXQ(`yolo11m-obb.mxq`)와 MBLT(`yolo11m-obb.mblt`)가 저장됩니다.
 
 ## 이 튜토리얼의 파일
 
-- `model_compile.py`: ONNX 모델을 ARIES2용 MXQ로 컴파일합니다.
+- `model_compile.py`: ONNX 모델을 `--target-device` 에 맞는 MXQ / MBLT 로 컴파일합니다.
 - `prepare_dota.py`: DOTAv1을 다운로드하거나 재사용하고 캘리브레이션 이미지를 준비합니다.
 - `README.md`: 영어 튜토리얼 문서입니다.
 - `README.KR.md`: 한국어 튜토리얼 문서입니다.

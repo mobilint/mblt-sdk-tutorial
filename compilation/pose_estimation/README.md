@@ -104,55 +104,49 @@ calibration_config = CalibrationConfig(
     )
 ```
 
-After configuring the settings, the code can be executed as follows.
-
-```bash
-python model_compile.py --onnx-path {path_to_onnx_model} --calib-data-path {path_to_calibration_dataset} --save-path {path_to_save_model}
-```
-
-The ARIES tutorial script compiles with `target_device="aries-rb"` internally, so the default ARIES flow in this directory targets ARIES2.
-
-**What this does:**
-
-- Loads the ONNX model
-- Loads the calibration data
-- Compiles the model to `.mxq` format
-- Saves an intermediate `.mblt` graph alongside the ONNX model
+After configuring the settings, run with `--target-device` for your hardware. A single `model_compile.py` produces both outputs: the quantized MXQ (`--save-path`) and the intermediate MBLT graph (`--mblt-path`).
 
 **Parameters:**
 
 - `--onnx-path`: Path to the ONNX model
 - `--calib-data-path`: Path to the calibration data
-- `--save-path`: Path to save the MXQ model
+- `--save-path`: Path to save the MXQ model (onnx -> mxq output)
+- `--mblt-path`: Path to save the MBLT intermediate graph (onnx -> mblt output)
+- `--target-device` (required): Target NPU. See the table below. The inference scheme is derived automatically (ARIES = `all`, REGULUS = `single`).
 
 **Output:**
 
-- `{path_to_save_model}` file path containing the compiled model
+- MXQ model at `--save-path` (onnx -> mxq, quantized NPU package)
+- MBLT intermediate graph at `--mblt-path` (onnx -> mblt, pre-quantization graph)
 
-The example command is as follows:
+### Selecting the target device (`--target-device`)
 
-```bash
-python model_compile.py --onnx-path ./yolo11m-pose.onnx --calib-data-path ./coco-selected --save-path ./yolo11m-pose.mxq
-```
+The model differs by device: older REGULUS (`regulus-ra`, customers before 2026-06) supports only YOLOv9 and earlier, so it uses a YOLOv8m-pose model; ARIES (`aries-rb`) and newer REGULUS (`regulus-rb`, customers from 2026-06) use the YOLO11m-pose model.
 
-After executing the above command, the compiled model will be saved as `yolo11m-pose.mxq` in the current directory.
+| User | `--target-device` | Model |
+|---|---|---|
+| ARIES | `aries-rb` | `yolo11m-pose` |
+| REGULUS (customers before 2026-06) | `regulus-ra` | `yolov8m-pose` |
+| REGULUS (customers from 2026-06) | `regulus-rb` | `yolo11m-pose` |
 
-### REGULUS
-
-REGULUS only supports `inference_scheme="single"`. Use `model_compile_regulus.py`.
-
-This script targets both REGULUS generations: regulus1 supports YOLOv9 and earlier, while regulus2 covers the same model range as ARIES. This tutorial uses a YOLOv8 model. Select the device with `--target-device` (`regulus2`, the default, for the 2026.06 release onward; `regulus` for earlier devices).
-
-Model preparation:
+Export the matching model first (Step 1 shows `yolo11m-pose`; for `regulus-ra` export `yolov8m-pose` instead):
 
 ```bash
-yolo export model=yolov8m-pose.pt format=onnx # Export YOLOv8m-pose model to ONNX format
+# YOLO11 pose (for aries-rb / regulus-rb)
+yolo export model=yolo11m-pose.pt format=onnx
+# YOLOv8 pose (for regulus-ra)
+yolo export model=yolov8m-pose.pt format=onnx
 ```
-
-Compilation:
 
 ```bash
-python model_compile_regulus.py --onnx-path ./yolov8m-pose.onnx --calib-data-path ./coco-selected --save-path ./yolov8m-pose.mxq --target-device regulus2
+# ARIES
+python model_compile.py --onnx-path ./yolo11m-pose.onnx --calib-data-path ./coco-selected --save-path ./yolo11m-pose.mxq --mblt-path ./yolo11m-pose.mblt --target-device aries-rb
+
+# REGULUS (customers before 2026-06)
+python model_compile.py --onnx-path ./yolov8m-pose.onnx --calib-data-path ./coco-selected --save-path ./yolov8m-pose.mxq --mblt-path ./yolov8m-pose.mblt --target-device regulus-ra
+
+# REGULUS (customers from 2026-06)
+python model_compile.py --onnx-path ./yolo11m-pose.onnx --calib-data-path ./coco-selected --save-path ./yolo11m-pose.mxq --mblt-path ./yolo11m-pose.mblt --target-device regulus-rb
 ```
 
-After executing the above command, the compiled model will be saved as `yolov8m-pose.mxq` in the current directory.
+After executing a command, the corresponding MXQ and MBLT are saved in the current directory.

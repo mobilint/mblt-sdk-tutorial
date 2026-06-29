@@ -104,48 +104,49 @@ calibration_config = CalibrationConfig(
     )
 ```
 
-After configuring the settings, run the script for your target device.
+After configuring the settings, run with `--target-device` for your hardware. A single `model_compile.py` produces both outputs: the quantized MXQ (`--save-path`) and the intermediate MBLT graph (`--mblt-path`).
 
 **Parameters:**
 
 - `--onnx-path`: Path to the ONNX model
 - `--calib-data-path`: Path to the calibration data
-- `--save-path`: Path to save the MXQ model
+- `--save-path`: Path to save the MXQ model (onnx -> mxq output)
+- `--mblt-path`: Path to save the MBLT intermediate graph (onnx -> mblt output)
+- `--target-device` (required): Target NPU. See the table below. The inference scheme is derived automatically (ARIES = `all`, REGULUS = `single`).
 
 **Output:**
 
-- `{path_to_save_model}` file path containing the compiled model
-- An intermediate `.mblt` graph saved next to the ONNX model
+- MXQ model at `--save-path` (onnx -> mxq, quantized NPU package)
+- MBLT intermediate graph at `--mblt-path` (onnx -> mblt, pre-quantization graph)
 
-### ARIES
+### Selecting the target device (`--target-device`)
 
-ARIES uses `inference_scheme="all"` to support multiple inference schemes in a single MXQ model.
-This tutorial script compiles with `target_device="aries-rb"` internally, so the ARIES command below targets ARIES2.
+The model differs by device: older REGULUS (`regulus-ra`, customers before 2026-06) supports only YOLOv9 and earlier, so it uses a YOLOv9m model; ARIES (`aries-rb`) and newer REGULUS (`regulus-rb`, customers from 2026-06) use the YOLO11m model.
 
-```bash
-python model_compile.py --onnx-path ./yolo11m.onnx --calib-data-path ./coco-selected --save-path ./yolo11m.mxq
-```
+| User | `--target-device` | Model |
+|---|---|---|
+| ARIES | `aries-rb` | `yolo11m` |
+| REGULUS (customers before 2026-06) | `regulus-ra` | `yolov9m` |
+| REGULUS (customers from 2026-06) | `regulus-rb` | `yolo11m` |
 
-After executing the above command, the compiled model will be saved as `yolo11m.mxq` in the current directory.
-
-### REGULUS
-
-REGULUS only supports `inference_scheme="single"`. Use `model_compile_regulus.py`.
-
-Select the device with `--target-device` (`regulus2`, the default, for the 2026.06 release onward; `regulus` for earlier devices).
-
-> **Note**: regulus1 supports only YOLOv9 and earlier. regulus2 covers the same model range as ARIES. This example uses YOLOv9m so it works on both generations.
-
-Model preparation:
+Export the matching model first (Step 1 shows `yolo11m`; for `regulus-ra` export `yolov9m` instead):
 
 ```bash
-yolo export model=yolov9m.pt format=onnx # Export YOLOv9m model to ONNX format
+# YOLO11 (for aries-rb / regulus-rb)
+yolo export model=yolo11m.pt format=onnx
+# YOLOv9 (for regulus-ra)
+yolo export model=yolov9m.pt format=onnx
 ```
-
-Compilation:
 
 ```bash
-python model_compile_regulus.py --onnx-path ./yolov9m.onnx --calib-data-path ./coco-selected --save-path ./yolov9m.mxq --target-device regulus2
+# ARIES
+python model_compile.py --onnx-path ./yolo11m.onnx --calib-data-path ./coco-selected --save-path ./yolo11m.mxq --mblt-path ./yolo11m.mblt --target-device aries-rb
+
+# REGULUS (customers before 2026-06)
+python model_compile.py --onnx-path ./yolov9m.onnx --calib-data-path ./coco-selected --save-path ./yolov9m.mxq --mblt-path ./yolov9m.mblt --target-device regulus-ra
+
+# REGULUS (customers from 2026-06)
+python model_compile.py --onnx-path ./yolo11m.onnx --calib-data-path ./coco-selected --save-path ./yolo11m.mxq --mblt-path ./yolo11m.mblt --target-device regulus-rb
 ```
 
-After executing the above command, the compiled model will be saved as `yolov9m.mxq` in the current directory.
+After executing a command, the corresponding MXQ and MBLT are saved in the current directory.

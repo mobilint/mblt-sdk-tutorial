@@ -106,55 +106,49 @@ calibration_config = CalibrationConfig(
     )
 ```
 
-설정을 구성한 후, 코드를 다음과 같이 실행할 수 있습니다.
-
-```bash
-python model_compile.py --onnx-path {path_to_onnx_model} --calib-data-path {path_to_calibration_dataset} --save-path {path_to_save_model}
-```
-
-ARIES 튜토리얼 스크립트는 내부적으로 `target_device="aries-rb"`로 컴파일하므로, 이 디렉토리의 기본 ARIES 흐름은 ARIES2를 대상으로 합니다.
-
-**수행 작업:**
-
-- ONNX 모델 로드
-- 캘리브레이션 데이터 로드
-- `.mxq` 형식으로 모델 컴파일
-- ONNX 모델 옆에 중간 `.mblt` 그래프 저장
+설정을 구성한 후, `--target-device` 로 대상 디바이스를 지정해 실행합니다. 하나의 `model_compile.py` 가 두 산출물을 만듭니다: 양자화 MXQ(`--save-path`)와 중간 MBLT 그래프(`--mblt-path`).
 
 **파라미터:**
 
 - `--onnx-path`: ONNX 모델의 경로
 - `--calib-data-path`: 캘리브레이션 데이터의 경로
-- `--save-path`: MXQ 모델을 저장할 경로
+- `--save-path`: MXQ 모델을 저장할 경로 (onnx -> mxq 산출물)
+- `--mblt-path`: MBLT 중간 그래프를 저장할 경로 (onnx -> mblt 산출물)
+- `--target-device` (필수): 대상 NPU. 아래 표 참고. 디바이스에 따라 inference scheme 이 자동 결정됩니다 (ARIES = `all`, REGULUS = `single`).
 
 **출력:**
 
-- 컴파일된 모델을 포함하는 `{path_to_save_model}` 파일 경로
+- `--save-path` 의 MXQ 모델 (onnx -> mxq, 양자화 NPU 패키지)
+- `--mblt-path` 의 MBLT 중간 그래프 (onnx -> mblt, 양자화 전 그래프)
 
-예시 명령어는 다음과 같습니다:
+### 대상 디바이스 선택 (`--target-device`)
 
-```bash
-python model_compile.py --onnx-path ./yolo11m-pose.onnx --calib-data-path ./coco-selected --save-path ./yolo11m-pose.mxq
-```
+디바이스마다 모델이 다릅니다: 구버전 REGULUS(`regulus-ra`, 2026-06 이전 고객)는 YOLOv9 이하만 지원하므로 YOLOv8m-pose 모델을 사용하고, ARIES(`aries-rb`)와 신버전 REGULUS(`regulus-rb`, 2026-06 이후 고객)는 YOLO11m-pose 모델을 사용합니다.
 
-위의 명령어를 실행한 후, 컴파일된 모델은 현재 디렉토리에 `yolo11m-pose.mxq`로 저장됩니다.
+| 사용자 | `--target-device` | 모델 |
+|---|---|---|
+| ARIES | `aries-rb` | `yolo11m-pose` |
+| REGULUS (2026-06 이전 고객) | `regulus-ra` | `yolov8m-pose` |
+| REGULUS (2026-06 이후 고객) | `regulus-rb` | `yolo11m-pose` |
 
-### REGULUS
-
-REGULUS는 `inference_scheme="single"`만 지원합니다. `model_compile_regulus.py`를 사용하세요.
-
-이 스크립트는 두 REGULUS 세대를 모두 대상으로 합니다. regulus1은 YOLOv9 이하만 지원하고, regulus2는 ARIES와 동일한 모델 범위를 지원합니다. 본 튜토리얼은 YOLOv8 모델을 사용합니다. `--target-device`로 디바이스를 선택합니다 (기본값 `regulus2`는 2026.06 릴리즈 이후, `regulus`는 이전 디바이스용).
-
-모델 준비:
+디바이스에 맞는 모델을 먼저 export 합니다 (1단계는 `yolo11m-pose` 기준이며, `regulus-ra` 는 `yolov8m-pose` 를 export):
 
 ```bash
-yolo export model=yolov8m-pose.pt format=onnx # YOLOv8m-pose 모델을 ONNX 형식으로 내보내기
+# YOLO11 pose (aries-rb / regulus-rb 용)
+yolo export model=yolo11m-pose.pt format=onnx
+# YOLOv8 pose (regulus-ra 용)
+yolo export model=yolov8m-pose.pt format=onnx
 ```
-
-컴파일:
 
 ```bash
-python model_compile_regulus.py --onnx-path ./yolov8m-pose.onnx --calib-data-path ./coco-selected --save-path ./yolov8m-pose.mxq --target-device regulus2
+# ARIES
+python model_compile.py --onnx-path ./yolo11m-pose.onnx --calib-data-path ./coco-selected --save-path ./yolo11m-pose.mxq --mblt-path ./yolo11m-pose.mblt --target-device aries-rb
+
+# REGULUS (2026-06 이전 고객)
+python model_compile.py --onnx-path ./yolov8m-pose.onnx --calib-data-path ./coco-selected --save-path ./yolov8m-pose.mxq --mblt-path ./yolov8m-pose.mblt --target-device regulus-ra
+
+# REGULUS (2026-06 이후 고객)
+python model_compile.py --onnx-path ./yolo11m-pose.onnx --calib-data-path ./coco-selected --save-path ./yolo11m-pose.mxq --mblt-path ./yolo11m-pose.mblt --target-device regulus-rb
 ```
 
-위의 명령어를 실행한 후, 컴파일된 모델은 현재 디렉토리에 `yolov8m-pose.mxq`로 저장됩니다.
+명령을 실행하면 현재 디렉토리에 해당 MXQ 와 MBLT 가 저장됩니다.

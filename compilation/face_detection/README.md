@@ -117,43 +117,38 @@ calibration_config = CalibrationConfig(
 )
 ```
 
-Run the compiler with the ONNX model and calibration dataset:
-
-```bash
-python model_compile.py --onnx-path ./yolov12m-face.onnx --calib-data-path ./widerface-selected --save-path ./yolov12m-face.mxq
-```
-
-This example passes the paths explicitly so the command matches the output from `prepare_model.py`.
-The ARIES tutorial script now compiles with `target_device="aries-rb"` internally, so this command targets ARIES2 by default.
-
-**What this does:**
-
-- Loads the ONNX model.
-- Loads the calibration images.
-- Compiles the model to `.mxq` format.
-- Saves an intermediate `.mblt` graph alongside the ONNX file.
+Run with `--target-device` for your hardware. A single `model_compile.py` produces both outputs: the quantized MXQ (`--save-path`) and the intermediate MBLT graph (`--mblt-path`).
 
 **Parameters:**
 
 - `--onnx-path`: Path to the ONNX model file
 - `--calib-data-path`: Path to the calibration image directory
-- `--save-path`: Path where the compiled `.mxq` model will be written
+- `--save-path`: Path to save the MXQ model (onnx -> mxq output)
+- `--mblt-path`: Path to save the MBLT intermediate graph (onnx -> mblt output)
+- `--target-device` (required): Target NPU. See the table below. The inference scheme is derived automatically (ARIES = `all`, REGULUS = `single`).
 
 **Output:**
 
-- `yolov12m-face.mxq`
-- `yolov12m-face.mblt`
+- `yolov12m-face.mxq` (onnx -> mxq, quantized NPU package)
+- `yolov12m-face.mblt` (onnx -> mblt, pre-quantization graph)
 
-### REGULUS
+### Selecting the target device (`--target-device`)
 
-REGULUS only supports `inference_scheme="single"`. Use `model_compile_regulus.py` with `--target-device`.
+| User | `--target-device` |
+|---|---|
+| ARIES | `aries-rb` |
+| REGULUS (customers from 2026-06) | `regulus-rb` |
 
-> **Note**: Face detection is supported on **regulus2 only**. The `yolo-face` project does not ship a YOLOv8-based face weight, and regulus1 supports only YOLOv9 and earlier, so the YOLOv12 face model cannot target regulus1.
+> **Note**: Face detection uses the YOLOv12 `yolo-face` model, which is **not supported on older REGULUS (`regulus-ra`, customers before 2026-06)** — that generation supports only YOLOv9 and earlier. Use `aries-rb` or `regulus-rb`.
 
 ```bash
-python model_compile_regulus.py --onnx-path ./yolov12m-face.onnx --calib-data-path ./widerface-selected --save-path ./yolov12m-face.mxq --target-device regulus2
+# ARIES
+python model_compile.py --onnx-path ./yolov12m-face.onnx --calib-data-path ./widerface-selected --save-path ./yolov12m-face.mxq --mblt-path ./yolov12m-face.mblt --target-device aries-rb
+
+# REGULUS (customers from 2026-06)
+python model_compile.py --onnx-path ./yolov12m-face.onnx --calib-data-path ./widerface-selected --save-path ./yolov12m-face.mxq --mblt-path ./yolov12m-face.mblt --target-device regulus-rb
 ```
 
-This produces `yolov12m-face.mxq` (and the intermediate `yolov12m-face.mblt`) in the current directory.
+After executing the above command, the MXQ (`yolov12m-face.mxq`) and MBLT (`yolov12m-face.mblt`) are saved in the current directory.
 
 After the command finishes, continue to [../../runtime/python/face_detection/README.md](../../runtime/python/face_detection/README.md) to run inference with the compiled model.
