@@ -58,14 +58,14 @@ python download_images.py
 
 캘리브레이션 데이터는 양자화에 필수적이며, 컴파일러가 모델의 일반적인 활성화 범위를 이해하는 데 도움이 됩니다.
 
-### Step 1.1: 언어 모델 캘리브레이션 데이터 생성
+### Step 1.1: 캘리브레이션 데이터 생성
 
-언어 모델(디코더)에 대한 캘리브레이션 데이터를 생성합니다:
+하나의 스크립트가 모델을 한 번만 로드해 언어 모델(디코더)과 비전 인코더 캘리브레이션 데이터를 모두 생성합니다:
 
 ```bash
-python generate_language_calibration_data.py \
+python generate_calibration_data.py \
     --model-name Qwen/Qwen2-VL-2B-Instruct \
-    --output-dir ./calibration_data/language \
+    --output-dir ./calibration_data \
     --num-samples 100 \
     --max-new-tokens 500
 ```
@@ -73,68 +73,31 @@ python generate_language_calibration_data.py \
 **매개변수:**
 
 - `--model-name`: HuggingFace 모델 식별자
-- `--output-dir`: 캘리브레이션 데이터를 저장할 디렉토리
+- `--output-dir`: 기준 디렉토리. 하위에 `language/`, `vision/` 가 생성됩니다
 - `--num-samples`: 캘리브레이션 샘플 수 (기본값: 사용 가능한 모든 이미지)
-- `--max-new-tokens`: 샘플당 생성할 최대 토큰 수 (더 긴 시퀀스 캡처)
+- `--max-new-tokens`: 언어 캡처 단계의 최대 생성 토큰 수
 
 **이 작업의 내용:**
 
-- `images/` 폴더에서 모든 이미지 로드 (이전에 다운로드한 100개의 JPEG 이미지)
-- 20가지 다양한 프롬프트 유형 순환 (객체 식별, 상세 설명, 시각적 추론, 공간 이해 등)
-- 비전 특징이 텍스트 임베딩에 병합된 후 `inputs_embeds` 텐서 캡처
+- `images/` 폴더에서 모든 이미지 로드 후 20가지 다양한 프롬프트 유형 순환
+- 언어: 비전 특징이 텍스트 임베딩에 병합된 후 `inputs_embeds` 캡처
+- 비전: 비전 인코더 픽셀 값을 `[896, 56, 6]` 으로 리셰이프 (이미지 크기 224x224 고정)
 - 메타데이터와 함께 캘리브레이션 데이터를 `.npy` 파일로 저장
 
 **출력 구조:**
 
 ```text
-calibration_data/language/
- sample_000/
-    inputs_embeds.npy    # [1, seq_len, 1536]
- sample_001/
-    inputs_embeds.npy
- ...
- metadata.json            # 샘플 정보
- npy_files.txt           # 모든 .npy 경로 목록
-```
-
-### Step 1.2: 비전 인코더 캘리브레이션 데이터 생성
-
-비전 인코더에 대한 캘리브레이션 데이터를 생성합니다:
-
-```bash
-python generate_vision_calibration_data.py \
-    --model-name Qwen/Qwen2-VL-2B-Instruct \
-    --output-dir ./calibration_data/vision \
-    --num-samples 100
-```
-
-**매개변수:**
-
-- `--model-name`: HuggingFace 모델 식별자
-- `--output-dir`: 캘리브레이션 데이터를 저장할 디렉토리
-- `--num-samples`: 캘리브레이션 샘플 수 (기본값: 사용 가능한 모든 이미지)
-
-**참고:** 비전 인코더 캘리브레이션의 경우 이미지 크기는 224x224로 고정됩니다.
-
-**이 작업의 내용:**
-
-- `images/` 폴더에서 모든 이미지 로드 (이전에 다운로드한 100개의 JPEG 이미지)
-- 다양한 프롬프트 순환 (언어 캘리브레이션과 동일)
-- 비전 인코더 입력(픽셀 값) 캡처
-- NPU 호환 형식으로 리셰이프: `[896, 56, 6]`
-- 메타데이터와 함께 캘리브레이션 데이터를 `.npy` 파일로 저장
-
-**출력 구조:**
-
-```text
-calibration_data/vision/
- sample_000/
-    images.npy          # [896, 56, 6]
- sample_001/
-    images.npy
- ...
- metadata.json           # 샘플 정보
- npy_files.txt          # 모든 .npy 경로 목록
+calibration_data/
+ language/
+    sample_000/inputs_embeds.npy    # [1, seq_len, 1536]
+    ...
+    metadata.json
+    npy_files.txt
+ vision/
+    sample_000/images.npy           # [896, 56, 6]
+    ...
+    metadata.json
+    npy_files.txt
 ```
 
 ## Stage 2: MBLT 컴파일
@@ -143,10 +106,14 @@ MBLT(Mobilint Binary LayouT)는 모델 그래프와 가중치를 하드웨어 �
 
 ### Step 2.1: 언어 모델을 MBLT로 컴파일
 
-언어 모델(디코더)을 MBLT 형식으로 컴파일합니다:
+언어 모델(디코더)을 MBLT 형식으로 컴파일합니다. `--target-device` 는 필수입니다 (`aries-rb` 또는 `regulus-rb`):
 
 ```bash
-python mblt_compile_language.py
+# ARIES
+python mblt_compile_language.py --target-device aries-rb
+
+# REGULUS (2026-06 이후 고객)
+python mblt_compile_language.py --target-device regulus-rb
 ```
 
 **이 작업의 내용:**
@@ -158,10 +125,8 @@ python mblt_compile_language.py
   - **마지막 쿼리 슬라이싱**: 디코드 단계를 위해 최종 디코더 레이어 최적화
   - **상태 저장 KV 캐시 래퍼**: 효율적인 자기 회귀 생성 활성화
   - **동적 형태 처리**: 가변 시퀀스 길이 지원
-- PyTorch FX 추적을 사용하여 qbcompiler의 ModelParser로 모델 컴파일
 - 어텐션 연산자에 대한 동적 형태 구성
-- MBLT 바이너리 형식으로 직렬화
-- 원본 모델과 비교하여 출력 검증
+- `mblt_compile()` 로 MBLT 형식 export
 
 **주요 변환:**
 
@@ -173,15 +138,17 @@ python mblt_compile_language.py
 **출력 파일:**
 
 - `./mblt/Qwen2-VL-2B-Instruct_text_model.mblt`: MBLT 형식의 컴파일된 모델
-- `./mblt/Qwen2-VL-2B-Instruct_text_model.infer`: 검증을 위한 추론 값
-- `./mblt/Qwen2-VL-2B-Instruct_text_model.json`: 원본 모델과의 비교 결과
 
 ### Step 2.2: 비전 인코더를 MBLT로 컴파일
 
-비전 인코더를 MBLT 형식으로 컴파일합니다:
+비전 인코더를 MBLT 형식으로 컴파일합니다. `--target-device` 는 필수입니다 (`aries-rb` 또는 `regulus-rb`):
 
 ```bash
-python mblt_compile_vision.py
+# ARIES
+python mblt_compile_vision.py --target-device aries-rb
+
+# REGULUS (2026-06 이후 고객)
+python mblt_compile_vision.py --target-device regulus-rb
 ```
 
 **이 작업의 내용:**
@@ -193,10 +160,7 @@ python mblt_compile_vision.py
   - **분할 QKV 프로젝션**: 더 나은 병렬화를 위해 Query, Key, Value 프로젝션 분리
   - **사전 계산된 RoPE 임베딩**: 런타임 삼각 함수 연산 제거
   - **병합된 패치화 연산**: 메모리 전송 감소
-- PyTorch FX 추적을 사용하여 qbcompiler의 ModelParser로 모델 컴파일
-- 모든 입력 상수에 대해 데이터 형식을 NHWC(NPU 친화적)로 설정
-- MBLT 바이너리 형식으로 직렬화
-- 원본 모델과 비교하여 출력 검증
+- `mblt_compile()` 로 MBLT 형식 export
 
 **주요 변환:**
 
@@ -208,8 +172,6 @@ python mblt_compile_vision.py
 **출력 파일:**
 
 - `./mblt/Qwen2-VL-2B-Instruct_vision_transformer.mblt`: MBLT 형식의 컴파일된 모델
-- `./mblt/Qwen2-VL-2B-Instruct_vision_transformer.infer`: 검증을 위한 추론 값
-- `./mblt/Qwen2-VL-2B-Instruct_vision_transformer.json`: 원본 모델과의 비교 결과
 
 ## Stage 3: MXQ 컴파일 (고급 양자화)
 
@@ -217,10 +179,14 @@ MXQ(Mobilint eXeQutable) 형식은 고급 양자화 기법을 적용하고 NPU�
 
 ### Step 3.1: 언어 모델을 MXQ로 컴파일
 
-언어 모델을 MBLT에서 MXQ 형식으로 컴파일합니다:
+언어 모델을 MBLT에서 MXQ 형식으로 컴파일합니다. `--target-device` 는 필수입니다 (`aries-rb` 또는 `regulus-rb`):
 
 ```bash
-python mxq_compile_language.py
+# ARIES
+python mxq_compile_language.py --target-device aries-rb
+
+# REGULUS (2026-06 이후 고객)
+python mxq_compile_language.py --target-device regulus-rb
 ```
 
 **이 작업의 내용:**
@@ -229,7 +195,7 @@ python mxq_compile_language.py
 - 캘리브레이션 데이터 로드: `./calibration_data/language/npy_files.txt`
 - 등가 변환을 사용한 고급 양자화 적용
 - 입력 임베딩에 대해 16비트 활성화 구성: `inputs_embeds/reshape`
-- NPU 추론 스키마: `all`
+- NPU 추론 스키마: `--target-device` 에 따라 자동 설정 (ARIES `all`, REGULUS `single`)
 - **회전 행렬 생성** 위치: `./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
   - 이 회전 행렬은 **비전 인코더 MXQ 컴파일에 필요합니다**
 
@@ -237,7 +203,7 @@ python mxq_compile_language.py
 
 - 캘리브레이션 모드: 1 (표준 캘리브레이션, `CompileConfig` 기본값)
 - 활성화 16비트 레이어: `["inputs_embeds/reshape"]`
-- 추론 스키마: `all`
+- 추론 스키마: ARIES `all`, REGULUS `single`
 - 등가 변환: QK, UD (학습 포함), SPIN R1, SPIN R2
 
 **출력 파일:**
@@ -249,10 +215,14 @@ python mxq_compile_language.py
 
 **중요:** 비전 인코더 컴파일에는 언어 모델 컴파일 중 생성된 회전 행렬이 필요하므로 먼저 Step 3.1(언어 모델 MXQ 컴파일)을 완료해야 합니다.
 
-비전 인코더를 MBLT에서 MXQ 형식으로 컴파일합니다:
+비전 인코더를 MBLT에서 MXQ 형식으로 컴파일합니다. `--target-device` 는 필수입니다 (`aries-rb` 또는 `regulus-rb`):
 
 ```bash
-python mxq_compile_vision.py
+# ARIES
+python mxq_compile_vision.py --target-device aries-rb
+
+# REGULUS (2026-06 이후 고객)
+python mxq_compile_vision.py --target-device regulus-rb
 ```
 
 **이 작업의 내용:**
@@ -271,7 +241,7 @@ python mxq_compile_vision.py
 
 - 캘리브레이션 출력 모드: 1 (표준 출력 캘리브레이션, `CompileConfig` 기본값)
 - 활성화 16비트 레이어: `["model_merger_fc2"]`
-- 추론 스키마: `all`
+- 추론 스키마: ARIES `all`, REGULUS `single`
 - 등가 변환: 헤드 출력 채널 회전 (언어 모델 회전 행렬 사용)
 - 회전 행렬 경로: `./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
 
@@ -282,16 +252,18 @@ python mxq_compile_vision.py
 
 - `./mxq/Qwen2-VL-2B-Instruct_vision_transformer.mxq`: ARIES 배포 준비가 된 양자화된 모델
 
-### REGULUS2 컴파일
+### 대상 디바이스 (`--target-device`)
 
-REGULUS2는 VLM 컴파일을 지원합니다. `_regulus` 변형을 사용하며, ARIES 스크립트와 동일하되 `target_device="regulus2"`와 `inference_scheme="single"`을 설정합니다. (REGULUS1은 이 task를 지원하지 않습니다.) ARIES 흐름과 마찬가지로, 비전 인코더 컴파일 전에 회전 행렬이 생성되도록 언어 모델을 먼저 실행하세요.
+language·vision mxq 컴파일 스크립트 모두 `--target-device` 로 대상 NPU 를 지정해야 합니다 (필수). REGULUS 는 `inference_scheme="single"` 만 지원하므로, `regulus` 디바이스를 지정하면 자동으로 설정됩니다. ARIES 흐름과 마찬가지로, 비전 인코더 컴파일 전에 회전 행렬이 생성되도록 언어 모델을 먼저 실행하세요.
 
-```bash
-python mxq_compile_language_regulus.py
-python mxq_compile_vision_regulus.py
-```
+| 사용자 | `--target-device` |
+|---|---|
+| ARIES | `aries-rb` |
+| REGULUS (2026-06 이후 고객) | `regulus-rb` |
 
-출력은 ARIES 스크립트와 동일한 `./mxq/` 경로에 저장됩니다.
+> **참고**: VLM 컴파일은 신버전 REGULUS(`regulus-rb`, 2026-06 이후 고객)에서 지원됩니다. 구버전 REGULUS(`regulus-ra`, 2026-06 이전 고객)는 이 task 를 지원하지 않습니다.
+
+출력은 대상 디바이스와 관계없이 동일한 `./mxq/` 경로에 저장됩니다.
 
 ### Step 3.3: 추론 구성 파일 준비
 
@@ -367,33 +339,27 @@ MXQ 컴파일 시 `SpinR1` 등가 변환이 언어 모델 내부 가중치를 �
 # COCO 데이터셋에서 캘리브레이션 이미지 다운로드
 python download_images.py
 
-# 언어 캘리브레이션 데이터 생성
-python generate_language_calibration_data.py \
+# 캘리브레이션 데이터 생성 (언어 + 비전)
+python generate_calibration_data.py \
     --model-name Qwen/Qwen2-VL-2B-Instruct \
-    --output-dir ./calibration_data/language \
+    --output-dir ./calibration_data \
     --num-samples 100 \
     --max-new-tokens 500
 
-# 비전 캘리브레이션 데이터 생성
-python generate_vision_calibration_data.py \
-    --model-name Qwen/Qwen2-VL-2B-Instruct \
-    --output-dir ./calibration_data/vision \
-    --num-samples 100
-
 # Stage 2: MBLT 컴파일
 
-# 언어 모델을 MBLT로 컴파일
-python mblt_compile_language.py
+# 언어 모델을 MBLT로 컴파일 (--target-device 필수)
+python mblt_compile_language.py --target-device aries-rb
 
 # 비전 인코더를 MBLT로 컴파일
-python mblt_compile_vision.py
+python mblt_compile_vision.py --target-device aries-rb
 
 # Stage 3: MXQ 컴파일 및 추론 준비
 # 중요: 언어 모델을 먼저 컴파일해야 합니다 (회전 행렬 생성)
-python mxq_compile_language.py
+python mxq_compile_language.py --target-device aries-rb
 
 # 그런 다음 비전 인코더 컴파일 (언어 모델의 회전 행렬 사용)
-python mxq_compile_vision.py
+python mxq_compile_vision.py --target-device aries-rb
 
 # 추론 파일 준비 (config.json 및 회전된 토큰 임베딩)
 python get_config.py
@@ -479,11 +445,6 @@ python get_safetensors.py
 - `Qwen2-VL-2B-Instruct_vision_transformer.mxq`: 양자화된 비전 인코더
 - `config.json`: MXQ 경로가 포함된 모델 구성
 - `model.safetensors`: 회전된 토큰 임베딩 가중치 (`model.embed_tokens.weight`)
-
-### 검증 파일 - `mblt/`에 위치
-
-- `*.infer`: 검증을 위한 추론 값
-- `*.json`: 원본 모델과의 비교 결과
 
 ## 문제 해결
 

@@ -58,14 +58,14 @@ The calibration scripts will automatically use all images in the `images/` direc
 
 Calibration data is essential for quantization, as it helps the compiler understand the typical activation ranges of the model.
 
-### Step 1.1: Generate Language Model Calibration Data
+### Step 1.1: Generate Calibration Data
 
-Generate calibration data for the language model (decoder):
+A single script generates calibration data for both the language model (decoder) and the vision encoder, reusing one loaded model:
 
 ```bash
-python generate_language_calibration_data.py \
+python generate_calibration_data.py \
     --model-name Qwen/Qwen2-VL-2B-Instruct \
-    --output-dir ./calibration_data/language \
+    --output-dir ./calibration_data \
     --num-samples 100 \
     --max-new-tokens 500
 ```
@@ -73,68 +73,31 @@ python generate_language_calibration_data.py \
 **Parameters:**
 
 - `--model-name`: HuggingFace model identifier
-- `--output-dir`: Directory to save calibration data
+- `--output-dir`: Base directory; `language/` and `vision/` subdirectories are created under it
 - `--num-samples`: Number of calibration samples (default: all available images)
-- `--max-new-tokens`: Maximum tokens to generate per sample (captures longer sequences)
+- `--max-new-tokens`: Maximum tokens for the language capture pass
 
 **What it does:**
 
-- Loads all images from `images/` folder (100 JPEG images downloaded earlier)
-- Cycles through 20 diverse prompt types (object identification, detailed description, visual reasoning, spatial understanding, etc.)
-- Captures `inputs_embeds` tensors after vision features are merged into text embeddings
+- Loads all images from `images/` folder and cycles through 20 diverse prompt types
+- Language: captures `inputs_embeds` after vision features are merged into text embeddings
+- Vision: captures vision encoder pixel values reshaped to `[896, 56, 6]` (image size fixed at 224x224)
 - Saves calibration data as `.npy` files with metadata
 
 **Output structure:**
 
 ```text
-calibration_data/language/
- sample_000/
-    inputs_embeds.npy    # [1, seq_len, 1536]
- sample_001/
-    inputs_embeds.npy
- ...
- metadata.json            # Sample information
- npy_files.txt           # List of all .npy paths
-```
-
-### Step 1.2: Generate Vision Encoder Calibration Data
-
-Generate calibration data for the vision encoder:
-
-```bash
-python generate_vision_calibration_data.py \
-    --model-name Qwen/Qwen2-VL-2B-Instruct \
-    --output-dir ./calibration_data/vision \
-    --num-samples 100
-```
-
-**Parameters:**
-
-- `--model-name`: HuggingFace model identifier
-- `--output-dir`: Directory to save calibration data
-- `--num-samples`: Number of calibration samples (default: all available images)
-
-**Note:** Image size is fixed at 224x224 for vision encoder calibration.
-
-**What it does:**
-
-- Loads all images from `images/` folder (100 JPEG images downloaded earlier)
-- Cycles through diverse prompts (same as language calibration)
-- Captures vision encoder inputs (pixel values)
-- Reshapes to format compatible with ARIES architecture: `[896, 56, 6]`
-- Saves calibration data as `.npy` files with metadata
-
-**Output structure:**
-
-```text
-calibration_data/vision/
- sample_000/
-    images.npy          # [896, 56, 6]
- sample_001/
-    images.npy
- ...
- metadata.json           # Sample information
- npy_files.txt          # List of all .npy paths
+calibration_data/
+ language/
+    sample_000/inputs_embeds.npy    # [1, seq_len, 1536]
+    ...
+    metadata.json
+    npy_files.txt
+ vision/
+    sample_000/images.npy           # [896, 56, 6]
+    ...
+    metadata.json
+    npy_files.txt
 ```
 
 ## Stage 2: MBLT Compilation
@@ -143,10 +106,14 @@ MBLT (Mobilint Binary LayouT) is an intermediate format that represents the mode
 
 ### Step 2.1: Compile Language Model to MBLT
 
-Compile the language model (decoder) to MBLT format:
+Compile the language model (decoder) to MBLT format. `--target-device` is required (`aries-rb` or `regulus-rb`):
 
 ```bash
-python mblt_compile_language.py
+# ARIES
+python mblt_compile_language.py --target-device aries-rb
+
+# REGULUS (customers from 2026-06)
+python mblt_compile_language.py --target-device regulus-rb
 ```
 
 **What it does:**
@@ -158,10 +125,8 @@ python mblt_compile_language.py
   - **Last-query slicing**: Optimizes the final decoder layer for decode phase
   - **Stateful KV cache wrappers**: Enables efficient auto-regressive generation
   - **Dynamic shape handling**: Supports variable sequence lengths
-- Compiles the model using qbcompiler's ModelParser with PyTorch FX tracing
 - Configures dynamic shapes for attention operators
-- Serializes to MBLT binary format
-- Validates output by comparing with original model
+- Exports to MBLT format via `mblt_compile()`
 
 **Key transformations:**
 
@@ -173,15 +138,17 @@ python mblt_compile_language.py
 **Output files:**
 
 - `./mblt/Qwen2-VL-2B-Instruct_text_model.mblt`: Compiled model in MBLT format
-- `./mblt/Qwen2-VL-2B-Instruct_text_model.infer`: Inference values for validation
-- `./mblt/Qwen2-VL-2B-Instruct_text_model.json`: Comparison results with original model
 
 ### Step 2.2: Compile Vision Encoder to MBLT
 
-Compile the vision encoder to MBLT format:
+Compile the vision encoder to MBLT format. `--target-device` is required (`aries-rb` or `regulus-rb`):
 
 ```bash
-python mblt_compile_vision.py
+# ARIES
+python mblt_compile_vision.py --target-device aries-rb
+
+# REGULUS (customers from 2026-06)
+python mblt_compile_vision.py --target-device regulus-rb
 ```
 
 **What it does:**
@@ -193,10 +160,7 @@ python mblt_compile_vision.py
   - **Split QKV projection**: Separates Query, Key, Value projections for better parallelization
   - **Pre-computed RoPE embeddings**: Eliminates runtime trigonometric operations
   - **Merged patchify operation**: Reduces memory transfers
-- Compiles the model using qbcompiler's ModelParser with PyTorch FX tracing
-- Sets data format to NHWC (NPU-friendly) for all input constants
-- Serializes to MBLT binary format
-- Validates output by comparing with original model
+- Exports to MBLT format via `mblt_compile()`
 
 **Key transformations:**
 
@@ -208,8 +172,6 @@ python mblt_compile_vision.py
 **Output files:**
 
 - `./mblt/Qwen2-VL-2B-Instruct_vision_transformer.mblt`: Compiled model in MBLT format
-- `./mblt/Qwen2-VL-2B-Instruct_vision_transformer.infer`: Inference values for validation
-- `./mblt/Qwen2-VL-2B-Instruct_vision_transformer.json`: Comparison results with original model
 
 ## Stage 3: MXQ Compilation (Advanced Quantization)
 
@@ -217,10 +179,14 @@ MXQ (Mobilint eXeQutable) format applies advanced quantization techniques and pr
 
 ### Step 3.1: Compile Language Model to MXQ
 
-Compile the language model from MBLT to MXQ format:
+Compile the language model from MBLT to MXQ format. `--target-device` is required (`aries-rb` or `regulus-rb`):
 
 ```bash
-python mxq_compile_language.py
+# ARIES
+python mxq_compile_language.py --target-device aries-rb
+
+# REGULUS (customers from 2026-06)
+python mxq_compile_language.py --target-device regulus-rb
 ```
 
 **What it does:**
@@ -229,7 +195,7 @@ python mxq_compile_language.py
 - Loads calibration data from: `./calibration_data/language/npy_files.txt`
 - Applies advanced quantization with equivalent transformations
 - Configures 16-bit activations for input embeddings: `inputs_embeds/reshape`
-- NPU inference scheme: `single`
+- NPU inference scheme: set automatically by `--target-device` (`all` for ARIES, `single` for REGULUS)
 - **Generates rotation matrix** at: `./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
   - This rotation matrix is **required for vision encoder MXQ compilation**
 
@@ -237,7 +203,7 @@ python mxq_compile_language.py
 
 - Calibration mode: 1 (standard calibration, `CompileConfig` default)
 - Activation 16-bit layers: `["inputs_embeds/reshape"]`
-- Inference scheme: `all`
+- Inference scheme: `all` for ARIES, `single` for REGULUS
 - Equivalent transformations: QK, UD (with learning), SPIN R1, SPIN R2
 
 **Output files:**
@@ -249,10 +215,14 @@ python mxq_compile_language.py
 
 **Important:** You must complete Step 3.1 (language model MXQ compilation) first, as the vision encoder compilation requires the rotation matrix generated during language model compilation.
 
-Compile the vision encoder from MBLT to MXQ format:
+Compile the vision encoder from MBLT to MXQ format. `--target-device` is required (`aries-rb` or `regulus-rb`):
 
 ```bash
-python mxq_compile_vision.py
+# ARIES
+python mxq_compile_vision.py --target-device aries-rb
+
+# REGULUS (customers from 2026-06)
+python mxq_compile_vision.py --target-device regulus-rb
 ```
 
 **What it does:**
@@ -271,7 +241,7 @@ python mxq_compile_vision.py
 
 - Calibration output mode: 1 (standard output calibration, `CompileConfig` default)
 - Activation 16-bit layers: `["model_merger_fc2"]`
-- Inference scheme: `all`
+- Inference scheme: `all` for ARIES, `single` for REGULUS
 - Equivalent transformations: Head output channel rotation (using language model rotation matrix)
 - Rotation matrix path: `./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
 
@@ -282,16 +252,18 @@ The vision encoder's output must be properly aligned with the language model's i
 
 - `./mxq/Qwen2-VL-2B-Instruct_vision_transformer.mxq`: Quantized model ready for ARIES deployment
 
-### Compile for REGULUS2
+### Target device (`--target-device`)
 
-REGULUS2 supports VLM compilation. Use the `_regulus` variants, which mirror the ARIES scripts but set `target_device="regulus2"` and `inference_scheme="single"`. (REGULUS1 does not support this task.) As with the ARIES flow, run the language model first so the rotation matrix exists before the vision encoder is compiled.
+Both the language and vision mxq compile scripts require `--target-device` to select the target NPU. REGULUS only supports `inference_scheme="single"`, which is set automatically when a `regulus` device is selected. As with the ARIES flow, run the language model first so the rotation matrix exists before the vision encoder is compiled.
 
-```bash
-python mxq_compile_language_regulus.py
-python mxq_compile_vision_regulus.py
-```
+| User | `--target-device` |
+|---|---|
+| ARIES | `aries-rb` |
+| REGULUS (customers from 2026-06) | `regulus-rb` |
 
-Outputs are written to the same `./mxq/` paths as the ARIES scripts.
+> **Note**: VLM compilation is supported on newer REGULUS (`regulus-rb`, customers from 2026-06). Older REGULUS (`regulus-ra`, customers before 2026-06) does not support this task.
+
+Outputs are written to the same `./mxq/` paths regardless of the target device.
 
 ### Step 3.3: Prepare Inference Configuration Files
 
@@ -367,33 +339,27 @@ Here's the complete sequence of commands to compile the full VLM:
 # Download calibration images from COCO dataset
 python download_images.py
 
-# Generate language calibration data
-python generate_language_calibration_data.py \
+# Generate calibration data (language + vision)
+python generate_calibration_data.py \
     --model-name Qwen/Qwen2-VL-2B-Instruct \
-    --output-dir ./calibration_data/language \
+    --output-dir ./calibration_data \
     --num-samples 100 \
     --max-new-tokens 500
 
-# Generate vision calibration data
-python generate_vision_calibration_data.py \
-    --model-name Qwen/Qwen2-VL-2B-Instruct \
-    --output-dir ./calibration_data/vision \
-    --num-samples 100
-
 # Stage 2: MBLT Compilation
 
-# Compile language model to MBLT
-python mblt_compile_language.py
+# Compile language model to MBLT (--target-device required)
+python mblt_compile_language.py --target-device aries-rb
 
 # Compile vision encoder to MBLT
-python mblt_compile_vision.py
+python mblt_compile_vision.py --target-device aries-rb
 
 # Stage 3: MXQ Compilation and Inference Preparation
 # IMPORTANT: Compile language model FIRST (generates rotation matrix)
-python mxq_compile_language.py
+python mxq_compile_language.py --target-device aries-rb
 
 # Then compile vision encoder (uses rotation matrix from language model)
-python mxq_compile_vision.py
+python mxq_compile_vision.py --target-device aries-rb
 
 # Prepare inference files (config.json and rotated token embedding)
 python get_config.py
@@ -479,11 +445,6 @@ All files needed for deployment are in this single directory:
 - `Qwen2-VL-2B-Instruct_vision_transformer.mxq`: Quantized vision encoder
 - `config.json`: Model configuration with MXQ paths
 - `model.safetensors`: Rotated token embedding weight (`model.embed_tokens.weight`)
-
-### Validation Files - in `mblt/`
-
-- `*.infer`: Inference values for validation
-- `*.json`: Comparison results with original models
 
 ## Troubleshooting
 
