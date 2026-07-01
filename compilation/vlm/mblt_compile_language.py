@@ -47,6 +47,7 @@ if __name__ == "__main__":
     fd_inputs["position_ids"].src_shape[-1].set_dynamic(True)
     fd_inputs["inputs_embeds"].src_shape[1].set_dynamic(True)
     fd_inputs["cache_position"].src_shape[0].set_dynamic(True)
+    fd_inputs["logits_to_keep"] = 1 # keep only the last token's logits (W=1)
     set_attention_mask(fd_inputs["attention_mask"], "causal_mask")
 
     # Cached RoPE for the language decoder.
