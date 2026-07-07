@@ -2,7 +2,9 @@
 
 이 튜토리얼은 Mobilint qbcompiler 컴파일러를 사용하여 비전 언어 모델(VLM)을 컴파일하는 방법에 대한 상세한 지침을 제공합니다.
 
-이 튜토리얼에서는 Qwen에서 개발한 최첨단 비전-언어 모델인 [Qwen2-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct) 모델을 사용합니다.
+이 튜토리얼에서는 Qwen에서 개발한 최첨단 비전-언어 모델인 [Qwen3-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct) 모델을 사용합니다. Qwen3-VL은 deepstack 비전 경로를 도입합니다. 비전 인코더는 image embeds와 함께 3개의 deepstack 특징 맵을 생성하며, 이는 디코더 초기 레이어에 주입됩니다. 따라서 캘리브레이션 데이터와 디코더 컴파일 모두 deepstack 텐서를 포함합니다.
+
+이 튜토리얼의 양자화 설정은 벤치마크 최적 2B 구성을 사용합니다. 디코더는 8비트 가중치, 임베딩 및 deepstack 입력에 대한 16비트 활성화, SpinR1/SpinR2 회전, weight-scale 탐색으로 컴파일됩니다. 인코더는 merger 및 deepstack merger `fc2` 레이어에 대한 16비트 활성화와 디코더의 SpinR1 행렬을 재사용하는 `head_out_ch_rotation`을 사용합니다.
 
 ## 개요
 
@@ -64,39 +66,39 @@ python download_images.py
 
 ```bash
 python generate_calibration_data.py \
-    --model-name Qwen/Qwen2-VL-2B-Instruct \
+    --model-name Qwen/Qwen3-VL-2B-Instruct \
     --output-dir ./calibration_data \
     --num-samples 100 \
-    --max-new-tokens 500
+    --max-new-tokens 512
 ```
 
 **매개변수:**
 
 - `--model-name`: HuggingFace 모델 식별자
-- `--output-dir`: 기준 디렉토리. 하위에 `language/`, `vision/` 가 생성됩니다
+- `--output-dir`: 기준 디렉토리. 하위에 `language/`, `vision/`, `prefill/`, `decode/` 가 생성됩니다
 - `--num-samples`: 캘리브레이션 샘플 수 (기본값: 사용 가능한 모든 이미지)
-- `--max-new-tokens`: 언어 캡처 단계의 최대 생성 토큰 수
+- `--max-new-tokens`: decode 생성 단계의 최대 생성 토큰 수
+- `--intermediate-ratios`: 저장할 decode 프리픽스 비율 (1.0은 항상 추가됨)
 
 **이 작업의 내용:**
 
 - `images/` 폴더에서 모든 이미지 로드 후 20가지 다양한 프롬프트 유형 순환
-- 언어: 비전 특징이 텍스트 임베딩에 병합된 후 `inputs_embeds` 캡처
-- 비전: 비전 인코더 픽셀 값을 `[896, 56, 6]` 으로 리셰이프 (이미지 크기 224x224 고정)
-- 메타데이터와 함께 캘리브레이션 데이터를 `.npy` 파일로 저장
+- 언어: 이미지당 두 번의 패스를 실행합니다. Pass 1은 비전 특징이 병합된 후 디코더 prefill 입력(`inputs_embeds`와 3개 레이어의 `deepstack_visual_embeds`)을 캡처하고, Pass 2는 full generate로 decode 토큰 시퀀스를 수집합니다. 이후 prefill과 decode 샘플을 하나의 `language/` 디렉토리로 병합합니다
+- 비전: 비전 인코더 픽셀 값을 NPU 레이아웃 `[H, W, 6]` 으로 리셰이프 (이미지 크기 224x224 고정)
+- 캘리브레이션 데이터를 `.npy` 파일로 저장. `language/` 는 단일 `npy_files.json` 으로 인덱싱됩니다
 
 **출력 구조:**
 
 ```text
 calibration_data/
  language/
-    sample_000/inputs_embeds.npy    # [1, seq_len, 1536]
+    prefill_000/{inputs_embeds.npy, deepstack_visual_embeds.npy}  # [1, seq_len, 2048], [3, seq_len, 2048]
+    decode_000/{inputs_embeds.npy, deepstack_visual_embeds.npy}
     ...
-    metadata.json
-    npy_files.txt
+    npy_files.json
  vision/
-    sample_000/images.npy           # [896, 56, 6]
+    sample_000/images.npy           # [H, W, 6]
     ...
-    metadata.json
     npy_files.txt
 ```
 
@@ -125,19 +127,22 @@ python mblt_compile_language.py --target-device regulus-rb
   - **마지막 쿼리 슬라이싱**: 디코드 단계를 위해 최종 디코더 레이어 최적화
   - **상태 저장 KV 캐시 래퍼**: 효율적인 자기 회귀 생성 활성화
   - **동적 형태 처리**: 가변 시퀀스 길이 지원
+- 3개 레이어의 `deepstack_visual_embeds` 를 `build_full_visual_embeds` 와 `visual_pos_masks` 로 전체 시퀀스 길이에 맞춰 패딩
+- 캐시된 rotary embedding 을 위해 `position_ids` 를 처음 3개 mrope 축(t/h/w)으로 슬라이스
 - 어텐션 연산자에 대한 동적 형태 구성
 - `mblt_compile()` 로 MBLT 형식 export
 
 **주요 변환:**
 
 - 입력 임베딩 차원을 동적으로 표시: `[batch, seq_len, hidden_size]`
+- `deepstack_visual_embeds` 의 시퀀스 길이 축을 동적으로 표시
 - 가변 시퀀스를 위해 어텐션 마스크 및 위치 ID를 동적으로 표시
 - 자기 회귀 생성을 위해 캐시 위치를 동적으로 표시
-- 최대 시퀀스 길이(16384)에 대해 RoPE 임베딩 사전 계산
+- 캡처된 position ID 로부터 RoPE 임베딩 사전 계산
 
 **출력 파일:**
 
-- `./mblt/Qwen2-VL-2B-Instruct_text_model.mblt`: MBLT 형식의 컴파일된 모델
+- `./mblt/Qwen3-VL-2B-Instruct_text_model.mblt`: MBLT 형식의 컴파일된 모델
 
 ### Step 2.2: 비전 인코더를 MBLT로 컴파일
 
@@ -171,7 +176,7 @@ python mblt_compile_vision.py --target-device regulus-rb
 
 **출력 파일:**
 
-- `./mblt/Qwen2-VL-2B-Instruct_vision_transformer.mblt`: MBLT 형식의 컴파일된 모델
+- `./mblt/Qwen3-VL-2B-Instruct_vision_transformer.mblt`: MBLT 형식의 컴파일된 모델
 
 ## Stage 3: MXQ 컴파일 (고급 양자화)
 
@@ -191,25 +196,27 @@ python mxq_compile_language.py --target-device regulus-rb
 
 **이 작업의 내용:**
 
-- MBLT 파일 로드: `./mblt/Qwen2-VL-2B-Instruct_text_model.mblt`
-- 캘리브레이션 데이터 로드: `./calibration_data/language/npy_files.txt`
+- MBLT 파일 로드: `./mblt/Qwen3-VL-2B-Instruct_text_model.mblt`
+- 캘리브레이션 데이터 로드: `./calibration_data/language/npy_files.json`
 - 등가 변환을 사용한 고급 양자화 적용
-- 입력 임베딩에 대해 16비트 활성화 구성: `inputs_embeds/reshape`
+- 임베딩 및 deepstack 입력에 대해 16비트 활성화 구성: `inputs_embeds/reshape`, `deepstack_visual_embeds_0`
 - NPU 추론 스키마: `--target-device` 에 따라 자동 설정 (ARIES `all`, REGULUS `single`)
-- **회전 행렬 생성** 위치: `./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
+- **회전 행렬 생성** 위치: `./spinWeight/Qwen3-VL-2B-Instruct_text_model/R1/global_rotation.pth`
   - 이 회전 행렬은 **비전 인코더 MXQ 컴파일에 필요합니다**
 
-**주요 구성:**
+**주요 구성 (벤치마크 최적 2B 디코더):**
 
-- 캘리브레이션 모드: 1 (표준 캘리브레이션, `CompileConfig` 기본값)
-- 활성화 16비트 레이어: `["inputs_embeds/reshape"]`
+- 캘리브레이션: 모드 0 (Max), 출력 0
+- 가중치: 8비트 (qbcompiler 기본값), 컴파일 중 float32 weight dtype
+- 활성화 16비트 레이어: `["inputs_embeds/reshape", "deepstack_visual_embeds_0"]`
 - 추론 스키마: ARIES `all`, REGULUS `single`
-- 등가 변환: QK, UD (학습 포함), SPIN R1, SPIN R2
+- 등가 변환: UD (smoothing_factor=0.8), VO, SpinR1, SpinR2, optimize_ffn (QK 비활성)
+- query/key/value/out/ffn 에 대한 weight-scale 탐색 활성화
 
 **출력 파일:**
 
-- `./mxq/Qwen2-VL-2B-Instruct_text_model.mxq`: ARIES 배포 준비가 된 양자화된 모델
-- `./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`: 전역 회전 행렬 (비전 인코더에 필요)
+- `./mxq/Qwen3-VL-2B-Instruct_text_model.mxq`: 배포 준비가 된 양자화된 모델
+- `./spinWeight/Qwen3-VL-2B-Instruct_text_model/R1/global_rotation.pth`: 전역 회전 행렬 (비전 인코더에 필요)
 
 ### Step 3.2: 비전 인코더를 MXQ로 컴파일
 
@@ -227,30 +234,30 @@ python mxq_compile_vision.py --target-device regulus-rb
 
 **이 작업의 내용:**
 
-- MBLT 파일 로드: `./mblt/Qwen2-VL-2B-Instruct_vision_transformer.mblt`
+- MBLT 파일 로드: `./mblt/Qwen3-VL-2B-Instruct_vision_transformer.mblt`
 - 캘리브레이션 데이터 로드: `./calibration_data/vision/npy_files.txt`
-- **회전 행렬 로드** 위치: `./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
+- **회전 행렬 로드** 위치: `./spinWeight/Qwen3-VL-2B-Instruct_text_model/R1/global_rotation.pth`
   - 이 행렬은 언어 모델 MXQ 컴파일 중에 생성되었습니다
   - 비전 및 언어 컴포넌트 간의 일관된 양자화를 보장합니다
 - 등가 변환을 사용한 고급 양자화 적용:
   - **헤드 출력 채널 회전**: 공용 회전 행렬을 사용하여 비전 인코더 출력을 언어 모델 입력과 정렬
-- 병합 레이어에 대해 16비트 활성화 구성: `model_merger_fc2` (향후 필요하지 않을 수 있습니다)
+- merger 및 deepstack merger `fc2` 레이어에 대해 16비트 활성화 구성
 - 비전 인코더에 대해 다중 코어 컴파일 사용
 
-**주요 구성:**
+**주요 구성 (벤치마크 최적 2B 인코더):**
 
-- 캘리브레이션 출력 모드: 1 (표준 출력 캘리브레이션, `CompileConfig` 기본값)
-- 활성화 16비트 레이어: `["model_merger_fc2"]`
+- 캘리브레이션: 모드 1 (MaxPercentile), 출력 0
+- 활성화 16비트 레이어: `["model_merger_linear_fc2", "model_deepstack_merger_list_0_linear_fc2", "model_deepstack_merger_list_1_linear_fc2", "model_deepstack_merger_list_2_linear_fc2"]`
 - 추론 스키마: ARIES `all`, REGULUS `single`
-- 등가 변환: 헤드 출력 채널 회전 (언어 모델 회전 행렬 사용)
-- 회전 행렬 경로: `./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
+- 등가 변환: QK, UD, VO, head_out_ch_rotation (언어 모델 회전 행렬 사용), SpinR2, optimize_ffn (SpinR1 비활성)
+- 회전 행렬 경로: `./spinWeight/Qwen3-VL-2B-Instruct_text_model/R1/global_rotation.pth`
 
 **회전 행렬이 필요한 이유:**
 비전 인코더의 출력은 언어 모델의 입력 공간과 올바르게 정렬되어야 합니다. 언어 모델 양자화 중 생성된 회전 행렬은 비전 특징과 텍스트 임베딩이 동일한 양자화된 공간에 존재하도록 보장하여, 추론 중 비전 및 언어 컴포넌트가 결합될 때 정확도를 유지합니다.
 
 **출력 파일:**
 
-- `./mxq/Qwen2-VL-2B-Instruct_vision_transformer.mxq`: ARIES 배포 준비가 된 양자화된 모델
+- `./mxq/Qwen3-VL-2B-Instruct_vision_transformer.mxq`: ARIES 배포 준비가 된 양자화된 모델
 
 ### 대상 디바이스 (`--target-device`)
 
@@ -283,19 +290,17 @@ python get_config.py
 
 - HuggingFace 모델 저장소에서 `config.json` 다운로드
 - 컴파일된 MXQ 모델 파일을 가리키도록 구성 수정:
-  - `mxq_path`를 `"Qwen2-VL-2B-Instruct_text_model.mxq"`로 설정
-  - `vision_config.mxq_path`를 `"Qwen2-VL-2B-Instruct_vision_transformer.mxq"`로 설정
+  - `mxq_path`를 `"Qwen3-VL-2B-Instruct_text_model.mxq"`로 설정
+  - `vision_config.mxq_path`를 `"Qwen3-VL-2B-Instruct_vision_transformer.mxq"`로 설정
 - 모델 아키텍처 설정 업데이트:
-  - `architectures`를 `["MobilintQwen2VLForConditionalGeneration"]`로 변경
-  - `model_type`을 `'mobilint-qwen2_vl'`로 변경
-  - `max_position_embeddings`를 32768로 설정
-  - `sliding_window`를 32768로 설정
-  - `tie_word_embeddings` 활성화
+  - `architectures`를 `["MobilintQwen3VLForConditionalGeneration"]`로 변경
+  - `model_type`을 `'mobilint-qwen3_vl'`로 변경
+  - `tie_word_embeddings`를 `false`로 설정 (회전된 임베딩은 별도로 제공됨)
 - 수정된 구성을 `./mxq/config.json`에 저장
 
 #### 회전된 토큰 임베딩 가중치 준비
 
-다음으로 토큰 임베딩 가중치(`model.embed_tokens.weight`)를 다운로드하고 회전을 적용합니다:
+다음으로 토큰 임베딩 가중치(`model.language_model.embed_tokens.weight`)를 다운로드하고 회전을 적용합니다:
 
 ```bash
 python get_safetensors.py
@@ -303,11 +308,11 @@ python get_safetensors.py
 
 **이 작업의 내용:**
 
-- HuggingFace에서 `model-00001-of-00002.safetensors` 다운로드
-- 토큰 임베딩 가중치(`model.embed_tokens.weight`) 추출 — 토큰 ID를 hidden state 벡터로 매핑하는 룩업 테이블
+- HuggingFace에서 `model.safetensors` 다운로드 (Qwen3-VL-2B는 샤딩되지 않은 단일 safetensors 파일로 배포됨)
+- 토큰 임베딩 가중치(`model.language_model.embed_tokens.weight`) 추출 — 토큰 ID를 hidden state 벡터로 매핑하는 룩업 테이블
 - 언어 모델 MXQ 컴파일의 회전 행렬 적용:
-  - 회전 행렬 로드 위치: `./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
-  - 토큰 임베딩 가중치에 회전 행렬을 곱하여 양자화된 공간과 정렬
+  - 회전 행렬 로드 위치: `./spinWeight/Qwen3-VL-2B-Instruct_text_model/R1/global_rotation.pth`
+  - 토큰 임베딩 가중치에 회전 행렬을 우측 곱(`W @ R1`)하여 양자화된 공간과 정렬
 - 결과를 `./mxq/model.safetensors`에 저장
 
 **토큰 임베딩 회전이 필요한 이유:**
@@ -318,12 +323,12 @@ MXQ 컴파일 시 `SpinR1` 등가 변환이 언어 모델 내부 가중치를 �
 **출력 파일:**
 
 - `./mxq/config.json`: MXQ 파일을 가리키는 수정된 모델 구성
-- `./mxq/model.safetensors`: 회전된 토큰 임베딩 가중치 (`model.embed_tokens.weight`)
+- `./mxq/model.safetensors`: 회전된 토큰 임베딩 가중치 (`model.language_model.embed_tokens.weight`)
 
 **중요:** 이 스크립트를 실행한 후 `./mxq/` 디렉토리에 추론에 필요한 4개의 파일이 모두 생성됩니다:
 
-1. `Qwen2-VL-2B-Instruct_text_model.mxq` (컴파일된 언어 모델)
-2. `Qwen2-VL-2B-Instruct_vision_transformer.mxq` (컴파일된 비전 인코더)
+1. `Qwen3-VL-2B-Instruct_text_model.mxq` (컴파일된 언어 모델)
+2. `Qwen3-VL-2B-Instruct_vision_transformer.mxq` (컴파일된 비전 인코더)
 3. `config.json` (모델 구성)
 4. `model.safetensors` (회전된 토큰 임베딩 가중치)
 
@@ -341,7 +346,7 @@ python download_images.py
 
 # 캘리브레이션 데이터 생성 (언어 + 비전)
 python generate_calibration_data.py \
-    --model-name Qwen/Qwen2-VL-2B-Instruct \
+    --model-name Qwen/Qwen3-VL-2B-Instruct \
     --output-dir ./calibration_data \
     --num-samples 100 \
     --max-new-tokens 500
@@ -366,8 +371,8 @@ python get_config.py
 python get_safetensors.py
 
 # 모든 필요한 파일이 이제 mxq/ 디렉토리에 있습니다:
-# - Qwen2-VL-2B-Instruct_text_model.mxq
-# - Qwen2-VL-2B-Instruct_vision_transformer.mxq
+# - Qwen3-VL-2B-Instruct_text_model.mxq
+# - Qwen3-VL-2B-Instruct_vision_transformer.mxq
 # - config.json
 # - model.safetensors
 ```
@@ -383,9 +388,9 @@ python get_safetensors.py
     |
 [캘리브레이션] -> calibration_data/language/*.npy
     |
-[MBLT 컴파일] -> Qwen2-VL-2B-Instruct_text_model.mblt
+[MBLT 컴파일] -> Qwen3-VL-2B-Instruct_text_model.mblt
     |
-[MXQ 컴파일] -> Qwen2-VL-2B-Instruct_text_model.mxq
+[MXQ 컴파일] -> Qwen3-VL-2B-Instruct_text_model.mxq
     |
     +-> global_rotation.pth (비전 인코더에 필요)
 ```
@@ -399,9 +404,9 @@ python get_safetensors.py
     |
 [캘리브레이션] -> calibration_data/vision/*.npy
     |
-[MBLT 컴파일] -> Qwen2-VL-2B-Instruct_vision_transformer.mblt
+[MBLT 컴파일] -> Qwen3-VL-2B-Instruct_vision_transformer.mblt
     |
-[MXQ 컴파일] -> Qwen2-VL-2B-Instruct_vision_transformer.mxq
+[MXQ 컴파일] -> Qwen3-VL-2B-Instruct_vision_transformer.mxq
     |            (요구사항: 언어 모델의 global_rotation.pth)
 ```
 
@@ -434,17 +439,17 @@ python get_safetensors.py
 
 ### MBLT 모델 (하드웨어 독립적) - `mblt/`에 위치
 
-- `Qwen2-VL-2B-Instruct_text_model.mblt`: MBLT 형식의 언어 모델
-- `Qwen2-VL-2B-Instruct_vision_transformer.mblt`: MBLT 형식의 비전 인코더
+- `Qwen3-VL-2B-Instruct_text_model.mblt`: MBLT 형식의 언어 모델
+- `Qwen3-VL-2B-Instruct_vision_transformer.mblt`: MBLT 형식의 비전 인코더
 
 ### MXQ 모델 및 배포 파일 - `mxq/`에 위치
 
 배포에 필요한 모든 파일이 이 단일 디렉토리에 있습니다:
 
-- `Qwen2-VL-2B-Instruct_text_model.mxq`: 양자화된 언어 모델
-- `Qwen2-VL-2B-Instruct_vision_transformer.mxq`: 양자화된 비전 인코더
+- `Qwen3-VL-2B-Instruct_text_model.mxq`: 양자화된 언어 모델
+- `Qwen3-VL-2B-Instruct_vision_transformer.mxq`: 양자화된 비전 인코더
 - `config.json`: MXQ 경로가 포함된 모델 구성
-- `model.safetensors`: 회전된 토큰 임베딩 가중치 (`model.embed_tokens.weight`)
+- `model.safetensors`: 회전된 토큰 임베딩 가중치 (`model.language_model.embed_tokens.weight`)
 
 ## 문제 해결
 
@@ -459,7 +464,7 @@ python get_safetensors.py
 비전 인코더 MXQ 컴파일이 회전 행렬 누락 오류로 실패하는 경우:
 
 ```bash
-FileNotFoundError: ./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth
+FileNotFoundError: ./spinWeight/Qwen3-VL-2B-Instruct_text_model/R1/global_rotation.pth
 ```
 
 **해결 방법:** 먼저 `mxq_compile_language.py`를 실행하여 회전 행렬을 생성하세요.
@@ -468,7 +473,7 @@ FileNotFoundError: ./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotati
 
 MXQ 컴파일 스크립트의 캘리브레이션 데이터 경로가 실제 캘리브레이션 데이터 위치와 일치하는지 확인하세요:
 
-- 언어: `./calibration_data/language/npy_files.txt`
+- 언어: `./calibration_data/language/npy_files.json`
 - 비전: 데이터가 다른 위치에 있는 경우 `mxq_compile_vision.py`의 경로를 업데이트하세요
 
 ### 모델 다운로드 문제
@@ -495,10 +500,10 @@ python download_images.py
 
 모든 컴파일 단계를 완료한 후 `./mxq/` 디렉토리에는 배포에 필요한 4개의 파일이 모두 포함됩니다:
 
-1. **Qwen2-VL-2B-Instruct_text_model.mxq** - 컴파일된 언어 모델
-2. **Qwen2-VL-2B-Instruct_vision_transformer.mxq** - 컴파일된 비전 인코더
+1. **Qwen3-VL-2B-Instruct_text_model.mxq** - 컴파일된 언어 모델
+2. **Qwen3-VL-2B-Instruct_vision_transformer.mxq** - 컴파일된 비전 인코더
 3. **config.json** - MXQ 경로가 포함된 모델 구성
-4. **model.safetensors** - 회전된 토큰 임베딩 가중치 (`model.embed_tokens.weight`)
+4. **model.safetensors** - 회전된 토큰 임베딩 가중치 (`model.language_model.embed_tokens.weight`)
 
 이 파일들은 Mobilint 런타임을 사용하여 NPU에서 배포할 준비가 되었습니다.
 
@@ -516,7 +521,7 @@ python download_images.py
 
 ## 참고 자료
 
-- [Qwen2-VL 모델 카드](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct)
+- [Qwen3-VL 모델 카드](https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct)
 - [Mobilint 문서](https://docs.mobilint.com)
 
 ## 지원

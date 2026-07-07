@@ -63,8 +63,7 @@ def download_coco_samples(output_dir="images", num_images=100, target_size=(224,
                     print(f"\nWarning: {failed} downloads failed so far. Continuing...")
                 continue
 
-        print(f"\n✓ Successfully downloaded {downloaded} images")
-        print(f"✗ Failed to download {failed} images")
+        print(f"\nDownloaded {downloaded} images ({failed} failed)")
         print(f"Images saved to: {output_path.absolute()}")
 
         return downloaded
@@ -102,7 +101,7 @@ def download_sample_images(output_dir="images", num_images=100, target_size=(224
         output_file = output_path / f"image_{i:04d}.jpg"
         img.save(output_file, "JPEG", quality=95)
 
-    print(f"\n✓ Generated {num_images} sample images")
+    print(f"\nGenerated {num_images} sample images")
     print(f"Images saved to: {output_path.absolute()}")
     return num_images
 
