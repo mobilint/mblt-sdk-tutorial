@@ -1,199 +1,286 @@
-"""Calibration data generation for Qwen2-VL (language decoder + vision encoder).
+"""Calibration data generation for Qwen3-VL (language decoder + vision encoder).
 
-Both calibration sets are produced in a single run from one loaded model. Images
-are read from ./images (all *.jpg) and cycled through diverse prompts.
+Qwen3-VL adds a deepstack visual pathway, so the language calibration set carries
+both inputs_embeds and deepstack_visual_embeds. Two passes per image are run from
+one loaded model:
+  Pass 1: capture the language prefill inputs (inputs_embeds, deepstack_visual_embeds).
+  Pass 2: full generate to obtain the decode token sequence (EOS-terminated only).
+Prefill and decode samples are then merged into a single language/ directory that
+qbcompiler consumes through npy_files.json. Vision samples come directly from the
+processor's pixel_values / image_grid_thw (no hook needed).
+
+Images are read from ./images (all *.jpg) and cycled through diverse prompts.
+Model dimensions (hidden_size, etc.) are detected at runtime, so 2B/4B/8B all
+run with the same command.
 
 Output:
-  calibration_data/language/sample_NNN/inputs_embeds.npy   # [1, seq_len, hidden]
-  calibration_data/vision/sample_NNN/images.npy            # [896, 56, 6]
-  each target dir also gets metadata.json and npy_files.txt (absolute paths).
+  calibration_data/vision/sample_NNN/images.npy               # [H, W, 6]
+  calibration_data/vision/npy_files.txt
+  calibration_data/prefill/sample_NNN/{inputs_embeds,deepstack_visual_embeds}.npy
+  calibration_data/decode/sample_NNN/{inputs_embeds,deepstack_visual_embeds}.npy
+  calibration_data/language/{prefill_NNN,decode_NNN}/ + npy_files.json   # merged
 """
 
 import argparse
 import glob
 import json
 import os
-import traceback
+import shutil
 
 import numpy as np
 import torch
-from qbcompiler.model_dict.parser.backend.fx_hf_extensions.transformers.models.qwen2vl import (
-    repreprocess_pixel_values,
-)
+from einops import rearrange
+from qbcompiler.calibration.utils_calib import list_calib_files_in_json
 from qbcompiler.model_dict.parser.backend.hf.util import (
     DefaultInputsCaptureContainer,
     InputCaptureCtxManager,
 )
 from qwen_vl_utils import process_vision_info
-from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
+from transformers import AutoProcessor, Qwen3VLForConditionalGeneration
 
 IMAGE_SIZE = (224, 224)
 
-# (label, prompt) — label is used only in the sample name / metadata.
-PROMPT_TEMPLATES = [
-    ("short_answer", "What is the main subject of this image?"),
-    ("detailed_description", "Describe this image in detail, including all objects, colors, textures, and spatial relationships."),
-    ("object_identification", "What objects can you identify in this image?"),
-    ("scene_understanding", "Describe the scene, setting, and context shown in this image."),
-    ("visual_reasoning", "Analyze what is happening in this image and explain your reasoning."),
-    ("counting", "Count and list all distinct objects or elements you can identify in this image."),
-    ("spatial_reasoning", "Describe the spatial arrangement and positioning of elements in this image."),
-    ("technical_description", "Provide a technical description of what is shown, including materials, structure, and design."),
-    ("color_texture", "Describe the colors, textures, and visual patterns present in this image."),
-    ("comparison", "Compare and contrast the different elements visible in this image."),
-    ("purpose_function", "What is the purpose or function of the main subject in this image?"),
-    ("environment_context", "Describe the environment and context surrounding the main subject."),
-    ("detailed_analysis", "Provide a comprehensive analysis of this image, covering all observable details and their relationships."),
-    ("characteristics", "What are the key characteristics and distinctive features of what is shown?"),
-    ("composition", "Analyze the composition and visual structure of this image."),
-    ("action_activity", "What action or activity, if any, is taking place in this image?"),
-    ("categorization", "What category or type does the main subject of this image belong to?"),
-    ("materials", "What materials or substances can you identify in this image?"),
-    ("lighting_atmosphere", "Describe the lighting, shadows, and overall atmosphere of this image."),
-    ("perspective", "From what perspective or viewpoint is this image captured?"),
+PROMPTS = [
+    "Describe this image.",
+    "Describe this image in detail, including all objects, colors, textures, and spatial relationships.",
+    "What do you see in this image? Provide a thorough description.",
+    "What objects can you identify in this image?",
+    "List all objects you can see in this image.",
+    "Count and list all distinct objects or elements you can identify in this image.",
+    "Describe the scene, setting, and context shown in this image.",
+    "What kind of place or setting does this image show?",
+    "Analyze what is happening in this image and explain your reasoning.",
+    "What story or narrative does this image convey?",
+    "Describe the spatial arrangement and positioning of elements in this image.",
+    "Analyze the composition and visual structure of this image.",
+    "Provide a technical description of what is shown, including materials, structure, and design.",
+    "What materials or substances can you identify in this image?",
+    "Describe the colors, textures, and visual patterns present in this image.",
+    "Describe the lighting, shadows, and overall atmosphere of this image.",
+    "What is the purpose or function of the main subject in this image?",
+    "What action or activity, if any, is taking place in this image?",
+    "Describe any text, symbols, or signage visible in this image.",
+    "What small or easily overlooked details can you spot in this image?",
 ]
 
 
-def load_model_and_processor(model_name):
-    """Load Qwen2-VL model and processor from HuggingFace."""
-    print(f"Loading model and processor from {model_name}...")
-    model = Qwen2VLForConditionalGeneration.from_pretrained(model_name)
-    processor = AutoProcessor.from_pretrained(model_name)
-    return model, processor
+def repreprocess_pixel_values(pixel_values, grid_thw):
+    """Rearrange the processor's flat patch tensor into the NPU input layout.
+
+    pixel_values: (gt*gh*gw*Mh*Mw, c*pt*ph*pw). grid_thw: (gt, gh, gw).
+    Returns (gt, pt*c, gh*gw*ph, Mh*Mw*pw). For 224x224 input: (1, 6, 1024, 64).
+    """
+    gt, gh, gw = grid_thw
+    c, pt, Mh, Mw = 3, 2, 2, 2
+    ph = pw = int((pixel_values.shape[-1] // (pt * c)) ** 0.5)
+    images = rearrange(
+        pixel_values,
+        "(gt gh gw Mh Mw) (c pt ph pw) -> gt (pt c) (gh gw ph) (Mh Mw pw)",
+        gt=gt, gh=gh // Mh, gw=gw // Mw, Mh=Mh, Mw=Mw, c=c, pt=pt, ph=ph, pw=pw,
+    )
+    return images
 
 
 def build_samples(images_dir="./images"):
-    """One sample per image, cycling through PROMPT_TEMPLATES for diversity."""
+    """One sample per image, cycling through PROMPTS for diversity."""
     image_files = sorted(glob.glob(f"{images_dir}/*.jpg"))
     if not image_files:
         raise FileNotFoundError(f"No JPG images found in {images_dir}")
     samples = []
     for idx, image_path in enumerate(image_files):
-        label, prompt = PROMPT_TEMPLATES[idx % len(PROMPT_TEMPLATES)]
-        samples.append({"name": f"{label}_{idx:03d}", "image_url": image_path, "prompt": prompt})
+        samples.append({"image_url": image_path, "prompt": PROMPTS[idx % len(PROMPTS)]})
     return samples
 
 
-def _prepare_inputs(processor, sample, model_device):
-    """Build chat-template inputs (text + resized image) for one sample."""
-    messages = [
-        {
-            "role": "user",
-            "content": [
-                {"type": "image", "image": sample["image_url"]},
-                {"type": "text", "text": sample["prompt"]},
-            ],
-        }
-    ]
-    text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-    image_inputs, video_inputs = process_vision_info(messages)
-    if image_inputs:
-        image_inputs = [img.resize(IMAGE_SIZE) for img in image_inputs]
-    inputs = processor(text=[text], images=image_inputs, videos=video_inputs, padding=True, return_tensors="pt")
-    return inputs.to(model_device)
+def save_lang_sample(sample_dir, inputs_embeds_np, deepstack_np):
+    """Save one language calibration sample (inputs_embeds + deepstack_visual_embeds)."""
+    os.makedirs(sample_dir, exist_ok=True)
+    np.save(os.path.join(sample_dir, "inputs_embeds.npy"), inputs_embeds_np)
+    np.save(os.path.join(sample_dir, "deepstack_visual_embeds.npy"), deepstack_np)
 
 
-def _compute_inputs_embeds(model, captured):
-    """Recompute inputs_embeds from input_ids and merge vision features (fallback path)."""
-    input_ids = captured.get("input_ids")
-    pixel_values = captured.get("pixel_values")
-    image_grid_thw = captured.get("image_grid_thw")
-    if input_ids is None:
-        raise ValueError("Cannot compute inputs_embeds: input_ids not found")
+def merge_language_dirs(input_dirs, output_dir):
+    """Merge N language npy_files.json directories into one (seq_len axis set to -1)."""
+    all_data, dir_labels = [], []
+    for input_dir in input_dirs:
+        json_path = os.path.join(input_dir, "npy_files.json")
+        if not os.path.exists(json_path):
+            raise FileNotFoundError(f"Not found: {json_path}")
+        with open(json_path) as f:
+            all_data.append(json.load(f))
+        dir_labels.append(os.path.basename(input_dir.rstrip("/")))
 
-    with torch.no_grad():
-        inputs_embeds = model.get_input_embeddings()(input_ids.to(model.device))
-        if pixel_values is not None and image_grid_thw is not None:
-            image_embeds = model.visual(pixel_values.to(model.device), grid_thw=image_grid_thw.to(model.device))
-            n_tokens = (input_ids == model.config.image_token_id).sum().item()
-            if n_tokens != image_embeds.shape[0]:
-                raise ValueError(f"Image tokens/features mismatch: {n_tokens} vs {image_embeds.shape[0]}")
-            mask = (input_ids == model.config.image_token_id).unsqueeze(-1).expand_as(inputs_embeds).to(inputs_embeds.device)
-            image_embeds = image_embeds.to(inputs_embeds.device, inputs_embeds.dtype)
-            inputs_embeds = inputs_embeds.masked_scatter(mask, image_embeds)
-    return inputs_embeds
-
-
-def capture_language(model, processor, sample, max_new_tokens=500):
-    """Capture decoder inputs_embeds (text + merged vision features). Returns {name: ndarray}."""
-    inputs = _prepare_inputs(processor, sample, model.device)
-    container = DefaultInputsCaptureContainer()
-    with InputCaptureCtxManager(model.model, 1, container):
-        model.generate(**inputs, max_new_tokens=max_new_tokens)
-    captured = container.captured_kwargs[-1]
-
-    embeds = captured.get("inputs_embeds")
-    inputs_embeds = embeds if isinstance(embeds, torch.Tensor) else _compute_inputs_embeds(model, captured)
-    if inputs_embeds.dtype == torch.bfloat16:
-        inputs_embeds = inputs_embeds.float()
-    return {"inputs_embeds": inputs_embeds.cpu().numpy()}
-
-
-def capture_vision(model, processor, sample, max_new_tokens=20):
-    """Capture repreprocessed vision pixel values [896, 56, 6]. Returns {name: ndarray}."""
-    inputs = _prepare_inputs(processor, sample, model.device)
-    container = DefaultInputsCaptureContainer()
-    with InputCaptureCtxManager(model.visual, 1, container):
-        model.generate(**inputs, max_new_tokens=max_new_tokens)
-    pixel_values = container.captured_args[0][0]
-    grid_thw = container.captured_kwargs[0].get("grid_thw")[0]
-    if pixel_values.dtype == torch.bfloat16:
-        pixel_values = pixel_values.float()
-    images = repreprocess_pixel_values(pixel_values, grid_thw)  # [gt, 6, H, W]
-    return {"images": images[0].permute(1, 2, 0).cpu().numpy()}  # [H, W, 6]
-
-
-def generate_target(target, capture_fn, model, processor, samples, output_dir, model_name):
-    """Run capture_fn over all samples, saving npy files, npy_files.txt and metadata.json."""
+    ref_info = all_data[0]["info"]
     os.makedirs(output_dir, exist_ok=True)
-    print(f"\n[{target}] {len(samples)} samples -> {output_dir}")
+    merged_calib_paths = []
+    for data, label in zip(all_data, dir_labels):
+        for i, path_pair in enumerate(data["calib paths"]):
+            src_dir = os.path.dirname(path_pair[0])
+            dst_dir = os.path.join(output_dir, f"{label}_{i:03d}")
+            if os.path.exists(dst_dir):
+                shutil.rmtree(dst_dir)
+            shutil.copytree(src_dir, dst_dir)
+            merged_calib_paths.append(
+                [os.path.abspath(os.path.join(dst_dir, os.path.basename(p))) for p in path_pair]
+            )
 
-    npy_paths, meta_samples = [], []
-    for i, sample in enumerate(samples):
+    merged_shapes = [list(s) for s in ref_info["input shapes"]]
+    for s in merged_shapes:
+        s[1] = -1
+    merged_data = {
+        "info": {"input names": ref_info["input names"], "input shapes": merged_shapes},
+        "calib paths": merged_calib_paths,
+    }
+    with open(os.path.join(output_dir, "npy_files.json"), "w") as f:
+        json.dump(merged_data, f, indent=4)
+    return len(merged_calib_paths)
+
+
+def generate(model, processor, samples, output_dir, max_new_tokens, intermediate_ratios):
+    """Produce vision + prefill + decode samples, then merge into language/."""
+    dirs = {name: os.path.join(output_dir, name) for name in ("vision", "prefill", "decode", "language")}
+    for name in ("vision", "prefill", "decode"):
+        os.makedirs(dirs[name], exist_ok=True)
+
+    embed_tokens = model.model.language_model.embed_tokens
+    eos_token_id = processor.tokenizer.eos_token_id
+    pad_token_id = processor.tokenizer.pad_token_id
+
+    ratios = sorted(intermediate_ratios)
+    if 1.0 not in ratios:
+        ratios.append(1.0)
+
+    counts = {"vision": 0, "prefill": 0, "decode": 0}
+    vision_npy_paths = []
+
+    for idx, sample in enumerate(samples):
+        print(f"\n[{idx + 1}/{len(samples)}] {os.path.basename(sample['image_url'])}")
+        messages = [{"role": "user", "content": [
+            {"type": "image", "image": sample["image_url"]},
+            {"type": "text", "text": sample["prompt"]},
+        ]}]
+        text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        image_inputs, _ = process_vision_info(messages)
+        if image_inputs:
+            image_inputs = [img.resize(IMAGE_SIZE) for img in image_inputs]
+        inputs = processor(text=[text], images=image_inputs, padding=True, return_tensors="pt").to(model.device)
+
+        input_len = inputs["input_ids"].shape[1]
+        vis_pixel_values = inputs["pixel_values"].float()
+        vis_grid_thw = inputs["image_grid_thw"]
+
+        # Pass 1: capture language prefill inputs.
+        lang_container = DefaultInputsCaptureContainer()
         try:
-            captured = capture_fn(model, processor, sample)
+            with InputCaptureCtxManager(model.model.language_model, 1, lang_container):
+                model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=False)
         except Exception as e:
-            print(f"  [{i + 1}/{len(samples)}] {sample['name']}: FAILED ({e})")
-            traceback.print_exc()
+            print(f"  prefill capture failed: {e}")
+            continue
+        if not lang_container.captured_kwargs:
+            print("  WARNING: language hook captured nothing, skipping")
             continue
 
-        sample_dir = os.path.join(output_dir, f"sample_{i:03d}")
-        os.makedirs(sample_dir, exist_ok=True)
-        shapes = {}
-        for key, value in captured.items():
-            npy_path = os.path.join(sample_dir, f"{key}.npy")
-            np.save(npy_path, value)
-            npy_paths.append(os.path.abspath(npy_path))
-            shapes[key] = list(value.shape)
-        meta_samples.append({"index": i, "name": sample["name"], "prompt": sample["prompt"],
-                             "image_url": sample["image_url"], "directory": f"sample_{i:03d}", "shapes": shapes})
-        print(f"  [{i + 1}/{len(samples)}] {sample['name']}: {shapes}")
+        # Pass 2: full generate for the decode sequence.
+        with torch.no_grad():
+            generated = model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=False)
 
-    with open(os.path.join(output_dir, "metadata.json"), "w") as f:
-        json.dump({"model_name": model_name, "target": target, "image_size": list(IMAGE_SIZE),
-                   "num_samples": len(meta_samples), "samples": meta_samples}, f, indent=2)
-    with open(os.path.join(output_dir, "npy_files.txt"), "w") as f:
-        f.write("\n".join(npy_paths) + "\n")
-    print(f"[{target}] done: {len(meta_samples)} samples, {len(npy_paths)} npy files")
+        lang_kwargs = lang_container.captured_kwargs[-1]
+        prefill_embeds = lang_kwargs["inputs_embeds"].float()
+        hidden_size = prefill_embeds.shape[2]
+        deepstack = lang_kwargs.get("deepstack_visual_embeds")
+        vis_masks = lang_kwargs.get("visual_pos_masks")
+
+        output_ids = generated[0].tolist()[input_len:]
+        if pad_token_id is not None:
+            output_ids = [t for t in output_ids if t != pad_token_id]
+        if not output_ids or eos_token_id not in output_ids:
+            print("  WARNING: EOS not generated, skipping")
+            continue
+        decode_token_ids = output_ids[:output_ids.index(eos_token_id)]
+        if not decode_token_ids:
+            print("  WARNING: no tokens before EOS, skipping")
+            continue
+        n_total = len(decode_token_ids)
+
+        # ===== Vision =====
+        images = repreprocess_pixel_values(vis_pixel_values, vis_grid_thw[0])
+        images_np = images.squeeze(0).permute(1, 2, 0).cpu().numpy()
+        sample_dir = os.path.join(dirs["vision"], f"sample_{counts['vision']:03d}")
+        os.makedirs(sample_dir, exist_ok=True)
+        npy_path = os.path.join(sample_dir, "images.npy")
+        np.save(npy_path, images_np)
+        vision_npy_paths.append(os.path.abspath(npy_path))
+        counts["vision"] += 1
+
+        # ===== Prefill =====
+        prefill_embeds_np = prefill_embeds.cpu().numpy()
+        seq_len = prefill_embeds_np.shape[1]
+        if (deepstack is not None and isinstance(deepstack, list)
+                and len(deepstack) == 3 and vis_masks is not None):
+            vis_mask = vis_masks[0]
+            ds_padded = []
+            for ds_tensor in deepstack:
+                ds_full = ds_tensor.float()
+                padded = torch.zeros(1, seq_len, hidden_size, dtype=ds_full.dtype, device=ds_full.device)
+                padded[0, vis_mask, :] = ds_full
+                ds_padded.append(padded.cpu().numpy())
+            prefill_deepstack_np = np.concatenate(ds_padded, axis=0)
+        else:
+            print("  WARNING: no deepstack found, using zeros for prefill")
+            prefill_deepstack_np = np.zeros((3, seq_len, hidden_size), dtype=np.float32)
+        save_lang_sample(os.path.join(dirs["prefill"], f"sample_{counts['prefill']:03d}"),
+                         prefill_embeds_np, prefill_deepstack_np)
+        counts["prefill"] += 1
+
+        # ===== Decode (intermediate ratios + full sequence up to EOS) =====
+        for ratio in ratios:
+            n_tokens = max(1, int(n_total * ratio))
+            prefix_ids = torch.tensor([decode_token_ids[:n_tokens]], dtype=torch.long, device=model.device)
+            with torch.no_grad():
+                prefix_embeds_np = embed_tokens(prefix_ids).float().cpu().numpy()
+            prefix_deepstack_np = np.zeros((3, prefix_embeds_np.shape[1], hidden_size), dtype=np.float32)
+            save_lang_sample(os.path.join(dirs["decode"], f"sample_{counts['decode']:03d}"),
+                             prefix_embeds_np, prefix_deepstack_np)
+            counts["decode"] += 1
+
+    # ===== Index files =====
+    with open(os.path.join(dirs["vision"], "npy_files.txt"), "w") as f:
+        f.write("\n".join(vision_npy_paths) + "\n")
+    for stage in ("prefill", "decode"):
+        if counts[stage] > 0:
+            list_calib_files_in_json(dirs[stage], os.path.join(dirs[stage], "npy_files.json"))
+
+    # ===== Merge prefill + decode into language/ =====
+    if counts["prefill"] > 0 and counts["decode"] > 0:
+        merge_language_dirs([dirs["prefill"], dirs["decode"]], dirs["language"])
+    else:
+        print(f"WARNING: prefill={counts['prefill']}, decode={counts['decode']}, skipping merge")
+
+    print(f"Done: vision={counts['vision']}, language={counts['prefill'] + counts['decode']} samples")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate Qwen2-VL calibration data (language + vision)")
-    parser.add_argument("--model-name", type=str, default="Qwen/Qwen2-VL-2B-Instruct", help="HuggingFace model id")
+    parser = argparse.ArgumentParser(description="Generate Qwen3-VL calibration data (language + vision)")
+    parser.add_argument("--model-name", type=str, default="Qwen/Qwen3-VL-2B-Instruct", help="HuggingFace model id")
     parser.add_argument("--output-dir", type=str, default="./calibration_data", help="Base output directory")
-    parser.add_argument("--num-samples", type=int, default=None, help="Limit number of samples (default: all images)")
-    parser.add_argument("--max-new-tokens", type=int, default=500, help="Max tokens for the language capture pass")
+    parser.add_argument("--num-samples", type=int, default=100, help="Limit number of samples (default: all images)")
+    parser.add_argument("--max-new-tokens", type=int, default=1024, help="Max tokens for the decode generation pass")
+    parser.add_argument("--intermediate-ratios", type=float, nargs="*", default=[0.25, 0.5, 0.75],
+                        help="Decode-prefix ratios to save (1.0 is always appended)")
     args = parser.parse_args()
 
-    model, processor = load_model_and_processor(args.model_name)
+    print(f"Loading model and processor from {args.model_name}...")
+    model = Qwen3VLForConditionalGeneration.from_pretrained(
+        args.model_name, dtype=torch.float32, device_map="auto")
+    processor = AutoProcessor.from_pretrained(args.model_name)
+    processor.tokenizer.padding_side = "left"
+
     samples = build_samples()
     if args.num_samples is not None:
         samples = samples[: args.num_samples]
 
-    generate_target("language", lambda m, p, s: capture_language(m, p, s, args.max_new_tokens),
-                     model, processor, samples, os.path.join(args.output_dir, "language"), args.model_name)
-    generate_target("vision", capture_vision,
-                     model, processor, samples, os.path.join(args.output_dir, "vision"), args.model_name)
+    generate(model, processor, samples, args.output_dir, args.max_new_tokens, args.intermediate_ratios)
 
 
 if __name__ == "__main__":
