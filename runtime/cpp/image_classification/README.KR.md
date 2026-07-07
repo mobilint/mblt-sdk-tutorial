@@ -1,97 +1,103 @@
-# 이미지 분류 - C++ 추론 (ARIES + REGULUS)
+# C++ 이미지 분류 런타임
 
-ResNet-50 MXQ 모델로 단일 이미지에 대해 C++ NPU 추론을 실행하는 예제입니다.
-같은 `CMakeLists.txt` 로 **ARIES 네이티브 빌드** (x86_64 호스트 + NPU) 와
-**REGULUS 크로스 컴파일** (x86_64 호스트 -> ARM64 타겟 보드) 두 경로를 모두 지원합니다.
+이 튜토리얼은 C++ `qbruntime` API로 컴파일된 ResNet-50 MXQ 모델을 실행하는 방법을 설명합니다.
 
-## 파일 구조
-
-- `infer_cls.cc` - 추론 바이너리 소스 (NPU 추론, Top-5 출력)
-- `CMakeLists.txt` - CMake 빌드 설정 (호스트 arch 자동 감지)
-- `imagenet_labels.txt` - ImageNet 1000 클래스 라벨 파일
+시작하기 전에 [../../../compilation/image_classification/README.KR.md](../../../compilation/image_classification/README.KR.md)의 컴파일 과정을 먼저 완료하세요. 이 런타임 예제는 컴파일된 `resnet50.mxq` 모델을 사용합니다.
 
 ## 사전 준비
 
-- [컴파일러 튜토리얼](../../../compilation/image_classification/README.KR.md) 로 생성한 `resnet50.mxq` 파일이 필요합니다.
-  ARIES 는 `model_compile.py`, REGULUS 는 `model_compile_regulus.py` 결과를 사용합니다.
+다음 구성 요소가 준비되어 있어야 합니다.
 
-### 공통 요구 사항 (두 경로 모두)
+- Mobilint `qbruntime`
+- OpenCV 개발 라이브러리
+- C++17 컴파일러
+- CMake `3.21` 이상
+- 해당 컴파일 튜토리얼에서 생성한 `resnet50.mxq`
+- 이 디렉토리에 포함된 `imagenet_labels.txt`
 
-- CMake >= 3.21
-- C++17 컴파일러 (gcc / clang)
-- `qbruntime` 라이브러리 (Mobilint NPU SDK 설치 시 함께 설치됨)
-
-### ARIES 네이티브 빌드 (x86_64 호스트 + NPU)
-
-호스트에 OpenCV 와 빌드 도구를 설치합니다 (Ubuntu / Debian 기준):
+Ubuntu 또는 Debian 기반 ARIES 네이티브 빌드에서는 다음과 같이 설치할 수 있습니다.
 
 ```bash
 apt-get update
 apt-get install -y build-essential cmake libopencv-dev
 ```
 
-### REGULUS 크로스 컴파일 (x86_64 호스트 -> ARM64 타겟 보드)
+REGULUS 크로스 컴파일에서는 먼저 [../README.KR.md](../README.KR.md)에 정리된 Mobilint 툴체인을 활성화하세요.
 
-벤더 크로스 컴파일 툴체인에는 OpenCV 와 `qbruntime` 이 포함되어 있습니다. 툴체인을 확인하고 환경을 활성화합니다:
+## 개요
+
+`infer_cls.cc`의 런타임 흐름은 다음 단계를 따릅니다.
+
+1. `imagenet_labels.txt`에서 ImageNet 라벨을 읽습니다.
+2. `qbruntime`로 컴파일된 MXQ 모델을 로드합니다.
+3. 입력 이미지를 읽고 ResNet 전처리를 적용합니다.
+4. Mobilint NPU에서 추론을 실행합니다.
+5. 상위 5개 클래스 예측 결과를 출력합니다.
+
+모델 입력은 `uint8`이며, 정규화는 컴파일된 MXQ 모델에 이미 융합되어 있다고 가정합니다.
+
+## 이 튜토리얼의 파일
+
+- `infer_cls.cc`: 전체 이미지 분류 파이프라인을 실행하고 상위 5개 예측 결과를 출력합니다.
+- `imagenet_labels.txt`: ImageNet 1000개 클래스 라벨 파일입니다.
+- `CMakeLists.txt`: `infer-cls` 실행 파일을 빌드합니다.
+
+## 프로그램 동작 방식
+
+프로그램은 다음 명령줄 형식을 사용합니다.
 
 ```bash
-ls /opt/crosstools/mobilint/                                   # 버전 디렉토리가 보여야 함
-unset LD_LIBRARY_PATH                                          # 호스트 CUDA 등 충돌 방지
-source /opt/crosstools/mobilint/{version}/{sdk}/environment-setup-cortexa53-mobilint-linux
-echo $CXX                                                      # aarch64-mobilint-linux-g++ ...
+./infer-cls <model.mxq> <image_path> <labels_file>
 ```
 
-툴체인이 설치되어 있지 않으면 [크로스 컴파일 준비](../README.KR.md) 를 참조해 먼저 설치합니다.
+입력 이미지는 다음 방식으로 전처리됩니다.
+
+- 짧은 변을 `256`으로 리사이즈
+- `224x224` center crop 적용
+- BGR에서 RGB로 변환
+
+추론이 끝나면 출력 로그잇을 정렬하고 상위 5개 클래스 ID, 라벨, 점수를 출력합니다.
 
 ## 빌드
 
-ARIES 네이티브와 REGULUS 크로스 컴파일 모두 같은 명령으로 빌드됩니다.
-`CMakeLists.txt` 가 호스트 arch 를 감지해 `-march` 플래그를 자동으로 선택합니다.
+이 디렉토리에서 다음 명령을 실행하세요.
 
 ```bash
 cmake -B build -S .
 cmake --build build -j
 ```
 
-빌드가 끝나면 `build/infer-cls` 바이너리가 생성됩니다.
+생성되는 바이너리:
 
-바이너리의 아키텍처를 확인합니다:
+- `build/infer-cls`
+
+다음 명령으로 타겟 아키텍처를 확인할 수 있습니다.
 
 ```bash
 file build/infer-cls
-# ARIES:   ELF 64-bit LSB executable, x86-64, ...
-# REGULUS: ELF 64-bit LSB executable, ARM aarch64, ...
 ```
 
 ## 실행
 
-샘플 이미지 `../rc/volcano.jpg` 가 저장소에 함께 들어 있습니다.
+샘플 이미지:
 
-### ARIES (같은 호스트)
+- `../rc/volcano.jpg`
+
+### ARIES
 
 ```bash
 ./build/infer-cls ../../../compilation/image_classification/resnet50.mxq ../rc/volcano.jpg imagenet_labels.txt
 ```
 
-### REGULUS (타겟 보드)
+### REGULUS
 
-`build/infer-cls`, `resnet50.mxq`, `imagenet_labels.txt`, `../rc/volcano.jpg` 를 타겟 보드로 복사한 뒤 실행합니다:
+`build/infer-cls`, `resnet50.mxq`, `imagenet_labels.txt`, `volcano.jpg`를 타겟 보드로 복사한 뒤 다음 명령을 실행하세요.
 
 ```bash
 chmod +x infer-cls
 ./infer-cls resnet50.mxq volcano.jpg imagenet_labels.txt
 ```
 
-## 출력 예시
+## 예상 출력
 
-```
-Model input: 224x224x3
-Inference time: 2.05306 ms
-
-Top-5 predictions:
-  980 volcano (30.0102)
-  862 torch (11.6544)
-  1 goldfish (9.61492)
-  469 caldron (8.74083)
-  974 geyser (8.74083)
-```
+프로그램은 모델 입력 shape, 추론 시간, 상위 5개 ImageNet 예측 결과를 출력합니다.

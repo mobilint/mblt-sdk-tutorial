@@ -1,107 +1,107 @@
-# Face Detection - C++ Inference (ARIES + REGULUS)
+# Face Detection Runtime in C++
 
-An example of running C++ NPU inference on a single image with bounding-box
-visualization for faces. The model is a single-class (nc=1, "face") YOLO
-anchor-free Detect head (e.g. YOLOv12m-face) whose output layout matches the
-generic ultralytics Detect head (3 stride x [reg_max*4 box + nc cls] = 195
-channels), so the same DFL decode + NMS pipeline used for object detection
-applies. Outputs are plain bounding boxes; there are no landmark/keypoint
-channels.
+This tutorial explains how to run a compiled face detection MXQ model with the C++ `qbruntime` API.
 
-Supports **ARIES native build** (x86_64 host with NPU) and **REGULUS
-cross-compile** (x86_64 host -> ARM64 target board) from the same
-`CMakeLists.txt`.
+Before starting, complete the compilation flow in [../../../compilation/face_detection/README.md](../../../compilation/face_detection/README.md). The runtime example expects:
 
-## File Structure
-
-- `infer_face.cc` - Inference binary source (NPU inference, post-processing, bbox visualization)
-- `yolo_face_config.h` - Anchorless YOLO face configuration (yolov12m-face P5, 1 class)
-- `utils/` - Shared inference modules (NPURunner, Transformer, YoloDecoder)
-- `CMakeLists.txt` - CMake build configuration (host arch auto-detected)
+- `yolov12m-face.mxq`
 
 ## Prerequisites
 
-- Pick the matching MXQ file from the [compiler tutorial](../../../compilation/face_detection/README.md):
-  - `yolov12m-face.mxq`.
+Make sure the following components are available:
 
-### Common requirements (both paths)
+- Mobilint `qbruntime`
+- OpenCV development libraries
+- A C++17 compiler
+- CMake `3.21` or later
+- The compiled face-detection MXQ file
 
-- CMake >= 3.21
-- C++17 compiler (gcc / clang)
-- `qbruntime` library (installed together with the Mobilint NPU SDK)
-
-### ARIES native build (x86_64 host with NPU)
-
-Install host-side OpenCV and build tools (Ubuntu / Debian):
+For ARIES native builds on Ubuntu or Debian:
 
 ```bash
 apt-get update
 apt-get install -y build-essential cmake libopencv-dev
 ```
 
-### REGULUS cross-compile (x86_64 host -> ARM64 target board)
+For REGULUS cross-compilation, activate the Mobilint toolchain first as described in [../README.md](../README.md).
 
-The vendor cross-compile toolchain ships with OpenCV and `qbruntime` pre-installed.
-Verify the toolchain and activate it:
+## Overview
+
+The runtime flow in `infer_face.cc` follows these steps:
+
+1. Load the compiled MXQ model.
+2. Read the input image.
+3. Apply YOLO-style letterbox preprocessing through `Transformer`.
+4. Run inference on the Mobilint NPU.
+5. Decode the single-class face detections with DFL and NMS.
+6. Rescale detections back to the original image and draw the results.
+
+This example uses a single-class `face` detector. It produces bounding boxes only; there are no landmark or keypoint outputs.
+
+## Files in This Tutorial
+
+- `infer_face.cc`: Runs the full face detection pipeline and saves the rendered image.
+- `yolo_face_config.h`: Defines the face-detection head configuration, thresholds, and image size.
+- `utils/inference/`: Shared runtime helpers for model execution and preprocessing.
+- `utils/postprocess/`: Shared decode and NMS helpers.
+- `CMakeLists.txt`: Builds the `infer-face` executable and supporting utility library.
+
+## How the Program Works
+
+The program uses this command-line interface:
 
 ```bash
-ls /opt/crosstools/mobilint/                                   # version directory expected
-unset LD_LIBRARY_PATH                                          # avoid host CUDA libs leaking
-source /opt/crosstools/mobilint/{version}/{sdk}/environment-setup-cortexa53-mobilint-linux
-echo $CXX                                                      # aarch64-mobilint-linux-g++ ...
+./infer-face <model.mxq> <image_path> <output_path>
 ```
 
-If the toolchain is not installed, follow [Cross-Compilation Setup](../README.md).
+`Transformer` handles:
+
+- Letterbox resize
+- BGR-to-RGB conversion
+- HWC-to-CHW conversion
+
+After inference, `YoloDecoder` performs DFL decode, confidence filtering, NMS, and coordinate rescaling before the detections are drawn with the single `face` label.
 
 ## Build
 
-The same command works for both ARIES native and REGULUS cross-compile.
-`CMakeLists.txt` detects the host arch and selects the right `-march` flag.
+From this directory:
 
 ```bash
 cmake -B build -S .
 cmake --build build -j
 ```
 
-After a successful build, `build/infer-face` is created.
+This produces:
 
-Verify the architecture:
+- `build/infer-face`
+
+You can verify the target architecture with:
 
 ```bash
 file build/infer-face
-# ARIES:   ELF 64-bit LSB executable, x86-64, ...
-# REGULUS: ELF 64-bit LSB executable, ARM aarch64, ...
 ```
 
 ## Run
 
-A sample image `../rc/cr7.jpg` is bundled with the repo.
+Sample image:
 
-### ARIES (same host)
+- `../rc/cr7.jpg`
+
+### ARIES
 
 ```bash
 ./build/infer-face ../../../compilation/face_detection/yolov12m-face.mxq ../rc/cr7.jpg result.jpg
 ```
 
-### REGULUS (target board)
+### REGULUS
 
-Copy `build/infer-face`, `yolov12m-face.mxq`, and `../rc/cr7.jpg` to the target board, then:
+Copy `build/infer-face`, `yolov12m-face.mxq`, and `cr7.jpg` to the target board, then run:
 
 ```bash
 chmod +x infer-face
 ./infer-face yolov12m-face.mxq cr7.jpg result.jpg
 ```
 
-## Example Output
+## Expected Output
 
-```
-Model input: 640x640x3
-Image size: 980x652
-Inference time: 18.342 ms
-Detections: 2
-  face 98% [430,58,712,420]
-  face 94% [18,90,280,470]
-Result saved to: result.jpg
-```
-
-The result image `result.jpg` contains the original image with face bounding boxes and labels drawn on it.
+The program prints the model input shape, original image size, inference time, and decoded detections, then saves an output image such as `result.jpg` with face bounding boxes and scores.

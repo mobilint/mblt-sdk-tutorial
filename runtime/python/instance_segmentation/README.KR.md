@@ -1,36 +1,46 @@
-# 인스턴스 세그멘테이션 모델 추론 (Instance Segmentation Model Inference)
+# 인스턴스 세그멘테이션 런타임
 
-이 튜토리얼은 Mobilint `qbruntime`을 사용하여 컴파일된 인스턴스 세그멘테이션 모델로 추론을 실행하는 방법에 대한 단계별 지침을 제공합니다.
+이 튜토리얼은 Mobilint `qbruntime`를 사용해 컴파일된 인스턴스 세그멘테이션 MXQ 모델을 실행하는 방법을 설명합니다.
 
-이 가이드는 [../../../compilation/instance_segmentation/README.KR.md](../../../compilation/instance_segmentation/README.KR.md)에서 이어지는 내용입니다. 모델 컴파일을 성공적으로 마쳤으며 다음 파일이 준비되어 있다고 가정합니다:
+시작하기 전에 [../../../compilation/instance_segmentation/README.KR.md](../../../compilation/instance_segmentation/README.KR.md)의 컴파일 과정을 먼저 완료하세요. 이 디렉토리의 런타임 예제는 컴파일된 모델이 `../../../compilation/instance_segmentation/yolo11m-seg.mxq`에 있다고 가정합니다.
 
-- `../../../compilation/instance_segmentation/yolo11m-seg.mxq` - 컴파일된 모델 파일
+## 사전 준비
 
-## 사전 요구 사항 (Prerequisites)
+다음 구성 요소가 준비되어 있어야 합니다.
 
-추론을 실행하기 전에 다음 구성 요소가 설치되어 있고 준비되었는지 확인하십시오:
-
-- `qbruntime` 라이브러리 (NPU 가속기 액세스용)
+- Mobilint `qbruntime`
 - 컴파일된 `.mxq` 모델 파일
 - Python 패키지: `opencv-python`, `numpy`, `torch`
 
-## 개요 (Overview)
+Python 패키지가 아직 설치되어 있지 않다면 다음 명령으로 설치할 수 있습니다.
 
-추론 로직은 `inference_mxq.py` 스크립트에 구현되어 있습니다. 이 스크립트는 다음 워크플로우를 보여줍니다:
+```bash
+pip install opencv-python numpy torch
+```
 
-1. **모델 로드**: `qbruntime`을 통해 컴파일된 `.mxq` 모델을 로드합니다.
-2. **전처리**: 입력 이미지를 준비합니다 (예: 레터박싱을 포함한 리사이즈).
-3. **추론**: NPU 가속기에서 모델을 실행합니다.
-4. **후처리**: 모델 출력을 처리합니다 (바운딩 박스 좌표 및 세그멘테이션 마스크 디코딩, Non-Maximum Suppression 적용).
-5. **시각화**: 바운딩 박스, 라벨, 세그멘테이션 마스크를 원본 이미지에 그립니다.
+## 개요
 
-후처리에 필요한 연산을 더 잘 이해하려면 컴파일 과정에서 생성된 `.mblt` 파일을 [Mobilint Netron](https://netron.mobilint.com/)을 사용하여 검사해 볼 수 있습니다.
+런타임 흐름은 `inference_mxq.py`에 구현되어 있으며 다음 단계를 따릅니다.
 
-## 추론 실행 (Running Inference)
+1. `qbruntime`로 컴파일된 MXQ 모델을 로드합니다.
+2. 입력 이미지를 읽고 YOLO 스타일 letterbox 전처리를 적용합니다.
+3. 모델이 HWC 또는 CHW 입력 중 무엇을 기대하는지 확인해 그 형식에 맞게 자동으로 입력을 구성합니다.
+4. Mobilint NPU에서 추론을 실행합니다.
+5. 검출 결과와 마스크 계수를 디코드하고 NMS를 적용한 뒤, 바운딩 박스와 세그멘테이션 마스크를 렌더링합니다.
 
-`inference_mxq.py` 스크립트는 세부적인 단계로 추론을 수행합니다.
+컴파일된 MXQ 모델에는 이미 `/255` 정규화가 포함되어 있으므로, 이 예제는 런타임 입력을 `uint8` 형식으로 유지합니다.
 
-먼저, NPU 가속기와 모델 설정을 초기화합니다.
+## 이 튜토리얼의 파일
+
+- `inference_mxq.py`: 전체 추론 파이프라인을 실행하고 시각화된 결과를 저장합니다.
+- `postprocess.py`: YOLO 세그멘테이션 출력을 재배열하고 박스와 마스크를 디코드한 뒤 NMS를 적용합니다.
+- `visualize.py`: 원본 이미지에 바운딩 박스, 라벨, 세그멘테이션 마스크를 그립니다.
+- `coco.py`: COCO 클래스 이름과 색상 정보를 제공합니다.
+- `utils.py`: 후처리에 필요한 보조 함수를 제공합니다.
+
+## 스크립트 동작 방식
+
+스크립트는 먼저 accelerator를 초기화하고 컴파일된 모델을 실행합니다.
 
 ```python
 acc = qbruntime.Accelerator()
@@ -40,56 +50,59 @@ model = qbruntime.Model(args.model_path, mc)
 model.launch(acc)
 ```
 
-다음으로, 입력 이미지를 로드하고 전처리합니다. 컴파일 과정에서 정규화 연산이 MXQ 모델에 융합(fused)되었으므로, 입력 이미지는 `UInt8` 형식을 유지해야 합니다.
+그 다음 이미지를 읽고 BGR을 RGB로 변환한 뒤 letterbox 전처리를 적용합니다. 이 과정에서 모델 입력 shape를 확인하여 HWC 또는 CHW 형식 중 필요한 쪽으로 자동 변환합니다.
 
 ```python
-def preprocess_yolo(img_path: str, img_size=(640, 640)):
-    # 참고: https://github.com/ultralytics/ultralytics/blob/main/ultralytics/data/augment.py#L1535
-    img = cv2.imread(img_path, cv2.IMREAD_COLOR)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    h0, w0 = img.shape[:2]  # 원본 높이 및 너비
-    r = min(img_size[0] / h0, img_size[1] / w0)  # 스케일 비율
-    new_unpad = int(round(w0 * r)), int(round(h0 * r))
+def preprocess_yolo(img, input_shape):
+    if input_shape[-1] == 3:
+        target_h, target_w, is_hwc = input_shape[0], input_shape[1], True
+    else:
+        target_h, target_w, is_hwc = input_shape[1], input_shape[2], False
 
-    if (w0, h0) != new_unpad:  # 리사이즈
-        img = cv2.resize(img, new_unpad, interpolation=cv2.INTER_LINEAR)
+    ...
+    img = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(114, 114, 114))
+    # img /= 255.0  # Apply 1/255 normalization when the model expects float32 input in [0, 1].
 
-    dh, dw = img_size[0] - new_unpad[1], img_size[1] - new_unpad[0]  # 너비 및 높이 패딩
-    dw /= 2  # 양쪽 패딩 분할
-    dh /= 2  # 이미지 중앙 정렬
-    top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
-    left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
-    img = cv2.copyMakeBorder(
-        img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(114, 114, 114)
-    )  # 테두리 패딩 추가
+    if not is_hwc:
+        img = np.transpose(img, (2, 0, 1))
 
-    return img
+    return np.expand_dims(img, 0)
 ```
 
-마지막으로, 전처리된 입력으로 모델을 실행하고 후처리를 적용하여 결과를 해석합니다.
+추론 후에는 필요할 경우 HWC 형태의 NPU 출력을 BCHW로 다시 변환해 `postprocess.py`가 하나의 레이아웃만 처리하도록 맞춥니다. 이후 후처리 단계에서 바운딩 박스와 마스크를 디코드하고 confidence threshold와 Non-Maximum Suppression (NMS)을 적용합니다.
 
-예제 추론 스크립트를 실행하려면 다음 명령어를 사용하십시오:
+출력 텐서 구조나 후처리 가정을 확인하고 싶다면, 컴파일 과정에서 생성된 `.mblt` 파일을 [Mobilint Netron](https://netron.mobilint.com/)에서 열어볼 수 있습니다.
+
+## 예제 실행
+
+기본 샘플 경로를 그대로 사용하려면 다음 명령을 실행하세요.
+
+```bash
+python inference_mxq.py
+```
+
+이 명령은 다음 기본값을 사용합니다.
+
+- 모델: `../../../compilation/instance_segmentation/yolo11m-seg.mxq`
+- 입력 이미지: `../rc/cr7.jpg`
+- 출력 이미지: `./tmp/cr_seg_demo.jpg`
+
+경로를 명시적으로 지정하거나 임곗값을 조정하려면 다음과 같이 실행하세요.
 
 ```bash
 python inference_mxq.py --model-path ../../../compilation/instance_segmentation/yolo11m-seg.mxq --image-path ../rc/cr7.jpg --output-path ./tmp/cr_seg_demo.jpg --conf-thres 0.25 --iou-thres 0.45
 ```
 
-### 스크립트 세부 설명
+## 파라미터
 
-- **모델 실행 (Model Execution)**: `.mxq` 파일을 NPU에 로드합니다.
-- **전처리 (Preprocessing)**: 종횡비를 유지하며 이미지를 640x640 크기로 리사이즈하고(레터박싱), 회색 테두리로 패딩을 추가하며, 데이터를 적절한 형식으로 유지합니다.
-- **추론 (Inference)**: NPU에서 모델의 순전파(forward pass)를 실행합니다.
-- **후처리 (Postprocessing)**: 원시 출력(raw output)을 바운딩 박스와 세그멘테이션 마스크로 디코딩하고, 신뢰도 점수로 필터링하며, Non-Maximum Suppression (NMS)을 적용합니다.
-- **시각화 (Visualization)**: 감지된 바운딩 박스, 클래스 라벨, 세그멘테이션 마스크를 출력 이미지 위에 겹쳐 그립니다.
+- `--model-path`: 컴파일된 `.mxq` 모델 경로
+- `--image-path`: 입력 이미지 경로
+- `--output-path`: 시각화된 결과 이미지를 저장할 경로
+- `--conf-thres`: 검출 결과를 유지할 confidence threshold. 기본값: `0.25`
+- `--iou-thres`: NMS에 사용할 IoU threshold. 기본값: `0.45`
 
-### 파라미터 (Parameters)
+## 예상 출력
 
-- `--model-path`: 컴파일된 `.mxq` 모델 파일의 경로입니다.
-- `--image-path`: 입력 이미지 파일의 경로입니다.
-- `--output-path`: (선택 사항) 출력 이미지가 저장될 경로입니다. 지정하지 않으면 현재 디렉토리에 `output.jpg`로 저장됩니다.
-- `--conf-thres`: 감지 결과를 필터링하기 위한 신뢰도 임계값입니다 (기본값: `0.25`).
-- `--iou-thres`: NMS를 위한 IoU (Intersection over Union) 임계값입니다 (기본값: `0.45`).
+스크립트는 `tmp/cr_seg_demo.jpg`와 같은 결과 이미지를 저장하며, 원본 이미지 위에 바운딩 박스, COCO 클래스 라벨, 인스턴스 마스크를 그립니다.
 
-### 예상 출력 (Expected Output)
-
-스크립트는 바운딩 박스와 마스크가 그려진 이미지를 `tmp/cr_seg_demo.jpg`에 저장합니다.
+후처리 후 검출 결과가 남지 않으면, 스크립트는 원본 이미지를 출력 경로에 저장한 뒤 종료합니다.

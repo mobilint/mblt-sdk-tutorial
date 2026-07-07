@@ -1,109 +1,108 @@
-# 객체 검출 - C++ 추론 (ARIES + REGULUS)
+# C++ 객체 탐지 런타임
 
-단일 이미지에 대해 C++ NPU 추론을 실행하고 bounding box 를 시각화하는 예제입니다.
-ultralytics v8/v9/v11 의 anchor-free Detect head 가 동일한 출력 layout
-(3 stride x [reg_max*4 box + nc cls] = 144 채널) 을 갖기 때문에, 같은 binary 가
-YOLO11m (ARIES) 와 YOLOv9m (REGULUS) MXQ 둘 다 처리합니다.
+이 튜토리얼은 C++ `qbruntime` API로 컴파일된 YOLO 객체 탐지 MXQ 모델을 실행하는 방법을 설명합니다.
 
-같은 `CMakeLists.txt` 로 **ARIES 네이티브 빌드** (x86_64 호스트 + NPU) 와
-**REGULUS 크로스 컴파일** (x86_64 호스트 -> ARM64 타겟 보드) 두 경로를 모두 지원합니다.
+시작하기 전에 [../../../compilation/object_detection/README.KR.md](../../../compilation/object_detection/README.KR.md)의 컴파일 과정을 먼저 완료하세요. 이 런타임 예제는 다음 모델 중 하나를 사용합니다.
 
-## 파일 구조
-
-- `infer_det.cc` - 추론 바이너리 소스 (NPU 추론, 후처리, bbox 시각화)
-- `yolo_detect_config.h` - 앵커리스 YOLO detect 설정 (yolo11m / yolov9m P5, 80 클래스)
-- `utils/` - 공용 추론 모듈 (NPURunner, Transformer, YoloDecoder)
-- `CMakeLists.txt` - CMake 빌드 설정 (호스트 arch 자동 감지)
+- ARIES: `yolo11m.mxq`
+- REGULUS: `yolov9m.mxq`
 
 ## 사전 준비
 
-- [컴파일러 튜토리얼](../../../compilation/object_detection/README.KR.md) 결과의 MXQ 파일이 필요합니다:
-  - **ARIES**: `yolo11m.mxq` (`model_compile.py` 산출물).
-  - **REGULUS**: `yolov9m.mxq` (`model_compile_regulus.py` 산출물).
+다음 구성 요소가 준비되어 있어야 합니다.
 
-### 공통 요구 사항 (두 경로 모두)
+- Mobilint `qbruntime`
+- OpenCV 개발 라이브러리
+- C++17 컴파일러
+- CMake `3.21` 이상
+- 컴파일 튜토리얼에서 생성한 해당 MXQ 파일
 
-- CMake >= 3.21
-- C++17 컴파일러 (gcc / clang)
-- `qbruntime` 라이브러리 (Mobilint NPU SDK 설치 시 함께 설치됨)
-
-### ARIES 네이티브 빌드 (x86_64 호스트 + NPU)
-
-호스트에 OpenCV 와 빌드 도구를 설치합니다 (Ubuntu / Debian 기준):
+Ubuntu 또는 Debian 기반 ARIES 네이티브 빌드에서는 다음과 같이 설치할 수 있습니다.
 
 ```bash
 apt-get update
 apt-get install -y build-essential cmake libopencv-dev
 ```
 
-### REGULUS 크로스 컴파일 (x86_64 호스트 -> ARM64 타겟 보드)
+REGULUS 크로스 컴파일에서는 먼저 [../README.KR.md](../README.KR.md)에 정리된 Mobilint 툴체인을 활성화하세요.
 
-벤더 크로스 컴파일 툴체인에는 OpenCV 와 `qbruntime` 이 포함되어 있습니다.
-툴체인을 확인하고 환경을 활성화합니다:
+## 개요
+
+`infer_det.cc`의 런타임 흐름은 다음 단계를 따릅니다.
+
+1. 컴파일된 MXQ 모델을 로드합니다.
+2. 입력 이미지를 읽습니다.
+3. `Transformer`를 통해 YOLO 스타일 letterbox 전처리를 적용합니다.
+4. Mobilint NPU에서 추론을 실행합니다.
+5. anchor-free YOLO 출력을 DFL과 NMS로 디코드합니다.
+6. 탐지 결과를 원본 이미지 좌표로 되돌린 뒤 시각화합니다.
+
+프로그램은 `uint8` 입력을 사용하며, 정규화는 컴파일된 모델에 이미 융합되어 있다고 가정합니다.
+
+## 이 튜토리얼의 파일
+
+- `infer_det.cc`: 전체 객체 탐지 파이프라인을 실행하고 결과 이미지를 저장합니다.
+- `yolo_detect_config.h`: detect head 설정, 임계값, 입력 이미지 크기를 정의합니다.
+- `utils/inference/`: 모델 실행과 전처리에 사용하는 공용 런타임 유틸리티입니다.
+- `utils/postprocess/`: 디코드와 NMS에 사용하는 공용 유틸리티입니다.
+- `CMakeLists.txt`: `infer-det` 실행 파일과 보조 유틸리티 라이브러리를 빌드합니다.
+
+## 프로그램 동작 방식
+
+프로그램은 다음 명령줄 형식을 사용합니다.
 
 ```bash
-ls /opt/crosstools/mobilint/                                   # 버전 디렉토리가 보여야 함
-unset LD_LIBRARY_PATH                                          # 호스트 CUDA 등 충돌 방지
-source /opt/crosstools/mobilint/{version}/{sdk}/environment-setup-cortexa53-mobilint-linux
-echo $CXX                                                      # aarch64-mobilint-linux-g++ ...
+./infer-det <model.mxq> <image_path> <output_path>
 ```
 
-툴체인이 설치되어 있지 않으면 [크로스 컴파일 준비](../README.KR.md) 를 참조해 먼저 설치합니다.
+`Transformer`는 다음 작업을 처리합니다.
+
+- Letterbox 리사이즈
+- BGR에서 RGB로 변환
+- HWC에서 CHW로 변환
+
+추론 후에는 `YoloDecoder`가 DFL 디코드, confidence filtering, NMS, 좌표 복원을 수행하고, 최종 결과를 COCO 클래스 라벨과 함께 그립니다.
 
 ## 빌드
 
-ARIES 네이티브와 REGULUS 크로스 컴파일 모두 같은 명령으로 빌드됩니다.
-`CMakeLists.txt` 가 호스트 arch 를 감지해 `-march` 플래그를 자동 선택합니다.
+이 디렉토리에서 다음 명령을 실행하세요.
 
 ```bash
 cmake -B build -S .
 cmake --build build -j
 ```
 
-빌드가 끝나면 `build/infer-det` 바이너리가 생성됩니다.
+생성되는 바이너리:
 
-바이너리의 아키텍처를 확인합니다:
+- `build/infer-det`
+
+다음 명령으로 타겟 아키텍처를 확인할 수 있습니다.
 
 ```bash
 file build/infer-det
-# ARIES:   ELF 64-bit LSB executable, x86-64, ...
-# REGULUS: ELF 64-bit LSB executable, ARM aarch64, ...
 ```
 
 ## 실행
 
-샘플 이미지 `../rc/cr7.jpg` 가 저장소에 함께 들어 있습니다.
+샘플 이미지:
 
-### ARIES (같은 호스트)
+- `../rc/cr7.jpg`
+
+### ARIES
 
 ```bash
 ./build/infer-det ../../../compilation/object_detection/yolo11m.mxq ../rc/cr7.jpg result.jpg
 ```
 
-### REGULUS (타겟 보드)
+### REGULUS
 
-`build/infer-det`, `yolov9m.mxq`, `../rc/cr7.jpg` 를 타겟 보드로 복사한 뒤 실행합니다:
+`build/infer-det`, `yolov9m.mxq`, `cr7.jpg`를 타겟 보드로 복사한 뒤 다음 명령을 실행하세요.
 
 ```bash
 chmod +x infer-det
 ./infer-det yolov9m.mxq cr7.jpg result.jpg
 ```
 
-## 출력 예시
+## 예상 출력
 
-```
-Model input: 640x640x3
-Image size: 980x652
-Inference time: 21.5512 ms
-Detections: 7
-  person 94% [15,88,287,560]
-  person 94% [436,61,717,567]
-  sports ball 91% [238,521,318,598]
-  person 83% [728,151,855,455]
-  person 65% [576,253,645,420]
-  person 34% [285,290,348,407]
-  person 27% [921,313,977,440]
-Result saved to: result.jpg
-```
-
-결과 이미지 `result.jpg` 에는 원본 위에 bounding box 와 클래스 라벨이 그려져 저장됩니다.
+프로그램은 모델 입력 shape, 원본 이미지 크기, 추론 시간, 디코드된 탐지 결과를 출력한 뒤, 바운딩 박스와 클래스 라벨이 포함된 `result.jpg` 같은 결과 이미지를 저장합니다.

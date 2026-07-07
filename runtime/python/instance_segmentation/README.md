@@ -1,36 +1,46 @@
-# Instance Segmentation Model Inference
+# Instance Segmentation Runtime
 
-This tutorial provides step-by-step instructions for running inference with compiled instance segmentation models using the Mobilint `qbruntime`.
+This tutorial explains how to run a compiled instance segmentation MXQ model with Mobilint `qbruntime`.
 
-This guide is a continuation of [../../../compilation/instance_segmentation/README.md](../../../compilation/instance_segmentation/README.md). It is assumed that you have successfully compiled the model and have the following file ready:
-
-- `../../../compilation/instance_segmentation/yolo11m-seg.mxq` - Compiled model file
+Before starting, complete the compilation flow in [../../../compilation/instance_segmentation/README.md](../../../compilation/instance_segmentation/README.md). The runtime example in this directory expects the compiled model at `../../../compilation/instance_segmentation/yolo11m-seg.mxq`.
 
 ## Prerequisites
 
-Before running inference, ensure you have the following components installed and available:
+Make sure the following components are available:
 
-- `qbruntime` library (to access the NPU accelerator)
-- Compiled `.mxq` model file
+- Mobilint `qbruntime`
+- A compiled `.mxq` model file
 - Python packages: `opencv-python`, `numpy`, `torch`
+
+If the Python packages are not already installed in your environment, install them with:
+
+```bash
+pip install opencv-python numpy torch
+```
 
 ## Overview
 
-The inference logic is implemented in the `inference_mxq.py` script. This script demonstrates the following workflow:
+The runtime flow is implemented in `inference_mxq.py` and follows these steps:
 
-1. **Model Loading**: Load the compiled `.mxq` model via `qbruntime`.
-2. **Preprocessing**: Prepare the input image (e.g., resize with letterboxing).
-3. **Inference**: Execute the model on the NPU accelerator.
-4. **Postprocessing**: Process the model output (decode bounding box coordinates and segmentation masks, apply non-maximum suppression).
-5. **Visualization**: Draw bounding boxes, labels, and segmentation masks on the original image.
+1. Load the compiled MXQ model with `qbruntime`.
+2. Read the input image and apply YOLO-style letterbox preprocessing.
+3. Match the model input layout automatically, whether the model expects HWC or CHW input.
+4. Run inference on the Mobilint NPU.
+5. Decode detections and mask coefficients, apply NMS, and render boxes with segmentation masks.
 
-To better understand which operations are required for postprocessing, you can inspect the `.mblt` file (generated during compilation) using [Mobilint Netron](https://netron.mobilint.com/).
+The compiled MXQ model already includes `/255` normalization, so this example keeps the runtime input in `uint8` format.
 
-## Running Inference
+## Files in This Tutorial
 
-The `inference_mxq.py` script performs inference in several detailed steps.
+- `inference_mxq.py`: Runs the full inference pipeline and saves the rendered result.
+- `postprocess.py`: Rearranges YOLO segmentation outputs, decodes boxes and masks, and applies NMS.
+- `visualize.py`: Draws bounding boxes, labels, and segmentation masks on the source image.
+- `coco.py`: Provides COCO class names and color metadata.
+- `utils.py`: Contains helper functions used by postprocessing.
 
-First, initialize the NPU accelerator and the model configuration.
+## How the Script Works
+
+The script first initializes the accelerator and launches the compiled model:
 
 ```python
 acc = qbruntime.Accelerator()
@@ -40,56 +50,59 @@ model = qbruntime.Model(args.model_path, mc)
 model.launch(acc)
 ```
 
-Next, load and preprocess the input image. Since the normalization operation is fused into the MXQ model during compilation, the input image should remain in `UInt8` format.
+Next, it reads the image, converts BGR to RGB, and applies letterbox preprocessing. The code checks the model input shape and automatically prepares either HWC or CHW input as required by the compiled model.
 
 ```python
-def preprocess_yolo(img_path: str, img_size=(640, 640)):
-    # Reference: https://github.com/ultralytics/ultralytics/blob/main/ultralytics/data/augment.py#L1535
-    img = cv2.imread(img_path, cv2.IMREAD_COLOR)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    h0, w0 = img.shape[:2]  # Original height and width
-    r = min(img_size[0] / h0, img_size[1] / w0)  # Scale ratio
-    new_unpad = int(round(w0 * r)), int(round(h0 * r))
+def preprocess_yolo(img, input_shape):
+    if input_shape[-1] == 3:
+        target_h, target_w, is_hwc = input_shape[0], input_shape[1], True
+    else:
+        target_h, target_w, is_hwc = input_shape[1], input_shape[2], False
 
-    if (w0, h0) != new_unpad:  # Resize
-        img = cv2.resize(img, new_unpad, interpolation=cv2.INTER_LINEAR)
+    ...
+    img = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(114, 114, 114))
+    # img /= 255.0  # Apply 1/255 normalization when the model expects float32 input in [0, 1].
 
-    dh, dw = img_size[0] - new_unpad[1], img_size[1] - new_unpad[0]  # Width and height padding
-    dw /= 2  # Divide padding for both sides
-    dh /= 2  # To center the image
-    top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
-    left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
-    img = cv2.copyMakeBorder(
-        img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(114, 114, 114)
-    )  # Add border padding
+    if not is_hwc:
+        img = np.transpose(img, (2, 0, 1))
 
-    return img
+    return np.expand_dims(img, 0)
 ```
 
-Finally, execute the model with the preprocessed input and apply postprocessing to interpret the results.
+After inference, the script converts HWC-style NPU outputs back to BCHW when needed so that `postprocess.py` can stay layout-agnostic. The postprocess stage then decodes bounding boxes and masks, filters detections by confidence threshold, and applies Non-Maximum Suppression (NMS).
 
-To run the example inference script, use the following command:
+You can inspect the `.mblt` file generated during compilation in [Mobilint Netron](https://netron.mobilint.com/) if you want to confirm the output tensors and postprocessing assumptions.
+
+## Run the Example
+
+Run the tutorial with the default sample paths:
+
+```bash
+python inference_mxq.py
+```
+
+This command uses the following defaults:
+
+- Model: `../../../compilation/instance_segmentation/yolo11m-seg.mxq`
+- Input image: `../rc/cr7.jpg`
+- Output image: `./tmp/cr_seg_demo.jpg`
+
+To pass the paths explicitly or adjust the thresholds, run:
 
 ```bash
 python inference_mxq.py --model-path ../../../compilation/instance_segmentation/yolo11m-seg.mxq --image-path ../rc/cr7.jpg --output-path ./tmp/cr_seg_demo.jpg --conf-thres 0.25 --iou-thres 0.45
 ```
 
-### Script Breakdown
+## Parameters
 
-- **Model Execution**: Loads the `.mxq` file onto the NPU.
-- **Preprocessing**: Resizes the image to 640x640 while collecting aspect ratio (letterboxing), pads with gray borders, and keeps data in the appropriate format.
-- **Inference**: Runs the forward pass on the NPU.
-- **Postprocessing**: decodes the raw output into bounding boxes and segmentation masks, filters by confidence score, and applies Non-Maximum Suppression (NMS).
-- **Visualization**: Overlays the detected bounding boxes, class labels, and segmentation masks onto the output image.
+- `--model-path`: Path to the compiled `.mxq` model.
+- `--image-path`: Path to the input image.
+- `--output-path`: Path to save the visualized output image.
+- `--conf-thres`: Confidence threshold used to keep detections. Default: `0.25`.
+- `--iou-thres`: IoU threshold used during NMS. Default: `0.45`.
 
-### Parameters
+## Expected Output
 
-- `--model-path`: Path to the compiled `.mxq` model file.
-- `--image-path`: Path to the input image file.
-- `--output-path`: (Optional) Path where the output image will be saved. Defaults to `output.jpg` in the current directory if not specified.
-- `--conf-thres`: Confidence threshold for filtering detections (default: `0.25`).
-- `--iou-thres`: IoU (Intersection over Union) threshold for NMS (default: `0.45`).
+The script saves a rendered result image such as `tmp/cr_seg_demo.jpg` with bounding boxes, COCO class labels, and instance masks overlaid on the original image.
 
-### Expected Output
-
-The script saves an image with drawn bounding boxes and masks to `tmp/cr_seg_demo.jpg`.
+If no detections remain after postprocessing, the script saves the original image to the output path and exits.
