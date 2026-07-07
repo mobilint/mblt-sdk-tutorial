@@ -19,7 +19,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Compile Qwen2-VL vision encoder to MBLT")
     parser.add_argument("--model", type=str, default="Qwen/Qwen2-VL-2B-Instruct")
     parser.add_argument("--save-path", type=str, default="mblt/Qwen2-VL-2B-Instruct_vision_transformer.mblt")
-    parser.add_argument("--target-device", type=str, required=True, help="Target NPU (e.g. aries-rb, regulus-rb)")
+    parser.add_argument(
+        "--target-device",
+        type=str,
+        choices=["regulus-ra", "regulus-rb", "aries-rb"],
+        default="aries-rb",
+        help="Target NPU (e.g. aries-rb, regulus-rb)",
+    )
     parser.add_argument("--image-size", type=int, nargs=2, default=[224, 224])
     args = parser.parse_args()
 

@@ -8,4 +8,4 @@ if __name__ == "__main__":
     # Create a dummy input depending on the model's input shape
     dummy_input = torch.randn(1, 3, 224, 224)
     # Export to ONNX
-    torch.onnx.export(model, dummy_input, "resnet50.onnx")
+    torch.onnx.export(model, (dummy_input,), "resnet50.onnx")

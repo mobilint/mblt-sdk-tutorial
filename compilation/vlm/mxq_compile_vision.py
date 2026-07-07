@@ -17,7 +17,13 @@ def get_device_inference_scheme(target_device):
 
 if __name__ == "__main__":
     parser = ArgumentParser(description="Compile Qwen2-VL vision transformer MBLT to MXQ")
-    parser.add_argument("--target-device", type=str, required=True, help="Target NPU (e.g. aries-rb, regulus-rb)")
+    parser.add_argument(
+        "--target-device",
+        type=str,
+        choices=["regulus-ra", "regulus-rb", "aries-rb"],
+        default="aries-rb",
+        help="Target NPU (e.g. aries-rb, regulus-rb)",
+    )
     args = parser.parse_args()
 
     mblt_path = "mblt/Qwen2-VL-2B-Instruct_vision_transformer.mblt"
@@ -31,9 +37,7 @@ if __name__ == "__main__":
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    bit_config = BitConfig.model_validate(
-        {"layerOverrides": {"activation16Bits": ["model_merger_fc2"]}}
-    )
+    bit_config = BitConfig.model_validate({"layerOverrides": {"activation16Bits": ["model_merger_fc2"]}})
     equivalent_transformation_config = EquivalentTransformationConfig.model_validate(
         {
             "HeadOutChRotation": {

@@ -1,7 +1,14 @@
 import os
+from typing import Any, TypedDict, cast
 
 from datasets import load_dataset
 from tqdm import tqdm
+
+
+class ImagenetSample(TypedDict):
+    image: Any
+    label: int
+
 
 if __name__ == "__main__":
     data_files = {"validation": "data/validation*.parquet"}
@@ -18,7 +25,8 @@ if __name__ == "__main__":
     total_labels = len(labels)
     pbar = tqdm(total=total_labels, desc="Finding labels", unit="label")
 
-    for sample in dataset:
+    for raw_sample in dataset:
+        sample = cast(ImagenetSample, raw_sample)
         if sample["label"] in labels:
             image = sample["image"].convert("RGB")
             image.save(f"imagenet-1k-selected/{sample['label']}.JPEG")

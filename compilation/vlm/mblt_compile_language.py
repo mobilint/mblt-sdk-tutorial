@@ -20,7 +20,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Compile Qwen2-VL language model to MBLT")
     parser.add_argument("--model", type=str, default="Qwen/Qwen2-VL-2B-Instruct")
     parser.add_argument("--save-path", type=str, default="mblt/Qwen2-VL-2B-Instruct_text_model.mblt")
-    parser.add_argument("--target-device", type=str, required=True, help="Target NPU (e.g. aries-rb, regulus-rb)")
+    parser.add_argument(
+        "--target-device",
+        type=str,
+        choices=["regulus-ra", "regulus-rb", "aries-rb"],
+        default="aries-rb",
+        help="Target NPU (e.g. aries-rb, regulus-rb)",
+    )
     args = parser.parse_args()
 
     model, processor = load_model_and_processor(args.model)
@@ -47,7 +53,7 @@ if __name__ == "__main__":
     fd_inputs["position_ids"].src_shape[-1].set_dynamic(True)
     fd_inputs["inputs_embeds"].src_shape[1].set_dynamic(True)
     fd_inputs["cache_position"].src_shape[0].set_dynamic(True)
-    fd_inputs["logits_to_keep"] = 1 # keep only the last token's logits (W=1)
+    fd_inputs["logits_to_keep"] = 1  # keep only the last token's logits (W=1)
     set_attention_mask(fd_inputs["attention_mask"], "causal_mask")
 
     # Cached RoPE for the language decoder.

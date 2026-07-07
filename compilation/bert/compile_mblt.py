@@ -6,12 +6,12 @@ from qbcompiler.model_dict.parser.backend.torch.object_wrapper import set_attent
 from qbcompiler.model_dict.parser.backend.torch.util import wrap_tensor
 from transformers import BertModel, BertTokenizer
 
-
 if __name__ == "__main__":
     parser = ArgumentParser(description="Compile Sentence-BERT to MBLT intermediate format")
     parser.add_argument(
         "--target-device",
         type=str,
+        choices=["regulus-ra", "regulus-rb", "aries-rb"],
         default="aries-rb",
         help="Target NPU (e.g. aries-rb, regulus-rb)",
     )
