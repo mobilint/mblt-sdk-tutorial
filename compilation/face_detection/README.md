@@ -2,7 +2,7 @@
 
 This tutorial explains how to compile a face detection model with Mobilint `qbcompiler`.
 
-The overall flow is intentionally similar to [../object_detection/README.md](../object_detection/README.md):
+The overall workflow is intentionally similar to [../object_detection/README.md](../object_detection/README.md):
 
 1. Prepare a pretrained model and export it to ONNX.
 2. Build a representative calibration dataset.
@@ -21,13 +21,13 @@ Install the required Python packages with:
 
 ```bash
 pip install ultralytics huggingface_hub
-```
+```text
 
 If your environment requires Hugging Face authentication, sign in before downloading the calibration dataset:
 
 ```bash
 hf auth login --token <your_huggingface_token>
-```
+```text
 
 ## Overview
 
@@ -43,7 +43,7 @@ Use `prepare_model.py` to download the pretrained YOLO face weights and export t
 
 ```bash
 python prepare_model.py
-```
+```text
 
 **What this does:**
 
@@ -64,7 +64,7 @@ Run the dataset preparation script:
 
 ```bash
 python prepare_widerface.py
-```
+```text
 
 The script downloads `WIDER_train.zip`, groups the training images by sub-category, selects one random image per sub-category, and copies the selected images into `widerface-selected/`.
 
@@ -72,7 +72,7 @@ You can also choose a custom output directory or random seed:
 
 ```bash
 python prepare_widerface.py --output-dir ./widerface-selected --seed 42
-```
+```text
 
 **What this does:**
 
@@ -125,7 +125,7 @@ def pre_ftn(img_path):
     img = (img / 255).astype(np.float32)
 
     return img
-```
+```text
 
 The script uses `make_calib_man()` to generate the tensor dataset:
 
@@ -137,13 +137,13 @@ make_calib_man(
     save_name=os.path.basename(args.npy_path),
     remove_npy=True,  # Clean the destination before writing new .npy files.
 )
-```
+```text
 
 Run the script:
 
 ```bash
 python convert_img_to_tensor.py
-```
+```text
 
 By default, it reads images from `./widerface-selected` and writes the tensor dataset under `./calib_data_tensor`.
 
@@ -162,7 +162,7 @@ preprocessing_config = PreprocessingConfig(
     pipeline=preprocess_pipeline,
     input_configs={},
 )
-```
+```text
 
 As part of normalization, the `letterbox` operation includes `1/255` scaling. This preprocessing can be fused into the MXQ model through `fuseIntoFirstLayer` and `Uint8InputConfig`.
 
@@ -176,7 +176,7 @@ mxq_compile(
     uint8_input_config=Uint8InputConfig(apply=True, inputs=[]),
     calibration_config=calibration_config,
 )
-```
+```text
 
 If you want to keep the original input format, disable both `fuseIntoFirstLayer` and `Uint8InputConfig`.
 
@@ -192,7 +192,7 @@ calibration_config = CalibrationConfig(
         "topk_ratio": 0.01,
     },
 )
-```
+```text
 
 ## Step 3-1 (Optional): Compile with Prepared Tensor Files
 
@@ -210,7 +210,7 @@ mxq_compile(
     inference_scheme=inferece_sheme,
     calibration_config=calibration_config,
 )
-```
+```text
 
 **Parameters:**
 
@@ -240,7 +240,7 @@ python model_compile.py --onnx-path ./yolov12m-face.onnx --calib-data-path ./wid
 
 # REGULUS (customers from 2026-06)
 python model_compile.py --onnx-path ./yolov12m-face.onnx --calib-data-path ./widerface-selected --save-path ./yolov12m-face.mxq --mblt-path ./yolov12m-face.mblt --target-device regulus-rb
-```
+```text
 
 After you run the command, the MXQ file (`yolov12m-face.mxq`) and MBLT file (`yolov12m-face.mblt`) are saved in the current directory.
 

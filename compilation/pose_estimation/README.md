@@ -1,8 +1,8 @@
-# Pose Estimation
+# Pose Estimation Model Compilation
 
-This tutorial explains how to compile pose estimation models with Mobilint `qbcompiler`.
+This tutorial explains how to compile a pose estimation model with Mobilint `qbcompiler`.
 
-The examples use the [YOLO11m-pose](https://docs.ultralytics.com/models/yolo11/) model pretrained by Ultralytics on the COCO dataset. This model estimates skeletal keypoints for objects in an image.
+The example uses [YOLO11m-pose](https://docs.ultralytics.com/models/yolo11/), pretrained by Ultralytics on the COCO dataset. The model estimates skeletal keypoints for objects in an image.
 
 ## Prerequisites
 
@@ -15,7 +15,7 @@ Install the required Python packages:
 
 ```bash
 pip install ultralytics aiohttp aiofiles
-```
+```text
 
 ## Overview
 
@@ -31,7 +31,7 @@ Use the `ultralytics` package to download the pretrained model and export it to 
 
 ```bash
 yolo export model=yolo11m-pose.pt format=onnx
-```
+```text
 
 After the command finishes, the exported model is saved as `yolo11m-pose.onnx` in the current directory.
 
@@ -43,7 +43,7 @@ Before accessing the dataset, sign in to [Hugging Face](https://huggingface.co/)
 
 ```bash
 hf auth login --token <your_huggingface_token>
-```
+```text
 
 If you do not know your token, check your [Hugging Face account settings](https://huggingface.co/settings/tokens).
 
@@ -51,7 +51,7 @@ Run `prepare_coco.py` to automate dataset preparation. The script reads COCO ima
 
 ```bash
 python prepare_coco.py
-```
+```text
 
 **What this script does:**
 
@@ -101,7 +101,7 @@ def pre_ftn(img_path):
     img = (img / 255).astype(np.float32)
 
     return img
-```
+```text
 
 The script uses `make_calib_man()` to generate the tensor dataset:
 
@@ -113,13 +113,13 @@ make_calib_man(
     save_name=os.path.basename(args.npy_path),
     remove_npy=True,
 )
-```
+```text
 
 Run the script:
 
 ```bash
 python convert_img_to_tensor.py
-```
+```text
 
 By default, it reads images from `./coco-selected` and writes the tensor dataset to `./calib_data_tensor`.
 
@@ -146,7 +146,7 @@ preprocessing_config = PreprocessingConfig(
     pipeline=preprocess_pipeline,
     input_configs={},
 )
-```
+```text
 
 When preprocessing fusion is enabled, set the MXQ input type to `uint8`:
 
@@ -157,7 +157,7 @@ mxq_compile(
     uint8_input_config=Uint8InputConfig(apply=True, inputs=[]),
     calibration_config=calibration_config,
 )
-```
+```text
 
 If you want to keep the original input format, disable both preprocessing fusion and `Uint8InputConfig`.
 
@@ -173,7 +173,7 @@ calibration_config = CalibrationConfig(
         "topk_ratio": 0.01,
     },
 )
-```
+```text
 
 After configuring the settings, run `model_compile.py` with `--target-device` for your hardware. A single run produces both outputs: the quantized MXQ file (`--save-path`) and the intermediate MBLT graph (`--mblt-path`).
 
@@ -193,7 +193,7 @@ mxq_compile(
     inference_scheme=inferece_sheme,
     calibration_config=calibration_config,
 )
-```
+```text
 
 **Parameters:**
 
@@ -226,7 +226,7 @@ yolo export model=yolo11m-pose.pt format=onnx
 
 # YOLOv8 pose (for regulus-ra)
 yolo export model=yolov8m-pose.pt format=onnx
-```
+```text
 
 ```bash
 # ARIES
@@ -237,4 +237,4 @@ python model_compile.py --onnx-path ./yolov8m-pose.onnx --calib-data-path ./coco
 
 # REGULUS (customers from 2026-06)
 python model_compile.py --onnx-path ./yolo11m-pose.onnx --calib-data-path ./coco-selected --save-path ./yolo11m-pose.mxq --mblt-path ./yolo11m-pose.mblt --target-device regulus-rb
-```
+```text

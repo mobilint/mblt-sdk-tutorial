@@ -2,7 +2,7 @@
 
 This tutorial explains how to compile an oriented bounding box (OBB) detection model with Mobilint `qbcompiler`.
 
-The example uses [YOLO11m-obb](https://docs.ultralytics.com/tasks/obb/) from Ultralytics. This model is trained for rotated object detection on DOTA-style aerial imagery, so this tutorial uses the DOTA dataset for calibration and applies `1024x1024` letterbox preprocessing.
+The example uses [YOLO11m-obb](https://docs.ultralytics.com/tasks/obb/) from Ultralytics. The model is trained for rotated object detection on DOTA-style aerial imagery, so this tutorial uses the DOTA dataset for calibration and applies `1024x1024` letterbox preprocessing.
 
 ## Prerequisites
 
@@ -15,7 +15,7 @@ Install the required Python packages:
 
 ```bash
 pip install ultralytics opencv-python
-```
+```text
 
 ## Overview
 
@@ -31,7 +31,7 @@ Use `ultralytics` to download the pretrained OBB model and export it to ONNX:
 
 ```bash
 yolo export model=yolo11m-obb.pt format=onnx
-```
+```text
 
 After the export finishes, the ONNX model is saved as `yolo11m-obb.onnx` in the current directory.
 
@@ -43,7 +43,7 @@ You can prepare the dataset directly from the Ultralytics archive:
 
 ```bash
 python prepare_dota.py
-```
+```text
 
 This script:
 
@@ -62,13 +62,13 @@ If you already downloaded the dataset manually, you can reuse it:
 
 ```bash
 python prepare_dota.py --skip-download --zip-path ./DOTAv1.zip
-```
+```text
 
 If you extracted the dataset yourself and only want to create the calibration subset:
 
 ```bash
 python prepare_dota.py --skip-download --extract-dir ./DOTAv1 --output-dir ./dota-selected --num-images 100
-```
+```text
 
 When `--skip-download` is set, an existing `--extract-dir` is reused even if it was extracted manually and does not
 contain the script's `.extracted` marker file.
@@ -109,7 +109,7 @@ def pre_ftn(img_path):
     img = (img / 255).astype(np.float32)
 
     return img
-```
+```text
 
 The OBB tutorial uses `1024x1024` letterboxing because that matches the exported `yolo11m-obb` model input.
 
@@ -123,13 +123,13 @@ make_calib_man(
     save_name=os.path.basename(args.npy_path),
     remove_npy=True,
 )
-```
+```text
 
 Run the script:
 
 ```bash
 python convert_img_to_tensor.py
-```
+```text
 
 By default, it reads images from `./dota-selected` and writes the tensor dataset to `./calib_data_tensor`.
 
@@ -149,7 +149,7 @@ preprocessing_config = PreprocessingConfig(
     pipeline=preprocess_pipeline,
     input_configs={},
 )
-```
+```text
 
 When preprocessing fusion is enabled, set the MXQ input type to `uint8`:
 
@@ -160,7 +160,7 @@ mxq_compile(
     uint8_input_config=Uint8InputConfig(apply=True, inputs=[]),
     calibration_config=calibration_config,
 )
-```
+```text
 
 If you want to keep the original input format, disable both preprocessing fusion and `Uint8InputConfig`.
 
@@ -176,7 +176,7 @@ calibration_config = CalibrationConfig(
         "topk_ratio": 0.01,
     },
 )
-```
+```text
 
 After configuring the settings, run `model_compile.py` with `--target-device` for your hardware. A single run generates both outputs: the quantized MXQ file (`--save-path`) and the intermediate MBLT graph (`--mblt-path`).
 
@@ -196,7 +196,7 @@ mxq_compile(
     inference_scheme=inferece_sheme,
     calibration_config=calibration_config,
 )
-```
+```text
 
 Parameters:
 
@@ -226,7 +226,7 @@ python model_compile.py --onnx-path ./yolo11m-obb.onnx --calib-data-path ./dota-
 
 # REGULUS (customers from 2026-06)
 python model_compile.py --onnx-path ./yolo11m-obb.onnx --calib-data-path ./dota-selected --save-path ./yolo11m-obb.mxq --mblt-path ./yolo11m-obb.mblt --target-device regulus-rb
-```
+```text
 
 After executing a command, the MXQ (`yolo11m-obb.mxq`) and MBLT (`yolo11m-obb.mblt`) are saved in the current directory.
 

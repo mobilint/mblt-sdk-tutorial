@@ -1,8 +1,8 @@
 # Bidirectional Encoder Representations from Transformers (BERT)
 
-이 튜토리얼에서는 Mobilint qb Compiler로 BERT 모델을 컴파일하는 방법을 안내합니다. 이 과정은 일반적인 BERT 모델을 Mobilint NPU 하드웨어에서 효율적으로 실행할 수 있는 최적화된 `.mxq` 파일로 변환합니다.
+이 튜토리얼에서는 Mobilint `qbcompiler`로 BERT 모델을 컴파일하는 방법을 설명합니다. 전체 과정은 일반적인 BERT 모델을 Mobilint NPU에서 실행할 수 있는 최적화된 `.mxq` 파일로 변환합니다.
 
-이 튜토리얼에서는 문장 임베딩 생성을 위해 조정된 BERT 기반 모델인 [Sentence-BERT](https://huggingface.co/sentence-transformers-testing/stsb-bert-tiny-safetensors)를 사용합니다.
+이 튜토리얼에서는 문장 임베딩 생성에 맞게 조정된 BERT 기반 모델인 [Sentence-BERT](https://huggingface.co/sentence-transformers-testing/stsb-bert-tiny-safetensors)를 사용합니다.
 
 ## 개요
 
@@ -17,20 +17,20 @@
 
 ## 사전 준비
 
-- Mobilint qb Compiler (`>= 1.0.0`)
+- Mobilint `qbcompiler` (`>= 1.0.0`)
 - CUDA 지원 GPU (컴파일 시간 단축을 위해 권장)
 
 ```bash
 pip install -r requirements.txt
-```
+```text
 
 ## 1단계: 임베딩 가중치 추출
 
-BERT 아키텍처 특성상 일부 입력 임베딩 레이어는 NPU에서 지원되지 않습니다. 이 단계에서는 해당 임베딩 가중치를 모델에서 추출해 CPU 측에서 사용할 수 있도록 `.pth` 파일로 저장합니다.
+BERT 아키텍처 특성상 일부 입력 임베딩 레이어는 NPU에서 직접 실행할 수 없습니다. 이 단계에서는 해당 가중치를 모델에서 추출해 CPU 측에서 사용할 수 있도록 `.pth` 파일로 저장합니다.
 
 ```bash
 python get_embedding.py
-```
+```text
 
 **실행 내용:**
 
@@ -50,7 +50,7 @@ python get_embedding.py
 
 ```bash
 python prepare_calib.py
-```
+```text
 
 **실행 내용:**
 
@@ -72,7 +72,7 @@ python compile_mblt.py
 
 # REGULUS (2026-06 이후 고객)
 python compile_mblt.py --target-device regulus-rb
-```
+```text
 
 `compile_mblt.py`는 `mblt_compile()`를 호출하며, `--target-device`로 대상 NPU를 선택합니다 (기본값: `aries-rb`).
 
@@ -89,7 +89,7 @@ python compile_mblt.py --target-device regulus-rb
 
 ## 4단계: MXQ 컴파일
 
-2단계에서 생성한 캘리브레이션 데이터를 사용해 모델을 최종 `.mxq` 형식으로 양자화 컴파일합니다.
+2단계에서 생성한 캘리브레이션 데이터를 사용해 모델을 최종 양자화 `.mxq` 형식으로 컴파일합니다.
 
 ```bash
 # ARIES (기본값)
@@ -97,7 +97,7 @@ python compile_mxq.py
 
 # REGULUS (2026-06 이후 고객)
 python compile_mxq.py --target-device regulus-rb
-```
+```text
 
 `compile_mxq.py`는 `--target-device`로 대상 NPU를 선택합니다 (기본값: `aries-rb`). REGULUS는 `inference_scheme="single"`만 지원하므로 `regulus` 디바이스를 선택하면 자동으로 설정됩니다.
 
@@ -121,7 +121,7 @@ python compile_mxq.py --target-device regulus-rb
 | ARIES | `aries-rb` (기본값) |
 | REGULUS (2026-06 이후 고객) | `regulus-rb` |
 
-> **참고:** BERT 컴파일은 신형 REGULUS(`regulus-rb`, 2026-06 이후 고객)에서 지원됩니다. 구형 REGULUS(`regulus-ra`, 2026-06 이전 고객)는 이 작업을 지원하지 않습니다. `compile_mblt.py`와 `compile_mxq.py` 모두에 `--target-device regulus-rb`를 사용하세요.
+> **참고:** BERT 컴파일은 신형 REGULUS(`regulus-rb`, 2026-06 이후 고객)에서 지원됩니다. 구형 REGULUS(`regulus-ra`, 2026-06 이전 고객)는 이 워크플로를 지원하지 않습니다. `compile_mblt.py`와 `compile_mxq.py` 모두에 `--target-device regulus-rb`를 사용하세요.
 
 ## 파일 구조
 
@@ -142,7 +142,7 @@ bert/
 │   └── stsb-bert-tiny-safetensors.mblt
 └── mxq/                                   # 출력 MXQ 모델
     └── stsb-bert-tiny-safetensors.mxq
-```
+```text
 
 ## 문제 해결
 
@@ -152,7 +152,7 @@ bert/
 
 ```bash
 ls ./weights/weight_dict.pth
-```
+```text
 
 파일이 없으면 `get_embedding.py`를 다시 실행하세요.
 
@@ -162,7 +162,7 @@ MXQ 컴파일 중 캘리브레이션 데이터가 없다는 오류가 발생하�
 
 ```bash
 ls ./calibration_data/
-```
+```text
 
 디렉토리가 없거나 비어 있으면 `prepare_calib.py`를 다시 실행하세요.
 

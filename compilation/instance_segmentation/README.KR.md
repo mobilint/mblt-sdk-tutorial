@@ -1,6 +1,6 @@
 # 인스턴스 분할 모델 컴파일
 
-이 튜토리얼은 Mobilint `qbcompiler`를 사용해 인스턴스 분할 모델을 컴파일하는 방법을 설명합니다.
+이 튜토리얼은 Mobilint `qbcompiler`로 인스턴스 분할 모델을 컴파일하는 방법을 설명합니다.
 
 예제에서는 Ultralytics의 COCO 사전 학습 모델인 [YOLO11m-seg](https://docs.ultralytics.com/models/yolo11/)를 사용합니다. 이 모델은 개별 객체를 검출하고 각 객체의 마스크를 예측하는 인스턴스 분할 모델입니다.
 
@@ -15,7 +15,7 @@
 
 ```bash
 pip install ultralytics aiohttp aiofiles
-```
+```text
 
 ## 개요
 
@@ -31,7 +31,7 @@ pip install ultralytics aiohttp aiofiles
 
 ```bash
 yolo export model=yolo11m-seg.pt format=onnx
-```
+```text
 
 명령이 끝나면 현재 디렉토리에 `yolo11m-seg.onnx`가 생성됩니다.
 
@@ -43,7 +43,7 @@ yolo export model=yolo11m-seg.pt format=onnx
 
 ```bash
 hf auth login --token <your_huggingface_token>
-```
+```text
 
 토큰이 없다면 [Hugging Face 토큰 설정 페이지](https://huggingface.co/settings/tokens)에서 생성하거나 확인할 수 있습니다.
 
@@ -51,7 +51,7 @@ hf auth login --token <your_huggingface_token>
 
 ```bash
 python prepare_coco.py
-```
+```text
 
 스크립트 동작:
 
@@ -59,7 +59,7 @@ python prepare_coco.py
 - 캘리브레이션용 이미지를 무작위로 선택합니다
 - 선택한 이미지를 `coco-selected`에 저장합니다
 
-출력:
+**출력:**
 
 - `coco-selected`: 캘리브레이션 이미지 디렉토리
 
@@ -104,7 +104,7 @@ def pre_ftn(img_path):
     img = (img / 255).astype(np.float32)
 
     return img
-```
+```text
 
 스크립트는 `make_calib_man()`을 호출해 텐서 데이터셋을 생성합니다:
 
@@ -116,13 +116,13 @@ make_calib_man(
     save_name=os.path.basename(args.npy_path),
     remove_npy=True,  # Clean the destination before writing new .npy files.
 )
-```
+```text
 
 변환 스크립트 실행:
 
 ```bash
 python convert_img_to_tensor.py
-```
+```text
 
 기본값 기준으로 `./coco-selected`에서 이미지를 읽고, 생성된 텐서는 `./calib_data_tensor` 아래에 저장됩니다.
 
@@ -149,7 +149,7 @@ preprocessing_config = PreprocessingConfig(
     pipeline=preprocess_pipeline,
     input_configs={},
 )
-```
+```text
 
 정규화 과정의 일부로 `letterbox` 단계에는 `1/255` 스케일링도 포함됩니다. 이 전처리는 `Uint8InputConfig`를 사용해 MXQ 모델 안으로 fuse할 수 있습니다.
 
@@ -163,7 +163,7 @@ mxq_compile(
     uint8_input_config=Uint8InputConfig(apply=True, inputs=[]),
     calibration_config=calibration_config,
 )
-```
+```text
 
 원래 입력 형식을 유지하고 싶다면 전처리 fuse와 `Uint8InputConfig`를 모두 비활성화하면 됩니다.
 
@@ -179,7 +179,7 @@ calibration_config = CalibrationConfig(
         "topk_ratio": 0.01,  # quantization topk
     },
 )
-```
+```text
 
 설정을 마친 뒤 하드웨어에 맞는 `--target-device`를 지정해 `model_compile.py`를 실행합니다. 스크립트 한 번으로 양자화된 MXQ 파일(`--save-path`)과 중간 MBLT 그래프(`--mblt-path`)를 모두 생성합니다.
 
@@ -199,7 +199,7 @@ mxq_compile(
     inference_scheme=inferece_sheme,
     calibration_config=calibration_config,
 )
-```
+```text
 
 파라미터:
 
@@ -235,7 +235,7 @@ yolo export model=yolo11m-seg.pt format=onnx
 
 # YOLOv8 seg (for regulus-ra)
 yolo export model=yolov8m-seg.pt format=onnx
-```
+```text
 
 ```bash
 # ARIES
@@ -246,6 +246,6 @@ python model_compile.py --onnx-path ./yolov8m-seg.onnx --calib-data-path ./coco-
 
 # REGULUS (2026-06 이후 고객)
 python model_compile.py --onnx-path ./yolo11m-seg.onnx --calib-data-path ./coco-selected --save-path ./yolo11m-seg.mxq --mblt-path ./yolo11m-seg.mblt --target-device regulus-rb
-```
+```text
 
 명령이 끝나면 현재 디렉토리에 해당 MXQ와 MBLT 파일이 저장됩니다.

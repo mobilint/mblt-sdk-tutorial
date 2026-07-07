@@ -1,8 +1,8 @@
 # 얼굴 탐지 모델 컴파일
 
-이 튜토리얼은 Mobilint `qbcompiler`를 사용해 얼굴 탐지 모델을 컴파일하는 방법을 설명합니다.
+이 튜토리얼은 Mobilint `qbcompiler`로 얼굴 탐지 모델을 컴파일하는 방법을 설명합니다.
 
-전체 흐름은 [../object_detection/README.KR.md](../object_detection/README.KR.md)와 유사합니다.
+전체 워크플로는 [../object_detection/README.KR.md](../object_detection/README.KR.md)와 유사합니다.
 
 1. 사전 학습된 모델을 준비하고 ONNX로 내보냅니다.
 2. 대표성 있는 캘리브레이션 데이터셋을 구성합니다.
@@ -21,13 +21,13 @@
 
 ```bash
 pip install ultralytics huggingface_hub
-```
+```text
 
 환경에 따라 Hugging Face 인증이 필요하다면, 캘리브레이션 데이터셋을 다운로드하기 전에 아래와 같이 로그인하세요.
 
 ```bash
 hf auth login --token <your_huggingface_token>
-```
+```text
 
 ## 개요
 
@@ -43,7 +43,7 @@ hf auth login --token <your_huggingface_token>
 
 ```bash
 python prepare_model.py
-```
+```text
 
 **수행 작업:**
 
@@ -64,7 +64,7 @@ python prepare_model.py
 
 ```bash
 python prepare_widerface.py
-```
+```text
 
 이 스크립트는 `WIDER_train.zip`을 다운로드하고, 학습 이미지를 하위 카테고리별로 묶은 뒤, 각 카테고리에서 무작위로 한 장씩 선택해 `widerface-selected/`에 복사합니다.
 
@@ -72,7 +72,7 @@ python prepare_widerface.py
 
 ```bash
 python prepare_widerface.py --output-dir ./widerface-selected --seed 42
-```
+```text
 
 **수행 작업:**
 
@@ -125,7 +125,7 @@ def pre_ftn(img_path):
     img = (img / 255).astype(np.float32)
 
     return img
-```
+```text
 
 스크립트는 `make_calib_man()`을 사용해 텐서 데이터셋을 생성합니다.
 
@@ -137,13 +137,13 @@ make_calib_man(
     save_name=os.path.basename(args.npy_path),
     remove_npy=True,  # 새 .npy 파일을 쓰기 전에 기존 출력물을 정리합니다.
 )
-```
+```text
 
 스크립트 실행 방법은 다음과 같습니다.
 
 ```bash
 python convert_img_to_tensor.py
-```
+```text
 
 기본 설정에서는 `./widerface-selected`에서 이미지를 읽고, `./calib_data_tensor` 아래에 텐서 데이터셋을 생성합니다.
 
@@ -162,7 +162,7 @@ preprocessing_config = PreprocessingConfig(
     pipeline=preprocess_pipeline,
     input_configs={},
 )
-```
+```text
 
 정규화 과정에서 `letterbox` 연산에는 `1/255` 스케일링이 포함되며, 이 전처리는 `fuseIntoFirstLayer`와 `Uint8InputConfig`를 통해 MXQ 모델 안으로 fuse할 수 있습니다.
 
@@ -176,7 +176,7 @@ mxq_compile(
     uint8_input_config=Uint8InputConfig(apply=True, inputs=[]),
     calibration_config=calibration_config,
 )
-```
+```text
 
 원래 입력 형식을 유지하고 싶다면 `fuseIntoFirstLayer`와 `Uint8InputConfig`를 모두 비활성화하세요.
 
@@ -192,7 +192,7 @@ calibration_config = CalibrationConfig(
         "topk_ratio": 0.01,
     },
 )
-```
+```text
 
 ## 3-1단계 (선택): 준비된 텐서 파일로 컴파일
 
@@ -210,7 +210,7 @@ mxq_compile(
     inference_scheme=inferece_sheme,
     calibration_config=calibration_config,
 )
-```
+```text
 
 `--target-device`로 대상 디바이스를 지정해 실행합니다. 하나의 `model_compile.py`가 두 산출물을 만듭니다: 양자화 MXQ(`--save-path`)와 중간 MBLT 그래프(`--mblt-path`).
 
@@ -242,7 +242,7 @@ python model_compile.py --onnx-path ./yolov12m-face.onnx --calib-data-path ./wid
 
 # REGULUS (2026-06 이후 고객)
 python model_compile.py --onnx-path ./yolov12m-face.onnx --calib-data-path ./widerface-selected --save-path ./yolov12m-face.mxq --mblt-path ./yolov12m-face.mblt --target-device regulus-rb
-```
+```text
 
 위 명령을 실행하면 현재 디렉토리에 MXQ 파일(`yolov12m-face.mxq`)과 MBLT 파일(`yolov12m-face.mblt`)이 저장됩니다.
 

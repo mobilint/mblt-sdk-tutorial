@@ -1,29 +1,29 @@
 # 비전 언어 모델 (VLM) 컴파일
 
-이 튜토리얼은 Mobilint qbcompiler 컴파일러를 사용하여 비전 언어 모델(VLM)을 컴파일하는 방법에 대한 상세한 지침을 제공합니다.
+이 튜토리얼은 Mobilint `qbcompiler`로 비전 언어 모델(VLM)을 컴파일하는 방법을 설명합니다.
 
-이 튜토리얼에서는 Qwen에서 개발한 최첨단 비전-언어 모델인 [Qwen2-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct) 모델을 사용합니다.
+이 튜토리얼에서는 Qwen이 개발한 비전-언어 모델 [Qwen2-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct)를 사용합니다.
 
 ## 개요
 
 VLM 컴파일 과정은 세 가지 주요 단계로 구성됩니다:
 
-1. **캘리브레이션 데이터 생성**: 양자화를 위한 캘리브레이션 데이터셋 생성
-2. **MBLT 컴파일**: 모델을 MBLT(Mobilint Binary LayouT) 형식으로 컴파일
-3. **MXQ 컴파일**: 고급 양자화를 적용하고 배포를 위해 `.mxq` 형식으로 컴파일
+1. **캘리브레이션 데이터 생성**: 양자화를 위한 캘리브레이션 데이터셋을 생성합니다.
+2. **MBLT 컴파일**: 모델을 MBLT(Mobilint Binary LayouT) 형식으로 컴파일합니다.
+3. **MXQ 컴파일**: 고급 양자화를 적용해 배포용 `.mxq` 형식으로 컴파일합니다.
 
-컴파일 과정은 **언어 모델**(디코더)과 **비전 인코더** 컴포넌트에 대해 별도로 수행됩니다.
+이 워크플로에서는 **언어 모델**(디코더)과 **비전 인코더**를 각각 별도로 컴파일합니다.
 
-컴파일 후에는 NPU에서 배포할 준비가 된 모든 필요한 파일이 `mxq/` 디렉토리에 생성됩니다.
+컴파일이 끝나면 NPU 배포에 필요한 모든 파일이 `mxq/` 디렉토리에 정리됩니다.
 
 ## 사전 요구사항
 
-시작하기 전에 다음이 있는지 확인하세요:
+시작하기 전에 다음 항목이 준비되어 있는지 확인하세요.
 
 - Python 3.8 이상
-- qbcompiler SDK 컴파일러 설치 (버전 >= 1.0.1 필요)
-- (선택사항) 캘리브레이션 및 컴파일을 위한 CUDA 지원 GPU
-- 충분한 디스크 공간 (모델 + 캘리브레이션 데이터용 약 20GB)
+- `qbcompiler` SDK 설치 (버전 `>= 1.0.1`)
+- 선택 사항: 캘리브레이션 및 컴파일에 사용할 CUDA 지원 GPU
+- 충분한 디스크 공간 (모델과 캘리브레이션 데이터를 포함해 약 20 GB)
 
 ### 필수 의존성 패키지 설치
 
@@ -31,22 +31,22 @@ VLM 컴파일 과정은 세 가지 주요 단계로 구성됩니다:
 
 ```bash
 pip install transformers==4.57.1 qwen-vl-utils==0.0.14 accelerate==1.13.0
-```
+```text
 
 ### 캘리브레이션 이미지 다운로드
 
-캘리브레이션 과정은 COCO 데이터셋의 이미지를 사용합니다. 100개의 이미지를 자동으로 가져오는 다운로드 스크립트가 제공됩니다:
+캘리브레이션 과정에서는 COCO 데이터셋 이미지를 사용합니다. 100장의 이미지를 자동으로 내려받는 스크립트가 제공됩니다.
 
 ```bash
 python download_images.py
-```
+```text
 
 **이 작업의 내용:**
 
-- HuggingFace datasets를 사용하여 COCO 2017 validation에서 100개의 이미지 다운로드
-- 이미지를 224x224 해상도로 자동 리사이즈
+- Hugging Face Datasets를 사용해 COCO 2017 validation에서 이미지 100장 다운로드
+- 이미지를 `224x224` 해상도로 자동 리사이즈
 - 이미지를 JPEG 파일로 `images/` 디렉토리에 저장
-- COCO 다운로드가 실패하면 대체할 합성 샘플 이미지 생성합니다.
+- COCO 다운로드가 실패하면 합성 샘플 이미지로 대체
 
 **출력:**
 
@@ -68,7 +68,7 @@ python generate_calibration_data.py \
     --output-dir ./calibration_data \
     --num-samples 100 \
     --max-new-tokens 500
-```
+```text
 
 **매개변수:**
 
@@ -98,7 +98,7 @@ calibration_data/
     ...
     metadata.json
     npy_files.txt
-```
+```text
 
 ## Stage 2: MBLT 컴파일
 
@@ -114,7 +114,7 @@ python mblt_compile_language.py --target-device aries-rb
 
 # REGULUS (2026-06 이후 고객)
 python mblt_compile_language.py --target-device regulus-rb
-```
+```text
 
 **이 작업의 내용:**
 
@@ -149,7 +149,7 @@ python mblt_compile_vision.py --target-device aries-rb
 
 # REGULUS (2026-06 이후 고객)
 python mblt_compile_vision.py --target-device regulus-rb
-```
+```text
 
 **이 작업의 내용:**
 
@@ -187,7 +187,7 @@ python mxq_compile_language.py --target-device aries-rb
 
 # REGULUS (2026-06 이후 고객)
 python mxq_compile_language.py --target-device regulus-rb
-```
+```text
 
 **이 작업의 내용:**
 
@@ -223,7 +223,7 @@ python mxq_compile_vision.py --target-device aries-rb
 
 # REGULUS (2026-06 이후 고객)
 python mxq_compile_vision.py --target-device regulus-rb
-```
+```text
 
 **이 작업의 내용:**
 
@@ -254,14 +254,14 @@ python mxq_compile_vision.py --target-device regulus-rb
 
 ### 대상 디바이스 (`--target-device`)
 
-language·vision mxq 컴파일 스크립트 모두 `--target-device` 로 대상 NPU 를 지정해야 합니다 (필수). REGULUS 는 `inference_scheme="single"` 만 지원하므로, `regulus` 디바이스를 지정하면 자동으로 설정됩니다. ARIES 흐름과 마찬가지로, 비전 인코더 컴파일 전에 회전 행렬이 생성되도록 언어 모델을 먼저 실행하세요.
+언어 모델과 비전 모델의 MXQ 컴파일 스크립트는 모두 `--target-device`로 대상 NPU를 지정합니다. REGULUS는 `inference_scheme="single"`만 지원하므로 `regulus` 디바이스를 지정하면 자동으로 적용됩니다. ARIES 흐름과 마찬가지로, 비전 인코더를 컴파일하기 전에 언어 모델을 먼저 실행해 회전 행렬을 생성해야 합니다.
 
 | 사용자 | `--target-device` |
 |---|---|
 | ARIES | `aries-rb` |
 | REGULUS (2026-06 이후 고객) | `regulus-rb` |
 
-> **참고**: VLM 컴파일은 신버전 REGULUS(`regulus-rb`, 2026-06 이후 고객)에서 지원됩니다. 구버전 REGULUS(`regulus-ra`, 2026-06 이전 고객)는 이 task 를 지원하지 않습니다.
+> **참고:** VLM 컴파일은 신형 REGULUS(`regulus-rb`, 2026-06 이후 고객)에서 지원됩니다. 구형 REGULUS(`regulus-ra`, 2026-06 이전 고객)는 이 워크플로를 지원하지 않습니다.
 
 출력은 대상 디바이스와 관계없이 동일한 `./mxq/` 경로에 저장됩니다.
 
@@ -277,7 +277,7 @@ language·vision mxq 컴파일 스크립트 모두 `--target-device` 로 대상 
 
 ```bash
 python get_config.py
-```
+```text
 
 **이 작업의 내용:**
 
@@ -299,7 +299,7 @@ python get_config.py
 
 ```bash
 python get_safetensors.py
-```
+```text
 
 **이 작업의 내용:**
 
@@ -370,7 +370,7 @@ python get_safetensors.py
 # - Qwen2-VL-2B-Instruct_vision_transformer.mxq
 # - config.json
 # - model.safetensors
-```
+```text
 
 ## 컴파일 흐름 이해
 
@@ -388,7 +388,7 @@ python get_safetensors.py
 [MXQ 컴파일] -> Qwen2-VL-2B-Instruct_text_model.mxq
     |
     +-> global_rotation.pth (비전 인코더에 필요)
-```
+```text
 
 ### 비전 인코더 파이프라인
 
@@ -403,7 +403,7 @@ python get_safetensors.py
     |
 [MXQ 컴파일] -> Qwen2-VL-2B-Instruct_vision_transformer.mxq
     |            (요구사항: 언어 모델의 global_rotation.pth)
-```
+```text
 
 ### 구성 파일 준비
 
@@ -413,7 +413,7 @@ python get_safetensors.py
 
 [get_safetensors.py] -> model.safetensors
                         (회전된 토큰 임베딩 가중치)
-```
+```text
 
 ### 주요 종속성
 
@@ -460,7 +460,7 @@ python get_safetensors.py
 
 ```bash
 FileNotFoundError: ./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth
-```
+```text
 
 **해결 방법:** 먼저 `mxq_compile_language.py`를 실행하여 회전 행렬을 생성하세요.
 
@@ -481,13 +481,13 @@ MXQ 컴파일 스크립트의 캘리브레이션 데이터 경로가 실제 캘�
 
 ```bash
 FileNotFoundError: No images found in images/ directory
-```
+```text
 
 **해결 방법:** 이미지 다운로드 스크립트를 실행하세요:
 
 ```bash
 python download_images.py
-```
+```text
 
 이렇게 하면 COCO 데이터셋에서 100개의 이미지를 `images/` 디렉토리에 다운로드합니다.
 

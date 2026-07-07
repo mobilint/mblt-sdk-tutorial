@@ -15,7 +15,7 @@ Install the required Python packages:
 
 ```bash
 pip install ultralytics aiohttp aiofiles
-```
+```text
 
 ## Overview
 
@@ -31,7 +31,7 @@ Use the `ultralytics` CLI to export the pretrained model to ONNX:
 
 ```bash
 yolo export model=yolo11m-seg.pt format=onnx
-```
+```text
 
 After the command finishes, the exported model is saved as `yolo11m-seg.onnx` in the current directory.
 
@@ -43,7 +43,7 @@ Before downloading the dataset, sign in to Hugging Face with a token that has ac
 
 ```bash
 hf auth login --token <your_huggingface_token>
-```
+```text
 
 If you do not know your token, create or copy one from your [Hugging Face token settings](https://huggingface.co/settings/tokens).
 
@@ -51,7 +51,7 @@ Use `prepare_coco.py` to download a random subset of COCO images into `coco-sele
 
 ```bash
 python prepare_coco.py
-```
+```text
 
 What the script does:
 
@@ -59,7 +59,7 @@ What the script does:
 - Randomly selects images for calibration
 - Saves the images in `coco-selected`
 
-Output:
+**Output:**
 
 - `coco-selected`: calibration image directory
 
@@ -104,7 +104,7 @@ def pre_ftn(img_path):
     img = (img / 255).astype(np.float32)
 
     return img
-```
+```text
 
 The script calls `make_calib_man()` to generate the tensor dataset:
 
@@ -116,13 +116,13 @@ make_calib_man(
     save_name=os.path.basename(args.npy_path),
     remove_npy=True,  # Clean the destination before writing new .npy files.
 )
-```
+```text
 
 Run the conversion script:
 
 ```bash
 python convert_img_to_tensor.py
-```
+```text
 
 By default, it reads images from `./coco-selected` and writes tensor files under `./calib_data_tensor`.
 
@@ -149,7 +149,7 @@ preprocessing_config = PreprocessingConfig(
     pipeline=preprocess_pipeline,
     input_configs={},
 )
-```
+```text
 
 As part of normalization, the `letterbox` step includes `1/255` scaling. You can fuse this preprocessing into the MXQ model with `Uint8InputConfig`.
 
@@ -163,7 +163,7 @@ mxq_compile(
     uint8_input_config=Uint8InputConfig(apply=True, inputs=[]),
     calibration_config=calibration_config,
 )
-```
+```text
 
 If you want to keep the original input format, disable both preprocessing fusion and `Uint8InputConfig`.
 
@@ -179,7 +179,7 @@ calibration_config = CalibrationConfig(
         "topk_ratio": 0.01,  # quantization topk
     },
 )
-```
+```text
 
 After configuring the options, run `model_compile.py` with `--target-device` set for your hardware. The script generates both outputs in one run: the quantized MXQ file (`--save-path`) and the intermediate MBLT graph (`--mblt-path`).
 
@@ -199,7 +199,7 @@ mxq_compile(
     inference_scheme=inferece_sheme,
     calibration_config=calibration_config,
 )
-```
+```text
 
 Parameters:
 
@@ -235,7 +235,7 @@ yolo export model=yolo11m-seg.pt format=onnx
 
 # YOLOv8 seg (for regulus-ra)
 yolo export model=yolov8m-seg.pt format=onnx
-```
+```text
 
 ```bash
 # ARIES
@@ -246,6 +246,6 @@ python model_compile.py --onnx-path ./yolov8m-seg.onnx --calib-data-path ./coco-
 
 # REGULUS (customers from 2026-06)
 python model_compile.py --onnx-path ./yolo11m-seg.onnx --calib-data-path ./coco-selected --save-path ./yolo11m-seg.mxq --mblt-path ./yolo11m-seg.mblt --target-device regulus-rb
-```
+```text
 
 After the command completes, the corresponding MXQ and MBLT files are saved in the current directory.

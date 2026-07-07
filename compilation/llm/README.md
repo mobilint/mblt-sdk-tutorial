@@ -1,16 +1,16 @@
 # Large Language Model (LLM) Compilation
 
-This tutorial provides instructions for compiling Large Language Models (LLMs) using the Mobilint qbcompiler.
+This tutorial explains how to compile a large language model (LLM) with Mobilint `qbcompiler`.
 
-In this tutorial, we will use the [Llama-3.2-1B-Instruct](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct) model, a 1B parameter language model developed by Meta.
+This tutorial uses [Llama-3.2-1B-Instruct](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct), a 1B-parameter language model developed by Meta.
 
 ## Overview
 
 The compilation process consists of three main steps:
 
-1. **Model Preparation**: Download the model and extract embedding weights
-2. **Calibration Data Generation**: Create calibration data from Wikipedia articles
-3. **Model Compilation**: Compile the model to `.mxq` format with 8-bit quantization
+1. **Model Preparation**: Download the model and extract embedding weights.
+2. **Calibration Data Generation**: Create calibration data from Wikipedia articles.
+3. **Model Compilation**: Compile the model to `.mxq` format with 8-bit quantization.
 
 ## Prerequisites
 
@@ -20,15 +20,15 @@ The compilation process consists of three main steps:
 
 ```bash
 pip install -r requirements.txt
-```
+```text
 
-## Step 1: Download Model
+## Step 1: Download the Model
 
 Sign up on [Hugging Face](https://huggingface.co/) and accept the license on the [model page](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct), then log in:
 
 ```bash
 huggingface-cli login --token <your_huggingface_token>
-```
+```text
 
 Download the model and extract its embedding weights. The embedding layer runs on CPU at inference time, while the rest of the model runs on NPU.
 
@@ -36,7 +36,7 @@ Download the model and extract its embedding weights. The embedding layer runs o
 python download_model.py \
   --repo-id meta-llama/Llama-3.2-1B-Instruct \
   --embedding-path ./embedding.pt
-```
+```text
 
 **Output:**
 
@@ -52,7 +52,7 @@ python generate_calib.py \
   --embedding-path ./embedding.pt \
   --tokenizer-path meta-llama/Llama-3.2-1B-Instruct \
   --output-dir ./calibration_data
-```
+```text
 
 **Output:**
 
@@ -67,7 +67,7 @@ python generate_mxq.py \
   --model-path meta-llama/Llama-3.2-1B-Instruct \
   --calib-data-path ./calibration_data/datas/meta-llama-Llama-3.2-1B-Instruct/en \
   --save-path ./Llama-3.2-1B-Instruct.mxq
-```
+```text
 
 **Output:**
 
@@ -75,14 +75,14 @@ python generate_mxq.py \
 
 ### Target device (`--target-device`)
 
-Pass the target NPU with `--target-device` on the same scripts (default `aries-rb`). REGULUS only supports `inference_scheme="single"`, which is set automatically when a `regulus` device is selected.
+Use `--target-device` on the same scripts to select the target NPU (default: `aries-rb`). REGULUS supports only `inference_scheme="single"`, which is selected automatically when a `regulus` device is specified.
 
 | User | `--target-device` |
 |---|---|
 | ARIES | `aries-rb` (default) |
 | REGULUS (customers from 2026-06) | `regulus-rb` |
 
-> **Note**: LLM compilation is supported on newer REGULUS (`regulus-rb`, customers from 2026-06). Older REGULUS (`regulus-ra`, customers before 2026-06) does not support this task.
+> **Note:** LLM compilation is supported on newer REGULUS (`regulus-rb`, customers from 2026-06). Older REGULUS (`regulus-ra`, customers before 2026-06) do not support this workflow.
 
 ```bash
 # 8-bit (REGULUS)
@@ -99,7 +99,7 @@ python generate_mxq_4bit.py \
   --save-path ./Llama-3.2-1B-Instruct_w4.mxq \
   --bit w4 \
   --target-device regulus-rb
-```
+```text
 
 The 4-bit variant also requires the embedding rotation step below.
 
@@ -123,7 +123,7 @@ python generate_mxq_4bit.py \
   --calib-data-path ./calibration_data/datas/meta-llama-Llama-3.2-1B-Instruct/en \
   --save-path ./Llama-3.2-1B-Instruct_w4.mxq \
   --bit w4
-```
+```text
 
 - `--bit`: Bit allocation preset. `w4` (all 4-bit, default) or `w4v8` (4-bit except value kept at 8-bit for accuracy).
 
@@ -141,7 +141,7 @@ python get_rotation_emb.py \
   --embedding-path ./embedding.pt \
   --rotation-matrix-path ./spinWeight/model/R1/global_rotation.pth \
   --output-path ./embedding_rot.pt
-```
+```text
 
 **Output:**
 

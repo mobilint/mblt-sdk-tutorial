@@ -1,8 +1,8 @@
 # Bidirectional Encoder Representations from Transformers (BERT)
 
-This tutorial walks through how to compile a BERT model with the Mobilint qb Compiler. The process converts a standard BERT model into an optimized `.mxq` file that runs efficiently on Mobilint NPU hardware.
+This tutorial explains how to compile a BERT model with Mobilint `qbcompiler`. The workflow converts a standard BERT model into an optimized `.mxq` file for Mobilint NPUs.
 
-In this tutorial, we use [Sentence-BERT](https://huggingface.co/sentence-transformers-testing/stsb-bert-tiny-safetensors), a BERT-based model adapted to generate sentence embeddings.
+This tutorial uses [Sentence-BERT](https://huggingface.co/sentence-transformers-testing/stsb-bert-tiny-safetensors), a BERT-based model adapted for sentence embedding generation.
 
 ## Overview
 
@@ -17,20 +17,20 @@ All scripts are run from the `bert/` directory.
 
 ## Prerequisites
 
-- Mobilint qb Compiler (`>= 1.0.0`)
+- Mobilint `qbcompiler` (`>= 1.0.0`)
 - GPU with CUDA support (recommended for reducing compilation time)
 
 ```bash
 pip install -r requirements.txt
-```
+```text
 
 ## Step 1: Extract Embedding Weights
 
-Because of the BERT architecture, some input embedding layers are not supported on the NPU. In this step, you extract those embedding weights from the model and save them as a `.pth` file for CPU-side execution.
+Because of the BERT architecture, some input embedding layers cannot run on the NPU. In this step, you extract those weights from the model and save them as a `.pth` file for CPU-side execution.
 
 ```bash
 python get_embedding.py
-```
+```text
 
 **What this does:**
 
@@ -50,7 +50,7 @@ Generate calibration data from the [STS Benchmark Dataset](https://huggingface.c
 
 ```bash
 python prepare_calib.py
-```
+```text
 
 **What this does:**
 
@@ -72,7 +72,7 @@ python compile_mblt.py
 
 # REGULUS (customers from 2026-06)
 python compile_mblt.py --target-device regulus-rb
-```
+```text
 
 `compile_mblt.py` calls `mblt_compile()` and selects the target NPU with `--target-device` (default: `aries-rb`).
 
@@ -89,7 +89,7 @@ python compile_mblt.py --target-device regulus-rb
 
 ## Step 4: Compile to MXQ
 
-Compile the model to the final `.mxq` format with quantization, using the calibration data generated in Step 2.
+Using the calibration data generated in Step 2, compile the model to the final quantized `.mxq` format.
 
 ```bash
 # ARIES (default)
@@ -97,7 +97,7 @@ python compile_mxq.py
 
 # REGULUS (customers from 2026-06)
 python compile_mxq.py --target-device regulus-rb
-```
+```text
 
 `compile_mxq.py` selects the target NPU with `--target-device` (default: `aries-rb`). REGULUS supports only `inference_scheme="single"`, which is set automatically when a `regulus` device is selected.
 
@@ -121,7 +121,7 @@ python compile_mxq.py --target-device regulus-rb
 | ARIES | `aries-rb` (default) |
 | REGULUS (customers from 2026-06) | `regulus-rb` |
 
-> **Note:** BERT compilation is supported on newer REGULUS (`regulus-rb`, for customers from 2026-06). Older REGULUS (`regulus-ra`, for customers before 2026-06) does not support this task. Use `--target-device regulus-rb` with both `compile_mblt.py` and `compile_mxq.py`.
+> **Note:** BERT compilation is supported on newer REGULUS (`regulus-rb`, for customers from 2026-06). Older REGULUS (`regulus-ra`, for customers before 2026-06) does not support this workflow. Use `--target-device regulus-rb` with both `compile_mblt.py` and `compile_mxq.py`.
 
 ## File Structure
 
@@ -142,7 +142,7 @@ bert/
 │   └── stsb-bert-tiny-safetensors.mblt
 └── mxq/                                   # Output MXQ model
     └── stsb-bert-tiny-safetensors.mxq
-```
+```text
 
 ## Troubleshooting
 
@@ -152,7 +152,7 @@ If calibration fails because the embedding weights are missing:
 
 ```bash
 ls ./weights/weight_dict.pth
-```
+```text
 
 If the file is missing, run `get_embedding.py` again.
 
@@ -162,7 +162,7 @@ If MXQ compilation fails because the calibration data is missing:
 
 ```bash
 ls ./calibration_data/
-```
+```text
 
 If the directory is missing or empty, run `prepare_calib.py` again.
 
