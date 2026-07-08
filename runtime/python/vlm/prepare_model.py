@@ -87,13 +87,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output-folder",
         type=str,
-        default="./qwen2-vl-mxq",
+        default="./qwen3-vl-mxq",
         help="Destination folder for the prepared model",
     )
     parser.add_argument(
         "--model-id",
         type=str,
-        default="mobilint/Qwen2-VL-2B-Instruct",
+        default="mobilint/Qwen3-VL-2B-Instruct",
         help="HuggingFace model ID stored in config for mblt-model-zoo model registration",
     )
 

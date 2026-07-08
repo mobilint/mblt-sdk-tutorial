@@ -37,7 +37,13 @@ if __name__ == "__main__":
     )
     parser.add_argument("--save-path", type=str, default="./Llama-3.2-1B-Instruct.mxq")
     parser.add_argument("--bit", type=str, default="w4", choices=["w4", "w4v8"])
-    parser.add_argument("--target-device", type=str, default="aries-rb", help="Target NPU (e.g. aries-rb, regulus-rb)")
+    parser.add_argument(
+        "--target-device",
+        type=str,
+        choices=["regulus-rb", "aries-rb"],
+        default="aries-rb",
+        help="Target NPU (e.g. aries-rb, regulus-rb)",
+    )
     args = parser.parse_args()
 
     device = "gpu" if torch.cuda.is_available() else "cpu"

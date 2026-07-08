@@ -1,6 +1,6 @@
 # Vision Language Model (VLM) Compilation
 
-This tutorial provides detailed instructions for compiling Vision Language Models (VLMs) using the Mobilint qbcompiler compiler.
+This tutorial explains how to compile a vision-language model (VLM) with Mobilint `qbcompiler`.
 
 In this tutorial, we will use the [Qwen3-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct) model, a state-of-the-art vision-language model developed by Qwen. Qwen3-VL introduces a deepstack visual pathway: the vision encoder produces image embeds plus three deepstack feature maps that are injected into the early decoder layers, so both the calibration data and the decoder compilation carry deepstack tensors.
 
@@ -10,22 +10,22 @@ The quantization settings in this tutorial use the benchmark-best 2B configurati
 
 The VLM compilation process consists of three main stages:
 
-1. **Calibration Data Generation**: Create calibration datasets for quantization
-2. **MBLT Compilation**: Compile the model to MBLT (Mobilint Binary LayouT) format
-3. **MXQ Compilation**: Apply advanced quantization and compile to `.mxq` format for deployment
+1. **Calibration Data Generation**: Create calibration datasets for quantization.
+2. **MBLT Compilation**: Compile the model to MBLT (Mobilint Binary LayouT) format.
+3. **MXQ Compilation**: Apply advanced quantization and compile to `.mxq` format for deployment.
 
-The compilation process is performed separately for the **language model** (decoder) and **vision encoder** components.
+The workflow compiles the **language model** (decoder) and the **vision encoder** separately.
 
-After compilation, you will have all necessary files in the `mxq/` directory ready for deployment on NPU.
+After compilation, the `mxq/` directory contains all files required for deployment on the NPU.
 
 ## Prerequisites
 
-Before starting, ensure you have:
+Before you begin, make sure the following are available:
 
 - Python 3.8 or higher
-- qbcompiler SDK compiler installed (version >= 1.0.1 required)
-- (optional) CUDA-capable GPU for calibration and compilation
-- Sufficient disk space (~20GB for model + calibration data)
+- `qbcompiler` SDK installed (version `>= 1.0.1`)
+- Optional CUDA-capable GPU for calibration and compilation
+- Sufficient disk space (about 20 GB for the model and calibration data)
 
 ### Install Required Dependencies
 
@@ -37,7 +37,7 @@ pip install transformers==4.57.1 qwen-vl-utils==0.0.14 accelerate==1.13.0
 
 ### Download Calibration Images
 
-The calibration process uses images from the COCO dataset. A download script is provided to automatically fetch 100 images:
+The calibration flow uses images from the COCO dataset. A helper script is provided to download 100 images automatically:
 
 ```bash
 python download_images.py
@@ -45,10 +45,10 @@ python download_images.py
 
 **What it does:**
 
-- Downloads 100 images from the COCO 2017 validation set using HuggingFace datasets
-- Automatically resizes images to 224x224 resolution
-- Saves images to the `images/` directory as JPEG files
-- If the COCO download fails, generates synthetic sample images as fallback
+- Downloads 100 images from the COCO 2017 validation set using Hugging Face Datasets
+- Automatically resizes the images to `224x224`
+- Saves the images as JPEG files in the `images/` directory
+- Falls back to synthetic sample images if the COCO download fails
 
 **Output:**
 
@@ -62,7 +62,7 @@ Calibration data is essential for quantization, as it helps the compiler underst
 
 ### Step 1.1: Generate Calibration Data
 
-A single script generates calibration data for both the language model (decoder) and the vision encoder, reusing one loaded model:
+A single script generates calibration data for both the language model (decoder) and the vision encoder while reusing one loaded model:
 
 ```bash
 python generate_calibration_data.py \
@@ -261,14 +261,14 @@ The vision encoder's output must be properly aligned with the language model's i
 
 ### Target device (`--target-device`)
 
-Both the language and vision mxq compile scripts require `--target-device` to select the target NPU. REGULUS only supports `inference_scheme="single"`, which is set automatically when a `regulus` device is selected. As with the ARIES flow, run the language model first so the rotation matrix exists before the vision encoder is compiled.
+Both MXQ compile scripts use `--target-device` to select the target NPU. REGULUS supports only `inference_scheme="single"`, which is selected automatically when a `regulus` device is specified. As in the ARIES flow, compile the language model first so the rotation matrix is available before compiling the vision encoder.
 
 | User | `--target-device` |
 |---|---|
 | ARIES | `aries-rb` |
 | REGULUS (customers from 2026-06) | `regulus-rb` |
 
-> **Note**: VLM compilation is supported on newer REGULUS (`regulus-rb`, customers from 2026-06). Older REGULUS (`regulus-ra`, customers before 2026-06) does not support this task.
+> **Note:** VLM compilation is supported on newer REGULUS (`regulus-rb`, customers from 2026-06). Older REGULUS (`regulus-ra`, customers before 2026-06) do not support this workflow.
 
 Outputs are written to the same `./mxq/` paths regardless of the target device.
 
@@ -332,11 +332,11 @@ During MXQ compilation, the `SpinR1` equivalent transformation rotates the langu
 3. `config.json` (model configuration)
 4. `model.safetensors` (rotated token embedding weight)
 
-No additional file copying is required!
+No additional file copying is required.
 
 ## Complete Compilation Pipeline
 
-Here's the complete sequence of commands to compile the full VLM:
+Use the following command sequence to compile the full VLM:
 
 ```bash
 # Stage 1: Calibration Data Generation
@@ -505,7 +505,7 @@ After completing all compilation stages, the `./mxq/` directory contains all 4 f
 3. **config.json** - Model configuration with MXQ paths
 4. **model.safetensors** - Rotated token embedding weight (`model.language_model.embed_tokens.weight`)
 
-These files are ready for deployment on NPU using the Mobilint runtime.
+These files are ready for deployment on the NPU with the Mobilint runtime.
 
 ## Next Steps: Running Inference
 

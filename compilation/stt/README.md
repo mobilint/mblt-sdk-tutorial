@@ -1,16 +1,16 @@
 # Speech-to-Text (STT) Model Compilation
 
-This tutorial provides detailed instructions for compiling the Whisper speech-to-text model using the Mobilint qbcompiler compiler. The compilation process converts the Whisper model (encoder and decoder separately) into optimized `.mxq` format that can run efficiently on Mobilint NPU hardware.
+This tutorial explains how to compile the Whisper speech-to-text model with Mobilint `qbcompiler`. The workflow compiles the Whisper encoder and decoder separately into optimized `.mxq` files for Mobilint NPUs.
 
-In this tutorial, we will use the [Whisper Small](https://huggingface.co/openai/whisper-small) model, a multilingual speech recognition model developed by OpenAI.
+This tutorial uses [Whisper Small](https://huggingface.co/openai/whisper-small), a multilingual speech recognition model from OpenAI.
 
 ## Overview
 
 The compilation process consists of three main steps:
 
-1. **Data Preparation**: Download multilingual audio data from FLEURS dataset
-2. **Calibration Data Generation**: Create calibration datasets for encoder and decoder
-3. **Model Compilation**: Compile encoder and decoder separately to `.mxq` format
+1. **Data Preparation**: Download multilingual audio data from the FLEURS dataset.
+2. **Calibration Data Generation**: Create calibration datasets for the encoder and decoder.
+3. **Model Compilation**: Compile the encoder and decoder separately to `.mxq` format.
 
 All scripts are run from the `stt/` directory.
 
@@ -22,7 +22,7 @@ pip install -r requirements.txt
 
 ## Step 1: Prepare Audio Data
 
-Download audio data from the Google FLEURS dataset. This data includes multilingual audio samples that will be used for calibration.
+Download audio data from the Google FLEURS dataset. These multilingual samples are used for calibration.
 
 ```bash
 python prepare_audio.py
@@ -30,8 +30,8 @@ python prepare_audio.py
 
 **What this does:**
 
-- Downloads audio samples from Google/FLEURS dataset for 17 languages
-- Resamples audio to 16kHz mono WAV format
+- Downloads audio samples from the Google/FLEURS dataset for 17 languages
+- Resamples the audio to 16 kHz mono WAV format
 
 **Supported languages:**
 
@@ -47,7 +47,7 @@ python prepare_audio.py
 
 Generate calibration data for both the Whisper encoder and decoder. This data is essential for quantization during compilation.
 
-This step internally loads the **Whisper Small** model to generate realistic calibration inputs. The encoder calibration extracts mel spectrogram features from audio, while the decoder calibration uses the model to produce transcriptions/translations and converts them into token embeddings.
+This step loads **Whisper Small** internally to generate realistic calibration inputs. The encoder calibration extracts mel spectrogram features from audio, while the decoder calibration uses the model to produce transcriptions or translations and converts them into token embeddings.
 
 > **Note:** This step uses the Whisper Small model for inference to generate decoder calibration data. GPU (CUDA) is automatically detected and used if available, significantly speeding up the data generation process. CPU is also fully supported but takes longer.
 
@@ -59,7 +59,7 @@ python generate_calibration.py
 
 - Generates calibration data for the Whisper encoder (mel spectrogram features)
 - Generates calibration data for the Whisper decoder (encoder hidden states + decoder embeddings)
-- Loads Whisper Small model to generate transcriptions and translations on-the-fly
+- Loads the Whisper Small model to generate transcriptions and translations on the fly
 - Randomly mixes transcription (80%) and translation (20%) tasks for diverse calibration
 
 **Output:**
@@ -106,14 +106,14 @@ python compile_decoder.py
 
 ### Target device (`--target-device`)
 
-Both the encoder and decoder scripts select the target NPU with `--target-device` (default `aries-rb`). REGULUS only supports `inference_scheme="single"`, which is set automatically when a `regulus` device is selected.
+Both the encoder and decoder scripts use `--target-device` to select the target NPU (default: `aries-rb`). REGULUS supports only `inference_scheme="single"`, which is selected automatically when a `regulus` device is specified.
 
 | User | `--target-device` |
 |---|---|
 | ARIES | `aries-rb` (default) |
 | REGULUS (customers from 2026-06) | `regulus-rb` |
 
-> **Note**: STT compilation is supported on newer REGULUS (`regulus-rb`, customers from 2026-06). Older REGULUS (`regulus-ra`, customers before 2026-06) does not support this task.
+> **Note:** STT compilation is supported on newer REGULUS (`regulus-rb`, customers from 2026-06). Older REGULUS (`regulus-ra`, customers before 2026-06) does not support this workflow.
 
 ```bash
 # REGULUS (customers from 2026-06)
@@ -121,7 +121,7 @@ python compile_encoder.py --target-device regulus-rb
 python compile_decoder.py --target-device regulus-rb
 ```
 
-Outputs are written to the same `./mblt/` and `./mxq/` paths as the ARIES flow.
+The outputs are written to the same `./mblt/` and `./mxq/` paths as in the ARIES flow.
 
 ## Troubleshooting
 

@@ -1,109 +1,115 @@
-# Instance Segmentation - C++ Inference (ARIES + REGULUS)
+# Instance Segmentation Runtime in C++
 
-An example of running C++ NPU inference on a single image with instance-mask and
-bounding-box visualization. The same binary handles the YOLO11m-seg MXQ model on
-both ARIES and REGULUS because the ultralytics v8/v11 anchor-free Segment head
-shares the same output layout (3 stride x [reg_max*4 box + nc cls + 32 mask] channels,
-plus one prototype tensor of shape [32, 160, 160]).
+This tutorial explains how to run a compiled YOLO instance segmentation MXQ model with the C++ `qbruntime` API.
 
-Supports **ARIES native build** (x86_64 host with NPU) and **REGULUS
-cross-compile** (x86_64 host -> ARM64 target board) from the same
-`CMakeLists.txt`.
+Before starting, complete the compilation flow in [../../../compilation/instance_segmentation/README.md](../../../compilation/instance_segmentation/README.md). The runtime example expects one of these compiled models:
 
-## File Structure
-
-- `infer_seg.cc` - Inference binary source (NPU inference, post-processing, mask + bbox visualization)
-- `yolo_seg_config.h` - Anchorless YOLO segment configuration (yolo11m-seg / yolov8m-seg P5, 80 classes, 32 mask coefficients)
-- `utils/` - Shared inference modules (NPURunner, Transformer, YoloSegDecoder)
-- `CMakeLists.txt` - CMake build configuration (host arch auto-detected)
+- ARIES: `yolo11m-seg.mxq`
+- REGULUS: `yolov8m-seg.mxq`
 
 ## Prerequisites
 
-- Pick the matching MXQ file from the [compiler tutorial](../../../compilation/instance_segmentation/README.md):
-  - **ARIES**: `yolo11m-seg.mxq` from `model_compile.py`.
-  - **REGULUS**: `yolov8m-seg.mxq` from `model_compile_regulus.py`.
+Make sure the following components are available:
 
-### Common requirements (both paths)
+- Mobilint `qbruntime`
+- OpenCV development libraries
+- A C++17 compiler
+- CMake `3.21` or later
+- The matching MXQ file from the compilation tutorial
 
-- CMake >= 3.21
-- C++17 compiler (gcc / clang)
-- `qbruntime` library (installed together with the Mobilint NPU SDK)
-
-### ARIES native build (x86_64 host with NPU)
-
-Install host-side OpenCV and build tools (Ubuntu / Debian):
+For ARIES native builds on Ubuntu or Debian:
 
 ```bash
 apt-get update
 apt-get install -y build-essential cmake libopencv-dev
 ```
 
-### REGULUS cross-compile (x86_64 host -> ARM64 target board)
+For REGULUS cross-compilation, activate the Mobilint toolchain first as described in [../README.md](../README.md).
 
-The vendor cross-compile toolchain ships with OpenCV and `qbruntime` pre-installed.
-Verify the toolchain and activate it:
+## Overview
+
+The runtime flow in `infer_seg.cc` follows these steps:
+
+1. Load the compiled MXQ model.
+2. Read the input image.
+3. Apply YOLO-style letterbox preprocessing through `Transformer`.
+4. Run inference on the Mobilint NPU.
+5. Decode detections with DFL and NMS.
+6. Assemble instance masks from the prototype tensor and mask coefficients.
+7. Rescale detections back to the original image and draw masks, boxes, and labels.
+
+The program uses `uint8` input and assumes normalization is fused into the compiled model.
+
+## Files in This Tutorial
+
+- `infer_seg.cc`: Runs the full instance segmentation pipeline and saves the rendered image.
+- `yolo_seg_config.h`: Defines the segmentation-head configuration, thresholds, mask settings, and image size.
+- `utils/inference/`: Shared runtime helpers for model execution and preprocessing.
+- `utils/postprocess/`: Shared decode, mask assembly, and NMS helpers.
+- `CMakeLists.txt`: Builds the `infer-seg` executable and supporting utility library.
+
+## How the Program Works
+
+The program uses this command-line interface:
 
 ```bash
-ls /opt/crosstools/mobilint/                                   # version directory expected
-unset LD_LIBRARY_PATH                                          # avoid host CUDA libs leaking
-source /opt/crosstools/mobilint/{version}/{sdk}/environment-setup-cortexa53-mobilint-linux
-echo $CXX                                                      # aarch64-mobilint-linux-g++ ...
+./infer-seg <model.mxq> <image_path> <output_path>
 ```
 
-If the toolchain is not installed, follow [Cross-Compilation Setup](../README.md).
+`Transformer` handles:
+
+- Letterbox resize
+- BGR-to-RGB conversion
+- HWC-to-CHW conversion
+
+After inference, `YoloSegDecoder`:
+
+- Decodes the anchor-free YOLO outputs
+- Applies confidence filtering and NMS
+- Extracts the prototype mask tensor
+- Assembles one mask per detection
+- Rescales the final detections to the original image
 
 ## Build
 
-The same command works for both ARIES native and REGULUS cross-compile.
-`CMakeLists.txt` detects the host arch and selects the right `-march` flag.
+From this directory:
 
 ```bash
 cmake -B build -S .
 cmake --build build -j
 ```
 
-After a successful build, `build/infer-seg` is created.
+This produces:
 
-Verify the architecture:
+- `build/infer-seg`
+
+You can verify the target architecture with:
 
 ```bash
 file build/infer-seg
-# ARIES:   ELF 64-bit LSB executable, x86-64, ...
-# REGULUS: ELF 64-bit LSB executable, ARM aarch64, ...
 ```
 
 ## Run
 
-A sample image `../rc/cr7.jpg` is bundled with the repo.
+Sample image:
 
-### ARIES (same host)
+- `../rc/cr7.jpg`
+
+### ARIES
 
 ```bash
 ./build/infer-seg ../../../compilation/instance_segmentation/yolo11m-seg.mxq ../rc/cr7.jpg result.jpg
 ```
 
-### REGULUS (target board)
+### REGULUS
 
-Copy `build/infer-seg`, `yolov8m-seg.mxq`, and `../rc/cr7.jpg` to the target board, then:
+Copy `build/infer-seg`, `yolov8m-seg.mxq`, and `cr7.jpg` to the target board, then run:
 
 ```bash
 chmod +x infer-seg
 ./infer-seg yolov8m-seg.mxq cr7.jpg result.jpg
 ```
 
-## Example Output
+## Expected Output
 
-```
-Model input: 640x640x3
-Image size: 1920x1080
-Inference time: 24.512 ms
-Detections: 3
-  person 92% [120,45,380,520]
-  car 87% [600,200,950,450]
-  dog 76% [400,300,550,500]
-Result saved to: result.jpg
-```
-
-The result image `result.jpg` contains the original image with per-instance
-segmentation masks overlaid (alpha-blended in the class color) plus bounding boxes
-and class labels.
+The program prints the model input shape, original image size, inference time, and decoded detections, then saves an output image such as `result.jpg` with instance masks, bounding boxes, and class labels.

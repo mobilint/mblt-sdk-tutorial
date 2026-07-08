@@ -37,8 +37,13 @@ def get_device_inference_scheme(target_device):
 
 if __name__ == "__main__":
     parser = ArgumentParser(description="Compile Qwen3-VL language model MBLT to MXQ")
-    parser.add_argument("--target-device", type=str, required=True, choices=TARGET_DEVICES,
-                        help="Target NPU (e.g. aries-rb, regulus-rb)")
+    parser.add_argument(
+        "--target-device",
+        type=str,
+        required=True,
+        choices=TARGET_DEVICES,
+        help="Target NPU (e.g. aries-rb, regulus-rb)",
+    )
     args = parser.parse_args()
 
     mblt_path = "mblt/Qwen3-VL-2B-Instruct_text_model.mblt"

@@ -16,7 +16,6 @@ from qbcompiler.model_dict.parser.backend.fx_hf_extensions.transformers.models.q
 from qbcompiler.model_dict.parser.backend.torch.object_wrapper import set_attention_mask
 from qbcompiler.model_dict.parser.backend.torch.util import wrap_tensor
 from qbcompiler.model_dict.parser.parser import ModelParser
-
 from utils import create_sample_messages, load_model_and_processor, prepare_inputs, serialize_to_mblt
 
 TARGET_DEVICES = ["regulus-ra", "aries-rb", "regulus-rb"]
@@ -56,9 +55,7 @@ def capture_projection_inputs(model, inputs):
     captured = {}
 
     def snapshot(*args, **kwargs):
-        captured.update(
-            {k: (v.clone().detach() if isinstance(v, torch.Tensor) else v) for k, v in kwargs.items()}
-        )
+        captured.update({k: (v.clone().detach() if isinstance(v, torch.Tensor) else v) for k, v in kwargs.items()})
         raise _CaptureDone
 
     projection.forward = snapshot

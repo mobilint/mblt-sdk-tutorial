@@ -1,21 +1,15 @@
 from argparse import ArgumentParser
 
-from qbcompiler import (
-    CalibrationConfig,
-    PreprocessingConfig,
-    Uint8InputConfig,
-    mxq_compile,
-    mblt_compile
-)
+from qbcompiler import CalibrationConfig, PreprocessingConfig, Uint8InputConfig, mblt_compile, mxq_compile
 
 
 def get_device_inference_sheme(target_device):
     # regulus device only support single
-    if 'regulus' in target_device:
-        return 'single'
+    if "regulus" in target_device:
+        return "single"
     # aries device support all
-    elif 'aries' in target_device:
-        return 'all'
+    elif "aries" in target_device:
+        return "all"
     else:
         raise ValueError(f"{target_device} not supported current qbcompiler version")
 
@@ -49,8 +43,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--target-device",
         type=str,
-        default=None,
-        required=True
+        choices=["regulus-ra", "regulus-rb", "aries-rb"],
+        default="aries-rb",
+        help="Target NPU (e.g. aries-rb, regulus-rb)",
     )
 
     args = parser.parse_args()
@@ -60,9 +55,9 @@ if __name__ == "__main__":
         {"op": "centerCrop", "height": 224, "width": 224},
         {
             "op": "normalize",
+            "scaleToUint8": True,  # [0, 255] -> [0, 1]
             "mean": [0.485, 0.456, 0.406],
             "std": [0.229, 0.224, 0.225],
-            "scaleToUint8": True,  # [0, 255] -> [0, 1]
             "fuseIntoFirstLayer": True,
         },
     ]  # preprocessing operations for resnet 50

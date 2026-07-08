@@ -1,99 +1,103 @@
-# Image Classification - C++ Inference (ARIES + REGULUS)
+# Image Classification Runtime in C++
 
-An example of running C++ NPU inference on a single image using a ResNet-50 MXQ model.
-Supports both **ARIES native build** (x86_64 host with NPU) and **REGULUS cross-compile**
-(x86_64 host -> ARM64 target board) from the same `CMakeLists.txt`.
+This tutorial explains how to run a compiled ResNet-50 MXQ model with the C++ `qbruntime` API.
 
-## File Structure
-
-- `infer_cls.cc` - Inference binary source (NPU inference, Top-5 output)
-- `CMakeLists.txt` - CMake build configuration (host arch auto-detected)
-- `imagenet_labels.txt` - ImageNet 1000 class label file
+Before starting, complete the compilation flow in [../../../compilation/image_classification/README.md](../../../compilation/image_classification/README.md). The runtime example uses a compiled `resnet50.mxq` model.
 
 ## Prerequisites
 
-- `resnet50.mxq` file generated with the matching compiler tutorial
-  ([../../../compilation/image_classification/README.md](../../../compilation/image_classification/README.md)).
-  ARIES uses `model_compile.py`, REGULUS uses `model_compile_regulus.py`.
+Make sure the following components are available:
 
-### Common requirements (both paths)
+- Mobilint `qbruntime`
+- OpenCV development libraries
+- A C++17 compiler
+- CMake `3.21` or later
+- `resnet50.mxq` from the matching compilation tutorial
+- `imagenet_labels.txt` from this directory
 
-- CMake >= 3.21
-- C++17 compiler (gcc / clang)
-- `qbruntime` library (installed together with the Mobilint NPU SDK)
-
-### ARIES native build (x86_64 host with NPU)
-
-Install host-side OpenCV and build tools (Ubuntu / Debian):
+For ARIES native builds on Ubuntu or Debian:
 
 ```bash
 apt-get update
 apt-get install -y build-essential cmake libopencv-dev
 ```
 
-### REGULUS cross-compile (x86_64 host -> ARM64 target board)
+For REGULUS cross-compilation, activate the Mobilint toolchain first as described in [../README.md](../README.md).
 
-The vendor cross-compile toolchain ships with OpenCV and `qbruntime` pre-installed.
-Verify the toolchain and activate it:
+## Overview
+
+The runtime flow in `infer_cls.cc` follows these steps:
+
+1. Load ImageNet labels from `imagenet_labels.txt`.
+2. Load the compiled MXQ model with `qbruntime`.
+3. Read the input image and apply ResNet-style preprocessing.
+4. Run inference on the Mobilint NPU.
+5. Print the top-5 class predictions.
+
+The model input is `uint8`, and normalization is assumed to be fused into the compiled MXQ model.
+
+## Files in This Tutorial
+
+- `infer_cls.cc`: Runs the full image classification pipeline and prints top-5 predictions.
+- `imagenet_labels.txt`: Label file for the 1000 ImageNet classes.
+- `CMakeLists.txt`: Builds the `infer-cls` executable.
+
+## How the Program Works
+
+The program uses this command-line interface:
 
 ```bash
-ls /opt/crosstools/mobilint/                                   # version directory expected
-unset LD_LIBRARY_PATH                                          # avoid host CUDA libs leaking
-source /opt/crosstools/mobilint/{version}/{sdk}/environment-setup-cortexa53-mobilint-linux
-echo $CXX                                                      # aarch64-mobilint-linux-g++ ...
+./infer-cls <model.mxq> <image_path> <labels_file>
 ```
 
-If the toolchain is not installed, follow [Cross-Compilation Setup](../README.md).
+It preprocesses the input image by:
+
+- Resizing the short edge to `256`
+- Applying a `224x224` center crop
+- Converting the image from BGR to RGB
+
+After inference, it sorts the output logits and prints the top-5 class IDs, labels, and scores.
 
 ## Build
 
-The same command works for both ARIES native and REGULUS cross-compile. The
-`CMakeLists.txt` detects the host arch and selects the right `-march` flag.
+From this directory:
 
 ```bash
 cmake -B build -S .
 cmake --build build -j
 ```
 
-After a successful build, `build/infer-cls` is created.
+This produces:
 
-Verify the architecture:
+- `build/infer-cls`
+
+You can verify the target architecture with:
 
 ```bash
 file build/infer-cls
-# ARIES:   ELF 64-bit LSB executable, x86-64, ...
-# REGULUS: ELF 64-bit LSB executable, ARM aarch64, ...
 ```
 
 ## Run
 
-A sample image `../rc/volcano.jpg` is bundled with the repo.
+Sample image:
 
-### ARIES (same host)
+- `../rc/volcano.jpg`
+
+### ARIES
 
 ```bash
 ./build/infer-cls ../../../compilation/image_classification/resnet50.mxq ../rc/volcano.jpg imagenet_labels.txt
 ```
 
-### REGULUS (target board)
+### REGULUS
 
-Copy `build/infer-cls`, `resnet50.mxq`, `imagenet_labels.txt`, and `../rc/volcano.jpg` to the target board, then:
+Copy `build/infer-cls`, `resnet50.mxq`, `imagenet_labels.txt`, and `volcano.jpg` to the target board, then run:
 
 ```bash
 chmod +x infer-cls
 ./infer-cls resnet50.mxq volcano.jpg imagenet_labels.txt
 ```
 
-## Example Output
+## Expected Output
 
-```
-Model input: 224x224x3
-Inference time: 4.42336 ms
-
-Top-5 predictions:
-  980 volcano (12.345)
-  970 alp (10.234)
-  928 ice cream (8.567)
-  949 strawberry (7.890)
-  654 miniskirt (6.123)
-```
+The program prints the model input shape, inference time, and top-5 ImageNet predictions.

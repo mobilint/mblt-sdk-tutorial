@@ -6,6 +6,7 @@ from qbcompiler.model_dict.parser.backend.torch.object_wrapper import set_attent
 from qbcompiler.model_dict.parser.backend.torch.util import wrap_tensor
 from transformers import BertModel, BertTokenizer
 
+
 def get_device_inference_scheme(target_device):
     # REGULUS only supports the single scheme; ARIES supports all schemes in one model.
     if "regulus" in target_device:
@@ -20,6 +21,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--target-device",
         type=str,
+        choices=["regulus-rb", "aries-rb"],
         default="aries-rb",
         help="Target NPU (e.g. aries-rb, regulus-rb)",
     )

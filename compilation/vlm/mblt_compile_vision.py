@@ -18,7 +18,6 @@ from qbcompiler.model_dict.parser.backend.hf.util import (
 )
 from qbcompiler.model_dict.parser.backend.torch.util import wrap_tensor
 from qbcompiler.model_dict.parser.parser import ModelParser
-
 from utils import create_sample_messages, load_model_and_processor, prepare_inputs, serialize_to_mblt
 
 TARGET_DEVICES = ["regulus-ra", "aries-rb", "regulus-rb"]

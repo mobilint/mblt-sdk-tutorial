@@ -4,18 +4,18 @@ from qbcompiler import (
     CalibrationConfig,
     PreprocessingConfig,
     Uint8InputConfig,
-    mxq_compile,
     mblt_compile,
+    mxq_compile,
 )
 
 
 def get_device_inference_sheme(target_device):
     # regulus device only support single
-    if 'regulus' in target_device:
-        return 'single'
+    if "regulus" in target_device:
+        return "single"
     # aries device support all
-    elif 'aries' in target_device:
-        return 'all'
+    elif "aries" in target_device:
+        return "all"
     else:
         raise ValueError(f"{target_device} not supported current qbcompiler version")
 
@@ -49,8 +49,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--target-device",
         type=str,
-        default=None,
-        required=True
+        choices=["regulus-ra", "regulus-rb", "aries-rb"],
+        default="aries-rb",
+        help="Target NPU (e.g. aries-rb, regulus-rb)",
     )
 
     args = parser.parse_args()
