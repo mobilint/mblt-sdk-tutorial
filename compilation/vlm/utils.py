@@ -80,19 +80,19 @@ def serialize_to_mblt(
     ignore_weight: bool = False,
 ) -> int:
     """Serialize a ModelDict/WeightDict pair to the MBLT binary format.
- 
+
     Returns the size of the written file in bytes.
     """
     barr = SerializeMeta().serialize(model_dict, weight_dict, ignore_weight=ignore_weight)
- 
+
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
- 
+
     with open(output_path, "wb") as f:
         if isinstance(barr, bytes):
             f.write(barr)
         elif isinstance(barr, ChainedByteObj):
             barr.write(f)
- 
+
     file_size = os.path.getsize(output_path)
     print(f"Saved {output_path} ({file_size / (1024 * 1024):.2f} MB)")
     return file_size
