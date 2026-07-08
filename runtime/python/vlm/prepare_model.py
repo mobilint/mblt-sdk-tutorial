@@ -39,8 +39,14 @@ def prepare_model_folder(
         print(f"Copying: {filename}")
         shutil.copy(src, dst)
 
-    # Add NPU core allocation to config.json
+    # Add NPU core allocation to config.json.
     # Required when MXQ is compiled with inference_scheme="all".
+    #
+    # The runtime reads each sub-model's NPU settings only from its own section
+    # (text_config for the language model, vision_config for the vision encoder).
+    # The compiler puts the language-model MXQ path at the top level, so we move
+    # it into text_config. Without this, the language model loads with no MXQ path
+    # and no cores and fails with "Invalid core IDs".
     #
     # Available core modes (vision encoder uses same fields under vision_config):
     #   single: target_cores=["0:0"]    — Cluster 0, Core 0 (default)
@@ -55,9 +61,13 @@ def prepare_model_folder(
         config = json.load(f)
 
     config["_name_or_path"] = model_id
-    config["target_cores"] = ["0:0"]
-    if "vision_config" in config:
-        config["vision_config"]["target_cores"] = ["0:0"]
+
+    # Language model: move its MXQ path into text_config and pick a core.
+    config["text_config"]["mxq_path"] = config.pop("mxq_path")
+    config["text_config"]["target_cores"] = ["0:0"]
+
+    # Vision encoder: its MXQ path is already in vision_config; just pick a core.
+    config["vision_config"]["target_cores"] = ["0:0"]
 
     with open(config_path, "w") as f:
         json.dump(config, f, indent=4)

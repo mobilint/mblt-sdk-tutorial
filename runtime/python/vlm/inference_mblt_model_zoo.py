@@ -1,6 +1,6 @@
 import argparse
 
-import mblt_model_zoo.hf_transformers.models.qwen2_vl.modeling_qwen2_vl  # noqa: F401
+import mblt_model_zoo.hf_transformers.models.qwen3_vl.modeling_qwen3_vl  # noqa: F401
 from transformers import AutoModelForImageTextToText, AutoProcessor, TextStreamer, pipeline
 
 
