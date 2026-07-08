@@ -136,12 +136,11 @@ def main():
     parser = build_parser(model, args.target_device)
     parser.parse(
         feed_dict=feed_dict,
-        save_subgraph_type=1,
         debug=False,
         output_meta={"type": "list", "keys": [0]},
     )
 
-    model_dict, weight_dict = parser.get_md_wd(body_only=False)
+    model_dict, weight_dict = parser.get_md_wd(body_only=True)
     serialize_to_mblt(model_dict, weight_dict, args.save_path)
 
 
