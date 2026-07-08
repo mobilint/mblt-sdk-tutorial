@@ -18,7 +18,7 @@
 
 ```bash
 pip install -r requirements.txt
-```text
+```
 
 ## 1단계: 오디오 데이터 준비
 
@@ -26,7 +26,7 @@ Google FLEURS 데이터셋에서 오디오 데이터를 다운로드합니다. �
 
 ```bash
 python prepare_audio.py
-```text
+```
 
 **실행 내용:**
 
@@ -53,7 +53,7 @@ Whisper 인코더와 디코더 모두에 대한 캘리브레이션 데이터를 
 
 ```bash
 python generate_calibration.py
-```text
+```
 
 **실행 내용:**
 
@@ -80,7 +80,7 @@ python generate_calibration.py
 
 ```bash
 python compile_encoder.py
-```text
+```
 
 - HuggingFace에서 Whisper Small 모델 로드
 - 인코더를 MBLT 형식으로 컴파일 후 `all` 추론 방식으로 `.mxq` 변환
@@ -94,7 +94,7 @@ python compile_encoder.py
 
 ```bash
 python compile_decoder.py
-```text
+```
 
 - HuggingFace에서 Whisper Small 모델 로드
 - 디코더를 MBLT 형식으로 컴파일 후 `LlmConfig`로 `.mxq` 변환
@@ -119,7 +119,7 @@ python compile_decoder.py
 # REGULUS (2026-06 이후 고객)
 python compile_encoder.py --target-device regulus-rb
 python compile_decoder.py --target-device regulus-rb
-```text
+```
 
 출력 파일은 ARIES와 동일하게 `./mblt/`, `./mxq/` 경로에 저장됩니다.
 
@@ -139,7 +139,7 @@ python compile_decoder.py --target-device regulus-rb
 ```bash
 ls ./calibration_data/encoder/whisper_encoder_cali.txt
 ls ./calibration_data/decoder/whisper_decoder_calib.json
-```text
+```
 
 파일이 없으면 `generate_calibration.py`를 다시 실행하세요.
 
@@ -174,7 +174,7 @@ stt/
 └── mxq/                                    # 출력 MXQ 모델
     ├── whisper-small_encoder.mxq
     └── whisper-small_decoder.mxq
-```text
+```
 
 ## 참고 자료
 

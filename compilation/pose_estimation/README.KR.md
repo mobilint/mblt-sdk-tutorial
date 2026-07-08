@@ -15,7 +15,7 @@
 
 ```bash
 pip install ultralytics aiohttp aiofiles
-```text
+```
 
 ## 개요
 
@@ -31,7 +31,7 @@ pip install ultralytics aiohttp aiofiles
 
 ```bash
 yolo export model=yolo11m-pose.pt format=onnx
-```text
+```
 
 명령이 끝나면 export된 모델이 현재 디렉터리에 `yolo11m-pose.onnx`로 저장됩니다.
 
@@ -43,7 +43,7 @@ yolo export model=yolo11m-pose.pt format=onnx
 
 ```bash
 hf auth login --token <your_huggingface_token>
-```text
+```
 
 토큰을 모를 경우 [Hugging Face 계정 설정](https://huggingface.co/settings/tokens)에서 확인할 수 있습니다.
 
@@ -51,7 +51,7 @@ hf auth login --token <your_huggingface_token>
 
 ```bash
 python prepare_coco.py
-```text
+```
 
 **이 스크립트가 수행하는 작업:**
 
@@ -101,7 +101,7 @@ def pre_ftn(img_path):
     img = (img / 255).astype(np.float32)
 
     return img
-```text
+```
 
 스크립트는 `make_calib_man()`을 사용해 텐서 데이터셋을 생성합니다.
 
@@ -113,13 +113,13 @@ make_calib_man(
     save_name=os.path.basename(args.npy_path),
     remove_npy=True,
 )
-```text
+```
 
 스크립트 실행 방법은 다음과 같습니다.
 
 ```bash
 python convert_img_to_tensor.py
-```text
+```
 
 기본값으로 `./coco-selected`에서 이미지를 읽고, `./calib_data_tensor`에 텐서 데이터셋을 저장합니다.
 
@@ -146,7 +146,7 @@ preprocessing_config = PreprocessingConfig(
     pipeline=preprocess_pipeline,
     input_configs={},
 )
-```text
+```
 
 전처리 융합을 사용할 때는 MXQ 입력 타입을 `uint8`로 설정합니다.
 
@@ -157,7 +157,7 @@ mxq_compile(
     uint8_input_config=Uint8InputConfig(apply=True, inputs=[]),
     calibration_config=calibration_config,
 )
-```text
+```
 
 원래 입력 형식을 유지하고 싶다면 전처리 융합과 `Uint8InputConfig`를 모두 비활성화하세요.
 
@@ -173,7 +173,7 @@ calibration_config = CalibrationConfig(
         "topk_ratio": 0.01,
     },
 )
-```text
+```
 
 설정을 마친 뒤, 하드웨어에 맞는 `--target-device`를 지정해 `model_compile.py`를 실행합니다. 한 번 실행하면 양자화된 MXQ 파일(`--save-path`)과 중간 MBLT 그래프(`--mblt-path`)가 함께 생성됩니다.
 
@@ -193,7 +193,7 @@ mxq_compile(
     inference_scheme=inferece_sheme,
     calibration_config=calibration_config,
 )
-```text
+```
 
 **파라미터:**
 
@@ -226,7 +226,7 @@ yolo export model=yolo11m-pose.pt format=onnx
 
 # YOLOv8 pose (regulus-ra용)
 yolo export model=yolov8m-pose.pt format=onnx
-```text
+```
 
 ```bash
 # ARIES
@@ -237,4 +237,4 @@ python model_compile.py --onnx-path ./yolov8m-pose.onnx --calib-data-path ./coco
 
 # REGULUS (2026-06 이후 고객)
 python model_compile.py --onnx-path ./yolo11m-pose.onnx --calib-data-path ./coco-selected --save-path ./yolo11m-pose.mxq --mblt-path ./yolo11m-pose.mblt --target-device regulus-rb
-```text
+```

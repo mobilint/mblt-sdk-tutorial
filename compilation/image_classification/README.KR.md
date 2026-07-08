@@ -15,7 +15,7 @@
 
 ```bash
 pip install datasets
-```text
+```
 
 ## 개요
 
@@ -42,13 +42,13 @@ dummy_input = torch.randn(1, 3, 224, 224)
 
 # ONNX로 내보내기
 torch.onnx.export(model, (dummy_input,), "resnet50.onnx")
-```text
+```
 
 스크립트 실행:
 
 ```bash
 python prepare_model.py
-```text
+```
 
 실행 후 현재 디렉토리에 `resnet50.onnx`가 생성됩니다.
 
@@ -65,7 +65,7 @@ python prepare_model.py
 
 ```bash
 hf auth login --token <your_huggingface_token>
-```text
+```
 
 토큰을 모르는 경우 [Hugging Face 토큰 설정 페이지](https://huggingface.co/settings/tokens)에서 확인할 수 있습니다.
 
@@ -73,7 +73,7 @@ hf auth login --token <your_huggingface_token>
 
 ```bash
 python prepare_imagenet.py
-```text
+```
 
 이 스크립트는 다음 작업을 수행합니다.
 
@@ -113,7 +113,7 @@ def pre_ftn(img_path):
     preprocess = T.Compose(preprocess_pipeline)
     tensor = cast(torch.Tensor, preprocess(img))
     return tensor.permute((1, 2, 0)).numpy()  # (C, H, W) -> (H, W, C)
-```text
+```
 
 스크립트는 `make_calib_man()`을 사용해 텐서 데이터셋을 생성합니다.
 
@@ -125,13 +125,13 @@ make_calib_man(
     save_name=os.path.basename(args.npy_path),
     remove_npy=True,  # 새 .npy 파일 저장 전에 기존 결과 삭제
 )
-```text
+```
 
 스크립트 실행:
 
 ```bash
 python convert_img_to_tensor.py
-```text
+```
 
 기본값 기준으로 입력 이미지는 `./imagenet-1k-selected`에서 읽고, 결과 텐서는 `./calib_data_tensor` 아래에 저장됩니다.
 
@@ -166,7 +166,7 @@ preprocessing_config = PreprocessingConfig(
     pipeline=preprocess_pipeline,
     input_configs={},
 )
-```text
+```
 
 정규화 단계와 `/255` 스케일링은 `fuseIntoFirstLayer`와 `Uint8InputConfig`를 통해 MXQ 모델에 융합됩니다. 따라서 런타임에서 컴파일된 모델은 `uint8` 입력을 직접 받을 수 있습니다. 반면 `resize`와 `centerCrop` 같은 공간 변환은 융합되지 않으므로 런타임에서 별도로 적용해야 합니다.
 
@@ -180,7 +180,7 @@ mxq_compile(
     uint8_input_config=Uint8InputConfig(apply=True, inputs=[]),
     calibration_config=calibration_config,
 )
-```text
+```
 
 원래 입력 형식을 유지하고 싶다면 `fuseIntoFirstLayer`와 `Uint8InputConfig`를 모두 비활성화하면 됩니다.
 
@@ -196,7 +196,7 @@ calibration_config = CalibrationConfig(
         "topk_ratio": 0.01,  # quantization top-k ratio
     },
 )
-```text
+```
 
 설정이 끝나면 `--target-device`를 지정해 `model_compile.py`를 실행합니다. 같은 스크립트로 ARIES와 REGULUS를 모두 지원합니다.
 
@@ -216,7 +216,7 @@ mxq_compile(
     inference_scheme=inferece_sheme,
     calibration_config=calibration_config,
 )
-```text
+```
 
 파라미터:
 
@@ -248,6 +248,6 @@ python model_compile.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet
 
 # REGULUS (2026-06 이후 고객)
 python model_compile.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq --mblt-path ./resnet50.mblt --target-device regulus-rb
-```text
+```
 
 명령이 완료되면 현재 디렉토리에 `resnet50.mxq`와 `resnet50.mblt`가 저장됩니다.

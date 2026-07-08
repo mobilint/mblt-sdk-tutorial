@@ -15,7 +15,7 @@
 
 ```bash
 pip install ultralytics opencv-python
-```text
+```
 
 ## 개요
 
@@ -31,7 +31,7 @@ pip install ultralytics opencv-python
 
 ```bash
 yolo export model=yolo11m-obb.pt format=onnx
-```text
+```
 
 내보내기가 완료되면 ONNX 모델은 현재 디렉토리에 `yolo11m-obb.onnx`로 저장됩니다.
 
@@ -43,7 +43,7 @@ Ultralytics에서 제공하는 아카이브를 바로 사용하여 데이터셋�
 
 ```bash
 python prepare_dota.py
-```text
+```
 
 이 스크립트는 다음 작업을 수행합니다:
 
@@ -62,13 +62,13 @@ python prepare_dota.py
 
 ```bash
 python prepare_dota.py --skip-download --zip-path ./DOTAv1.zip
-```text
+```
 
 이미 압축까지 풀어 두었고 캘리브레이션 서브셋만 만들고 싶다면 다음과 같이 실행합니다:
 
 ```bash
 python prepare_dota.py --skip-download --extract-dir ./DOTAv1 --output-dir ./dota-selected --num-images 100
-```text
+```
 
 `--skip-download`를 사용하면 수동으로 압축을 푼 디렉토리처럼 스크립트의 `.extracted` 마커 파일이 없는
 `--extract-dir`도 기존 추출본으로 그대로 재사용합니다.
@@ -109,7 +109,7 @@ def pre_ftn(img_path):
     img = (img / 255).astype(np.float32)
 
     return img
-```text
+```
 
 OBB 튜토리얼은 내보낸 `yolo11m-obb` 모델 입력에 맞추기 위해 `1024x1024` letterbox를 사용합니다.
 
@@ -123,13 +123,13 @@ make_calib_man(
     save_name=os.path.basename(args.npy_path),
     remove_npy=True,
 )
-```text
+```
 
 스크립트 실행:
 
 ```bash
 python convert_img_to_tensor.py
-```text
+```
 
 기본값으로 `./dota-selected`의 이미지를 읽고, 생성된 텐서 데이터셋은 `./calib_data_tensor`에 저장합니다.
 
@@ -149,7 +149,7 @@ preprocessing_config = PreprocessingConfig(
     pipeline=preprocess_pipeline,
     input_configs={},
 )
-```text
+```
 
 전처리 융합을 사용할 때는 MXQ 입력 타입을 `uint8`로 설정합니다:
 
@@ -160,7 +160,7 @@ mxq_compile(
     uint8_input_config=Uint8InputConfig(apply=True, inputs=[]),
     calibration_config=calibration_config,
 )
-```text
+```
 
 원래 입력 형식을 유지하고 싶다면 전처리 융합과 `Uint8InputConfig`를 모두 비활성화하면 됩니다.
 
@@ -176,7 +176,7 @@ calibration_config = CalibrationConfig(
         "topk_ratio": 0.01,
     },
 )
-```text
+```
 
 설정을 구성한 후, 하드웨어에 맞는 `--target-device`를 지정해 `model_compile.py`를 실행합니다. 한 번 실행하면 양자화 MXQ 파일(`--save-path`)과 중간 MBLT 그래프(`--mblt-path`)가 함께 생성됩니다.
 
@@ -196,7 +196,7 @@ mxq_compile(
     inference_scheme=inferece_sheme,
     calibration_config=calibration_config,
 )
-```text
+```
 
 파라미터:
 
@@ -226,7 +226,7 @@ python model_compile.py --onnx-path ./yolo11m-obb.onnx --calib-data-path ./dota-
 
 # REGULUS (2026-06 이후 고객)
 python model_compile.py --onnx-path ./yolo11m-obb.onnx --calib-data-path ./dota-selected --save-path ./yolo11m-obb.mxq --mblt-path ./yolo11m-obb.mblt --target-device regulus-rb
-```text
+```
 
 명령을 실행하면 현재 디렉토리에 MXQ(`yolo11m-obb.mxq`)와 MBLT(`yolo11m-obb.mblt`)가 저장됩니다.
 

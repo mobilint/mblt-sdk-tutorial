@@ -33,7 +33,7 @@ For example, for version 1.0.1:
 ```bash
 docker pull mobilint/qbcompiler:1.0-cpu-ubuntu22.04 # Compilation on CPU
 docker pull mobilint/qbcompiler:1.0-cuda12.8.1-ubuntu22.04 # Compilation on GPU with CUDA support
-```text
+```
 
 Then, create a Docker container:
 
@@ -42,7 +42,7 @@ docker run -it --ipc=host \
   -v {path_to_local_workspace}:{path_to_container_workspace} \
   --name {your_container_name} \
   {qbcompiler_docker_image_name}
-```text
+```
 
 If you want to use GPU for compilation, add the `--gpus=all` flag.
 
@@ -52,7 +52,7 @@ If your environment also includes a Mobilint NPU and you want to perform both co
 
 ```bash
 --device /dev/aries0:/dev/aries0 # Enable access to the Mobilint NPU in Docker container
-```text
+```
 
 You can connect multiple NPUs by adding `--device /dev/aries1:/dev/aries1`, and so on. Alternatively, you may run multiple containers, each connected to the same NPU with the same device flag.
 
@@ -67,7 +67,7 @@ docker run -it --ipc=host \
   --gpus=all \
   --device /dev/aries0:/dev/aries0 \
   mobilint/qbcompiler:1.0-cuda12.8.1-ubuntu22.04
-```text
+```
 
 Next, visit the [Mobilint Download Center](https://dl.mobilint.com/) to download the latest qbcompiler wheel file.
 After logging in, go to `ARIES -> qb Compiler` and download the wheel file that matches your environment.
@@ -87,7 +87,7 @@ docker run -it --ipc=host \
   --name {your_container_name} \
   --gpus=all \
   mobilint/qbcompiler:1.0-cuda12.8.1-ubuntu22.04
-```text
+```
 
 Next, visit the [Mobilint Download Center](https://dl.mobilint.com/) to download the latest qbcompiler wheel file.
 After logging in, go to `REGULUS -> qb Compiler` and download the wheel file that matches your environment.
@@ -98,13 +98,22 @@ Copy it to the container and install:
 docker cp {path_to_local_wheel_file} {your_container_name}:{path_to_container_workspace}
 docker exec -it {your_container_name} /bin/bash
 pip install {path_to_container_workspace}/{wheel_file_name}
-```text
+```
+
+Before starting REGULUS compilation, reset host library overrides and activate the Mobilint cross-compilation environment:
+
+```bash
+unset LD_LIBRARY_PATH
+source /opt/crosstools/mobilint/{version}/{sdk}/environment-setup-cortexa53-mobilint-linux
+```
+
+This `unset LD_LIBRARY_PATH` step is important on `x86_64` hosts that already have CUDA, conda, or other host libraries in the environment, because those libraries can otherwise leak into the REGULUS cross toolchain.
 
 Verify the installation:
 
 ```bash
 pip list | grep qbcompiler # Verify the installation
-```text
+```
 
 You are now ready to compile your models.
 

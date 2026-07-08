@@ -22,7 +22,7 @@ All scripts are run from the `bert/` directory.
 
 ```bash
 pip install -r requirements.txt
-```text
+```
 
 ## Step 1: Extract Embedding Weights
 
@@ -30,7 +30,7 @@ Because of the BERT architecture, some input embedding layers cannot run on the 
 
 ```bash
 python get_embedding.py
-```text
+```
 
 **What this does:**
 
@@ -50,7 +50,7 @@ Generate calibration data from the [STS Benchmark Dataset](https://huggingface.c
 
 ```bash
 python prepare_calib.py
-```text
+```
 
 **What this does:**
 
@@ -72,7 +72,7 @@ python compile_mblt.py
 
 # REGULUS (customers from 2026-06)
 python compile_mblt.py --target-device regulus-rb
-```text
+```
 
 `compile_mblt.py` calls `mblt_compile()` and selects the target NPU with `--target-device` (default: `aries-rb`).
 
@@ -97,7 +97,7 @@ python compile_mxq.py
 
 # REGULUS (customers from 2026-06)
 python compile_mxq.py --target-device regulus-rb
-```text
+```
 
 `compile_mxq.py` selects the target NPU with `--target-device` (default: `aries-rb`). REGULUS supports only `inference_scheme="single"`, which is set automatically when a `regulus` device is selected.
 
@@ -142,7 +142,7 @@ bert/
 │   └── stsb-bert-tiny-safetensors.mblt
 └── mxq/                                   # Output MXQ model
     └── stsb-bert-tiny-safetensors.mxq
-```text
+```
 
 ## Troubleshooting
 
@@ -152,7 +152,7 @@ If calibration fails because the embedding weights are missing:
 
 ```bash
 ls ./weights/weight_dict.pth
-```text
+```
 
 If the file is missing, run `get_embedding.py` again.
 
@@ -162,7 +162,7 @@ If MXQ compilation fails because the calibration data is missing:
 
 ```bash
 ls ./calibration_data/
-```text
+```
 
 If the directory is missing or empty, run `prepare_calib.py` again.
 

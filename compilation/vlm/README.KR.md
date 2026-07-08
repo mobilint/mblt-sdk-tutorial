@@ -33,7 +33,7 @@ VLM 컴파일 과정은 세 가지 주요 단계로 구성됩니다:
 
 ```bash
 pip install transformers==4.57.1 qwen-vl-utils==0.0.14 accelerate==1.13.0
-```text
+```
 
 ### 캘리브레이션 이미지 다운로드
 
@@ -41,7 +41,7 @@ pip install transformers==4.57.1 qwen-vl-utils==0.0.14 accelerate==1.13.0
 
 ```bash
 python download_images.py
-```text
+```
 
 **이 작업의 내용:**
 
@@ -100,7 +100,7 @@ calibration_data/
     sample_000/images.npy           # [H, W, 6]
     ...
     npy_files.txt
-```text
+```
 
 ## Stage 2: MBLT 컴파일
 
@@ -116,7 +116,7 @@ python mblt_compile_language.py --target-device aries-rb
 
 # REGULUS (2026-06 이후 고객)
 python mblt_compile_language.py --target-device regulus-rb
-```text
+```
 
 **이 작업의 내용:**
 
@@ -154,7 +154,7 @@ python mblt_compile_vision.py --target-device aries-rb
 
 # REGULUS (2026-06 이후 고객)
 python mblt_compile_vision.py --target-device regulus-rb
-```text
+```
 
 **이 작업의 내용:**
 
@@ -192,7 +192,7 @@ python mxq_compile_language.py --target-device aries-rb
 
 # REGULUS (2026-06 이후 고객)
 python mxq_compile_language.py --target-device regulus-rb
-```text
+```
 
 **이 작업의 내용:**
 
@@ -230,7 +230,7 @@ python mxq_compile_vision.py --target-device aries-rb
 
 # REGULUS (2026-06 이후 고객)
 python mxq_compile_vision.py --target-device regulus-rb
-```text
+```
 
 **이 작업의 내용:**
 
@@ -284,7 +284,7 @@ python mxq_compile_vision.py --target-device regulus-rb
 
 ```bash
 python get_config.py
-```text
+```
 
 **이 작업의 내용:**
 
@@ -304,7 +304,7 @@ python get_config.py
 
 ```bash
 python get_safetensors.py
-```text
+```
 
 **이 작업의 내용:**
 
@@ -375,7 +375,7 @@ python get_safetensors.py
 # - Qwen3-VL-2B-Instruct_vision_transformer.mxq
 # - config.json
 # - model.safetensors
-```text
+```
 
 ## 컴파일 흐름 이해
 
@@ -393,7 +393,7 @@ python get_safetensors.py
 [MXQ 컴파일] -> Qwen3-VL-2B-Instruct_text_model.mxq
     |
     +-> global_rotation.pth (비전 인코더에 필요)
-```text
+```
 
 ### 비전 인코더 파이프라인
 
@@ -408,7 +408,7 @@ python get_safetensors.py
     |
 [MXQ 컴파일] -> Qwen3-VL-2B-Instruct_vision_transformer.mxq
     |            (요구사항: 언어 모델의 global_rotation.pth)
-```text
+```
 
 ### 구성 파일 준비
 
@@ -418,7 +418,7 @@ python get_safetensors.py
 
 [get_safetensors.py] -> model.safetensors
                         (회전된 토큰 임베딩 가중치)
-```text
+```
 
 ### 주요 종속성
 
@@ -486,13 +486,13 @@ MXQ 컴파일 스크립트의 캘리브레이션 데이터 경로가 실제 캘�
 
 ```bash
 FileNotFoundError: No images found in images/ directory
-```text
+```
 
 **해결 방법:** 이미지 다운로드 스크립트를 실행하세요:
 
 ```bash
 python download_images.py
-```text
+```
 
 이렇게 하면 COCO 데이터셋에서 100개의 이미지를 `images/` 디렉토리에 다운로드합니다.
 

@@ -33,7 +33,7 @@ Install the required Python packages for compilation:
 
 ```bash
 pip install transformers==4.57.1 qwen-vl-utils==0.0.14 accelerate==1.13.0
-```text
+```
 
 ### Download Calibration Images
 
@@ -41,7 +41,7 @@ The calibration flow uses images from the COCO dataset. A helper script is provi
 
 ```bash
 python download_images.py
-```text
+```
 
 **What it does:**
 
@@ -100,7 +100,7 @@ calibration_data/
     sample_000/images.npy           # [H, W, 6]
     ...
     npy_files.txt
-```text
+```
 
 ## Stage 2: MBLT Compilation
 
@@ -116,7 +116,7 @@ python mblt_compile_language.py --target-device aries-rb
 
 # REGULUS (customers from 2026-06)
 python mblt_compile_language.py --target-device regulus-rb
-```text
+```
 
 **What it does:**
 
@@ -154,7 +154,7 @@ python mblt_compile_vision.py --target-device aries-rb
 
 # REGULUS (customers from 2026-06)
 python mblt_compile_vision.py --target-device regulus-rb
-```text
+```
 
 **What it does:**
 
@@ -192,7 +192,7 @@ python mxq_compile_language.py --target-device aries-rb
 
 # REGULUS (customers from 2026-06)
 python mxq_compile_language.py --target-device regulus-rb
-```text
+```
 
 **What it does:**
 
@@ -230,7 +230,7 @@ python mxq_compile_vision.py --target-device aries-rb
 
 # REGULUS (customers from 2026-06)
 python mxq_compile_vision.py --target-device regulus-rb
-```text
+```
 
 **What it does:**
 
@@ -284,7 +284,7 @@ First, download and prepare the model configuration file:
 
 ```bash
 python get_config.py
-```text
+```
 
 **What it does:**
 
@@ -304,7 +304,7 @@ Next, download and prepare the token embedding weight (`model.language_model.emb
 
 ```bash
 python get_safetensors.py
-```text
+```
 
 **What it does:**
 
@@ -375,7 +375,7 @@ python get_safetensors.py
 # - Qwen3-VL-2B-Instruct_vision_transformer.mxq
 # - config.json
 # - model.safetensors
-```text
+```
 
 ## Understanding the Compilation Flow
 
@@ -393,7 +393,7 @@ Original Model (HF) + Calibration Images
 [MXQ Compile] -> Qwen3-VL-2B-Instruct_text_model.mxq
     |
     +-> global_rotation.pth (needed for vision encoder)
-```text
+```
 
 ### Vision Encoder Pipeline
 
@@ -408,7 +408,7 @@ Original Model (HF) + Calibration Images
     |
 [MXQ Compile] -> Qwen3-VL-2B-Instruct_vision_transformer.mxq
     |            (Requires: global_rotation.pth from language model)
-```text
+```
 
 ### Configuration Files Preparation
 
@@ -418,7 +418,7 @@ Original Model (HF) + Calibration Images
 
 [get_safetensors.py] -> model.safetensors
                         (Rotated token embedding weight)
-```text
+```
 
 ### Key Dependencies
 
@@ -486,13 +486,13 @@ Ensure the calibration data paths in the MXQ compile scripts match your actual c
 
 ```bash
 FileNotFoundError: No images found in images/ directory
-```text
+```
 
 **Solution:** Run the image download script:
 
 ```bash
 python download_images.py
-```text
+```
 
 This will download 100 images from COCO dataset to the `images/` directory.
 

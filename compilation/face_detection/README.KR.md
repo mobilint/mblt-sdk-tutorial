@@ -21,13 +21,13 @@
 
 ```bash
 pip install ultralytics huggingface_hub
-```text
+```
 
 환경에 따라 Hugging Face 인증이 필요하다면, 캘리브레이션 데이터셋을 다운로드하기 전에 아래와 같이 로그인하세요.
 
 ```bash
 hf auth login --token <your_huggingface_token>
-```text
+```
 
 ## 개요
 
@@ -43,7 +43,7 @@ hf auth login --token <your_huggingface_token>
 
 ```bash
 python prepare_model.py
-```text
+```
 
 **수행 작업:**
 
@@ -64,7 +64,7 @@ python prepare_model.py
 
 ```bash
 python prepare_widerface.py
-```text
+```
 
 이 스크립트는 `WIDER_train.zip`을 다운로드하고, 학습 이미지를 하위 카테고리별로 묶은 뒤, 각 카테고리에서 무작위로 한 장씩 선택해 `widerface-selected/`에 복사합니다.
 
@@ -72,7 +72,7 @@ python prepare_widerface.py
 
 ```bash
 python prepare_widerface.py --output-dir ./widerface-selected --seed 42
-```text
+```
 
 **수행 작업:**
 
@@ -91,6 +91,8 @@ python prepare_widerface.py --output-dir ./widerface-selected --seed 42
 캘리브레이션 데이터는 전처리된 `.npy` 텐서 형태로도 준비할 수 있습니다. 모델에 맞는 사용자 정의 전처리 함수를 적용해야 하거나, 텐서 입력을 직접 생성하고 싶을 때 유용합니다.
 
 `qbcompiler` v1.0.0부터는 표준화된 캘리브레이션 데이터셋 생성 흐름을 사용할 수 있으므로, 대부분의 경우 이 단계는 생략해도 됩니다. 전처리를 직접 제어해야 할 때만 사용하세요.
+
+> **중요**: 이 튜토리얼의 현재 `model_compile.py` 흐름은 여전히 `--calib-data-path`로 원본 이미지 디렉토리를 기대하며, 아래에 나온 내장 letterbox 전처리를 항상 적용합니다. 따라서 여기서 생성한 `.npy` 텐서는 이 튜토리얼에서는 전처리 예시용일 뿐이며, 문서에 나온 `model_compile.py` 명령 경로에서는 **직접 사용되지 않습니다**.
 
 변환 스크립트는 다음 조건을 만족하는 전처리 함수를 가정합니다.
 
@@ -125,7 +127,7 @@ def pre_ftn(img_path):
     img = (img / 255).astype(np.float32)
 
     return img
-```text
+```
 
 스크립트는 `make_calib_man()`을 사용해 텐서 데이터셋을 생성합니다.
 
@@ -137,13 +139,13 @@ make_calib_man(
     save_name=os.path.basename(args.npy_path),
     remove_npy=True,  # 새 .npy 파일을 쓰기 전에 기존 출력물을 정리합니다.
 )
-```text
+```
 
 스크립트 실행 방법은 다음과 같습니다.
 
 ```bash
 python convert_img_to_tensor.py
-```text
+```
 
 기본 설정에서는 `./widerface-selected`에서 이미지를 읽고, `./calib_data_tensor` 아래에 텐서 데이터셋을 생성합니다.
 
@@ -162,7 +164,7 @@ preprocessing_config = PreprocessingConfig(
     pipeline=preprocess_pipeline,
     input_configs={},
 )
-```text
+```
 
 정규화 과정에서 `letterbox` 연산에는 `1/255` 스케일링이 포함되며, 이 전처리는 `fuseIntoFirstLayer`와 `Uint8InputConfig`를 통해 MXQ 모델 안으로 fuse할 수 있습니다.
 
@@ -176,7 +178,7 @@ mxq_compile(
     uint8_input_config=Uint8InputConfig(apply=True, inputs=[]),
     calibration_config=calibration_config,
 )
-```text
+```
 
 원래 입력 형식을 유지하고 싶다면 `fuseIntoFirstLayer`와 `Uint8InputConfig`를 모두 비활성화하세요.
 
@@ -192,32 +194,12 @@ calibration_config = CalibrationConfig(
         "topk_ratio": 0.01,
     },
 )
-```text
-
-## 3-1단계 (선택): 준비된 텐서 파일로 컴파일
-
-이미 `.npy` 텐서 파일을 준비해 두었다면, 원본 이미지와 전처리 파이프라인 대신 해당 디렉토리를 `calib_data_path`로 사용할 수 있습니다.
-
-```python
-mxq_compile(
-    model=args.onnx_path,
-    calib_data_path=args.calib_data_path,  # .npy 파일 디렉토리 또는 이를 나열한 .txt 파일
-    save_path=args.save_path,
-    image_channels=3,  # 필요하면 grayscale 캘리브레이션 이미지를 RGB로 변환
-    backend="onnx",
-    device="gpu",
-    target_device=args.target_device,
-    inference_scheme=inferece_sheme,
-    calibration_config=calibration_config,
-)
-```text
-
-`--target-device`로 대상 디바이스를 지정해 실행합니다. 하나의 `model_compile.py`가 두 산출물을 만듭니다: 양자화 MXQ(`--save-path`)와 중간 MBLT 그래프(`--mblt-path`).
+```
 
 **파라미터:**
 
 - `--onnx-path`: ONNX 모델 파일 경로
-- `--calib-data-path`: 캘리브레이션 이미지 디렉토리 경로, 또는 준비된 `.npy` 파일 디렉토리 경로
+- `--calib-data-path`: 캘리브레이션 이미지 디렉토리 경로. 문서에 나온 CLI는 원본 이미지를 입력으로 받고, 컴파일 중에 내장 전처리 파이프라인을 적용합니다.
 - `--save-path`: MXQ 모델을 저장할 경로 (onnx -> mxq 산출물)
 - `--mblt-path`: MBLT 중간 그래프를 저장할 경로 (onnx -> mblt 산출물)
 - `--target-device` (필수): 대상 NPU. 아래 표를 참고하세요. 디바이스에 따라 inference scheme이 자동으로 결정됩니다 (ARIES = `all`, REGULUS = `single`).
@@ -242,7 +224,7 @@ python model_compile.py --onnx-path ./yolov12m-face.onnx --calib-data-path ./wid
 
 # REGULUS (2026-06 이후 고객)
 python model_compile.py --onnx-path ./yolov12m-face.onnx --calib-data-path ./widerface-selected --save-path ./yolov12m-face.mxq --mblt-path ./yolov12m-face.mblt --target-device regulus-rb
-```text
+```
 
 위 명령을 실행하면 현재 디렉토리에 MXQ 파일(`yolov12m-face.mxq`)과 MBLT 파일(`yolov12m-face.mblt`)이 저장됩니다.
 

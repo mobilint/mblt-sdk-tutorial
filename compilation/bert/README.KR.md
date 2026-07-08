@@ -22,7 +22,7 @@
 
 ```bash
 pip install -r requirements.txt
-```text
+```
 
 ## 1단계: 임베딩 가중치 추출
 
@@ -30,7 +30,7 @@ BERT 아키텍처 특성상 일부 입력 임베딩 레이어는 NPU에서 직�
 
 ```bash
 python get_embedding.py
-```text
+```
 
 **실행 내용:**
 
@@ -50,7 +50,7 @@ python get_embedding.py
 
 ```bash
 python prepare_calib.py
-```text
+```
 
 **실행 내용:**
 
@@ -72,7 +72,7 @@ python compile_mblt.py
 
 # REGULUS (2026-06 이후 고객)
 python compile_mblt.py --target-device regulus-rb
-```text
+```
 
 `compile_mblt.py`는 `mblt_compile()`를 호출하며, `--target-device`로 대상 NPU를 선택합니다 (기본값: `aries-rb`).
 
@@ -97,7 +97,7 @@ python compile_mxq.py
 
 # REGULUS (2026-06 이후 고객)
 python compile_mxq.py --target-device regulus-rb
-```text
+```
 
 `compile_mxq.py`는 `--target-device`로 대상 NPU를 선택합니다 (기본값: `aries-rb`). REGULUS는 `inference_scheme="single"`만 지원하므로 `regulus` 디바이스를 선택하면 자동으로 설정됩니다.
 
@@ -142,7 +142,7 @@ bert/
 │   └── stsb-bert-tiny-safetensors.mblt
 └── mxq/                                   # 출력 MXQ 모델
     └── stsb-bert-tiny-safetensors.mxq
-```text
+```
 
 ## 문제 해결
 
@@ -152,7 +152,7 @@ bert/
 
 ```bash
 ls ./weights/weight_dict.pth
-```text
+```
 
 파일이 없으면 `get_embedding.py`를 다시 실행하세요.
 
@@ -162,7 +162,7 @@ MXQ 컴파일 중 캘리브레이션 데이터가 없다는 오류가 발생하�
 
 ```bash
 ls ./calibration_data/
-```text
+```
 
 디렉토리가 없거나 비어 있으면 `prepare_calib.py`를 다시 실행하세요.
 

@@ -15,7 +15,7 @@ Install the package used to download the dataset:
 
 ```bash
 pip install datasets
-```text
+```
 
 ## Overview
 
@@ -42,13 +42,13 @@ dummy_input = torch.randn(1, 3, 224, 224)
 
 # Export to ONNX.
 torch.onnx.export(model, (dummy_input,), "resnet50.onnx")
-```text
+```
 
 Run the script:
 
 ```bash
 python prepare_model.py
-```text
+```
 
 This saves the exported model as `resnet50.onnx` in the current directory.
 
@@ -65,7 +65,7 @@ Then log in with your Hugging Face token:
 
 ```bash
 hf auth login --token <your_huggingface_token>
-```text
+```
 
 If you do not know your token, check your [Hugging Face token settings](https://huggingface.co/settings/tokens).
 
@@ -73,7 +73,7 @@ Next, run the dataset preparation script:
 
 ```bash
 python prepare_imagenet.py
-```text
+```
 
 What this script does:
 
@@ -113,7 +113,7 @@ def pre_ftn(img_path):
     preprocess = T.Compose(preprocess_pipeline)
     tensor = cast(torch.Tensor, preprocess(img))
     return tensor.permute((1, 2, 0)).numpy()  # (C, H, W) -> (H, W, C)
-```text
+```
 
 The script uses `make_calib_man()` to generate the tensor dataset:
 
@@ -125,13 +125,13 @@ make_calib_man(
     save_name=os.path.basename(args.npy_path),
     remove_npy=True,  # Clean the destination before writing new .npy files.
 )
-```text
+```
 
 Run the script:
 
 ```bash
 python convert_img_to_tensor.py
-```text
+```
 
 By default, it reads images from `./imagenet-1k-selected` and writes the tensor dataset under `./calib_data_tensor`.
 
@@ -166,7 +166,7 @@ preprocessing_config = PreprocessingConfig(
     pipeline=preprocess_pipeline,
     input_configs={},
 )
-```text
+```
 
 The normalization step, including `/255` scaling, is fused into the MXQ model through `fuseIntoFirstLayer` and `Uint8InputConfig`. This lets the compiled model accept `uint8` input directly at runtime. Spatial transforms such as `resize` and `centerCrop` are not fused, so they still need to be applied at runtime.
 
@@ -180,7 +180,7 @@ mxq_compile(
     uint8_input_config=Uint8InputConfig(apply=True, inputs=[]),
     calibration_config=calibration_config,
 )
-```text
+```
 
 If you want to keep the original input format, disable both `fuseIntoFirstLayer` and `Uint8InputConfig`.
 
@@ -196,7 +196,7 @@ calibration_config = CalibrationConfig(
         "topk_ratio": 0.01,  # quantization top-k ratio
     },
 )
-```text
+```
 
 After the settings are configured, run `model_compile.py` with `--target-device`. The same script supports both ARIES and REGULUS devices.
 
@@ -216,7 +216,7 @@ mxq_compile(
     inference_scheme=inferece_sheme,
     calibration_config=calibration_config,
 )
-```text
+```
 
 Parameters:
 
@@ -248,6 +248,6 @@ python model_compile.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet
 
 # REGULUS (customers from 2026-06)
 python model_compile.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq --mblt-path ./resnet50.mblt --target-device regulus-rb
-```text
+```
 
 After the command finishes, `resnet50.mxq` and `resnet50.mblt` are saved in the current directory.

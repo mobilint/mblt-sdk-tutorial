@@ -15,7 +15,7 @@
 
 ```bash
 pip install ultralytics aiohttp aiofiles
-```text
+```
 
 ## 개요
 
@@ -31,7 +31,7 @@ pip install ultralytics aiohttp aiofiles
 
 ```bash
 yolo export model=yolo11m.pt format=onnx
-```text
+```
 
 명령이 끝나면 현재 디렉토리에 `yolo11m.onnx`가 생성됩니다.
 
@@ -43,7 +43,7 @@ yolo export model=yolo11m.pt format=onnx
 
 ```bash
 hf auth login --token <your_huggingface_token>
-```text
+```
 
 토큰을 새로 만들거나 확인해야 한다면 [Hugging Face account settings](https://huggingface.co/settings/tokens)를 참고하세요.
 
@@ -51,7 +51,7 @@ hf auth login --token <your_huggingface_token>
 
 ```bash
 python prepare_coco.py
-```text
+```
 
 이 스크립트는 다음을 수행합니다.
 
@@ -99,7 +99,7 @@ def pre_ftn(img_path):
     img = (img / 255).astype(np.float32)
 
     return img
-```text
+```
 
 스크립트는 `make_calib_man()`으로 텐서 데이터셋을 생성합니다.
 
@@ -111,13 +111,13 @@ make_calib_man(
     save_name=os.path.basename(args.npy_path),
     remove_npy=True,
 )
-```text
+```
 
 실행 명령은 다음과 같습니다.
 
 ```bash
 python convert_img_to_tensor.py
-```text
+```
 
 기본값으로 `./coco-selected`의 이미지를 읽고, `./calib_data_tensor`에 텐서 데이터셋을 저장합니다.
 
@@ -144,7 +144,7 @@ preprocessing_config = PreprocessingConfig(
     pipeline=preprocess_pipeline,
     input_configs={},
 )
-```text
+```
 
 전처리 융합을 사용할 때는 MXQ 입력 타입을 `uint8`로 설정합니다.
 
@@ -155,7 +155,7 @@ mxq_compile(
     uint8_input_config=Uint8InputConfig(apply=True, inputs=[]),
     calibration_config=calibration_config,
 )
-```text
+```
 
 원래 입력 형식을 유지하려면 전처리 융합과 `Uint8InputConfig`를 모두 비활성화하세요.
 
@@ -171,7 +171,7 @@ calibration_config = CalibrationConfig(
         "topk_ratio": 0.01,
     },
 )
-```text
+```
 
 설정을 마치면 하드웨어에 맞는 `--target-device`를 지정해 `model_compile.py`를 실행하세요. 한 번 실행하면 양자화된 MXQ 파일(`--save-path`)과 중간 MBLT 그래프(`--mblt-path`)가 함께 생성됩니다.
 
@@ -191,7 +191,7 @@ mxq_compile(
     inference_scheme=inferece_sheme,
     calibration_config=calibration_config,
 )
-```text
+```
 
 파라미터:
 
@@ -227,7 +227,7 @@ yolo export model=yolo11m.pt format=onnx
 
 # YOLOv9 (regulus-ra용)
 yolo export model=yolov9m.pt format=onnx
-```text
+```
 
 그다음 컴파일을 실행합니다.
 
@@ -240,6 +240,6 @@ python model_compile.py --onnx-path ./yolov9m.onnx --calib-data-path ./coco-sele
 
 # REGULUS (2026-06 이후 고객)
 python model_compile.py --onnx-path ./yolo11m.onnx --calib-data-path ./coco-selected --save-path ./yolo11m.mxq --mblt-path ./yolo11m.mblt --target-device regulus-rb
-```text
+```
 
 명령이 끝나면 해당 MXQ와 MBLT 파일이 현재 디렉토리에 저장됩니다.

@@ -20,7 +20,7 @@ The compilation process consists of three main steps:
 
 ```bash
 pip install -r requirements.txt
-```text
+```
 
 ## Step 1: Download the Model
 
@@ -28,7 +28,7 @@ Sign up on [Hugging Face](https://huggingface.co/) and accept the license on the
 
 ```bash
 huggingface-cli login --token <your_huggingface_token>
-```text
+```
 
 Download the model and extract its embedding weights. The embedding layer runs on CPU at inference time, while the rest of the model runs on NPU.
 
@@ -36,7 +36,7 @@ Download the model and extract its embedding weights. The embedding layer runs o
 python download_model.py \
   --repo-id meta-llama/Llama-3.2-1B-Instruct \
   --embedding-path ./embedding.pt
-```text
+```
 
 **Output:**
 
@@ -52,7 +52,7 @@ python generate_calib.py \
   --embedding-path ./embedding.pt \
   --tokenizer-path meta-llama/Llama-3.2-1B-Instruct \
   --output-dir ./calibration_data
-```text
+```
 
 **Output:**
 
@@ -67,7 +67,7 @@ python generate_mxq.py \
   --model-path meta-llama/Llama-3.2-1B-Instruct \
   --calib-data-path ./calibration_data/datas/meta-llama-Llama-3.2-1B-Instruct/en \
   --save-path ./Llama-3.2-1B-Instruct.mxq
-```text
+```
 
 **Output:**
 
@@ -99,7 +99,7 @@ python generate_mxq_4bit.py \
   --save-path ./Llama-3.2-1B-Instruct_w4.mxq \
   --bit w4 \
   --target-device regulus-rb
-```text
+```
 
 The 4-bit variant also requires the embedding rotation step below.
 
@@ -123,7 +123,7 @@ python generate_mxq_4bit.py \
   --calib-data-path ./calibration_data/datas/meta-llama-Llama-3.2-1B-Instruct/en \
   --save-path ./Llama-3.2-1B-Instruct_w4.mxq \
   --bit w4
-```text
+```
 
 - `--bit`: Bit allocation preset. `w4` (all 4-bit, default) or `w4v8` (4-bit except value kept at 8-bit for accuracy).
 
@@ -141,7 +141,7 @@ python get_rotation_emb.py \
   --embedding-path ./embedding.pt \
   --rotation-matrix-path ./spinWeight/model/R1/global_rotation.pth \
   --output-path ./embedding_rot.pt
-```text
+```
 
 **Output:**
 

@@ -20,7 +20,7 @@
 
 ```bash
 pip install -r requirements.txt
-```text
+```
 
 ## 1단계: 모델 다운로드
 
@@ -28,7 +28,7 @@ pip install -r requirements.txt
 
 ```bash
 huggingface-cli login --token <your_huggingface_token>
-```text
+```
 
 모델을 다운로드하고 임베딩 가중치를 추출합니다. 임베딩 레이어는 추론 시 CPU에서 실행되며, 나머지 모델은 NPU에서 실행됩니다.
 
@@ -36,7 +36,7 @@ huggingface-cli login --token <your_huggingface_token>
 python download_model.py \
   --repo-id meta-llama/Llama-3.2-1B-Instruct \
   --embedding-path ./embedding.pt
-```text
+```
 
 **출력:**
 
@@ -52,7 +52,7 @@ python generate_calib.py \
   --embedding-path ./embedding.pt \
   --tokenizer-path meta-llama/Llama-3.2-1B-Instruct \
   --output-dir ./calibration_data
-```text
+```
 
 **출력:**
 
@@ -67,7 +67,7 @@ python generate_mxq.py \
   --model-path meta-llama/Llama-3.2-1B-Instruct \
   --calib-data-path ./calibration_data/datas/meta-llama-Llama-3.2-1B-Instruct/en \
   --save-path ./Llama-3.2-1B-Instruct.mxq
-```text
+```
 
 **출력:**
 
@@ -99,7 +99,7 @@ python generate_mxq_4bit.py \
   --save-path ./Llama-3.2-1B-Instruct_w4.mxq \
   --bit w4 \
   --target-device regulus-rb
-```text
+```
 
 4-bit 변형은 아래의 임베딩 회전 단계도 필요합니다.
 
@@ -123,7 +123,7 @@ python generate_mxq_4bit.py \
   --calib-data-path ./calibration_data/datas/meta-llama-Llama-3.2-1B-Instruct/en \
   --save-path ./Llama-3.2-1B-Instruct_w4.mxq \
   --bit w4
-```text
+```
 
 - `--bit`: 비트 할당 프리셋. `w4` (전체 4-bit, 기본값) 또는 `w4v8` (value만 8-bit로 유지하여 정확도 향상).
 
@@ -141,7 +141,7 @@ python get_rotation_emb.py \
   --embedding-path ./embedding.pt \
   --rotation-matrix-path ./spinWeight/model/R1/global_rotation.pth \
   --output-path ./embedding_rot.pt
-```text
+```
 
 **출력:**
 

@@ -18,7 +18,7 @@ All scripts are run from the `stt/` directory.
 
 ```bash
 pip install -r requirements.txt
-```text
+```
 
 ## Step 1: Prepare Audio Data
 
@@ -26,7 +26,7 @@ Download audio data from the Google FLEURS dataset. These multilingual samples a
 
 ```bash
 python prepare_audio.py
-```text
+```
 
 **What this does:**
 
@@ -53,7 +53,7 @@ This step loads **Whisper Small** internally to generate realistic calibration i
 
 ```bash
 python generate_calibration.py
-```text
+```
 
 **What this does:**
 
@@ -80,7 +80,7 @@ Compile both the encoder and decoder to `.mxq` format using the calibration data
 
 ```bash
 python compile_encoder.py
-```text
+```
 
 - Loads Whisper Small model from HuggingFace
 - Compiles encoder to MBLT format, then to `.mxq` using `all` inference scheme
@@ -94,7 +94,7 @@ python compile_encoder.py
 
 ```bash
 python compile_decoder.py
-```text
+```
 
 - Loads Whisper Small model from HuggingFace
 - Compiles decoder to MBLT format, then to `.mxq` with `LlmConfig`
@@ -119,7 +119,7 @@ Both the encoder and decoder scripts use `--target-device` to select the target 
 # REGULUS (customers from 2026-06)
 python compile_encoder.py --target-device regulus-rb
 python compile_decoder.py --target-device regulus-rb
-```text
+```
 
 The outputs are written to the same `./mblt/` and `./mxq/` paths as in the ARIES flow.
 
@@ -139,7 +139,7 @@ If compilation fails due to missing calibration data:
 ```bash
 ls ./calibration_data/encoder/whisper_encoder_cali.txt
 ls ./calibration_data/decoder/whisper_decoder_calib.json
-```text
+```
 
 If files are missing, re-run `generate_calibration.py`.
 
@@ -174,7 +174,7 @@ stt/
 └── mxq/                                    # Output MXQ models
     ├── whisper-small_encoder.mxq
     └── whisper-small_decoder.mxq
-```text
+```
 
 ## References
 

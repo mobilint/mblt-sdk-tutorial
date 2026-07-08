@@ -1,11 +1,11 @@
 # VLM Runtime
 
-This tutorial explains how to run the compiled `Qwen2-VL-2B-Instruct` model on Mobilint NPU hardware.
+This tutorial explains how to run the compiled `Qwen3-VL-2B-Instruct` model on Mobilint NPU hardware.
 
 Before starting, complete the compilation flow in [../../../compilation/vlm/README.md](../../../compilation/vlm/README.md). The runtime examples in this directory expect the following files in `../../../compilation/vlm/mxq/`:
 
-- `Qwen2-VL-2B-Instruct_text_model.mxq`
-- `Qwen2-VL-2B-Instruct_vision_transformer.mxq`
+- `Qwen3-VL-2B-Instruct_text_model.mxq`
+- `Qwen3-VL-2B-Instruct_vision_transformer.mxq`
 - `config.json`
 - `model.safetensors`
 
@@ -37,8 +37,8 @@ The prepared model folder keeps the text model MXQ, vision encoder MXQ, configur
 ```bash
 python prepare_model.py \
     --compilation-dir ../../../compilation/vlm/mxq \
-    --output-folder ./qwen2-vl-mxq \
-    --model-id mobilint/Qwen2-VL-2B-Instruct
+    --output-folder ./qwen3-vl-mxq \
+    --model-id mobilint/Qwen3-VL-2B-Instruct
 ```
 
 This script:
@@ -53,16 +53,16 @@ Run the default example:
 
 ```bash
 python inference_mblt_model_zoo.py \
-    --model-folder ./qwen2-vl-mxq \
-    --model-id mobilint/Qwen2-VL-2B-Instruct
+    --model-folder ./qwen3-vl-mxq \
+    --model-id mobilint/Qwen3-VL-2B-Instruct
 ```
 
 Useful options:
 
 ```bash
-python inference_mblt_model_zoo.py --model-folder ./qwen2-vl-mxq --model-id mobilint/Qwen2-VL-2B-Instruct --image /path/to/image.jpg
-python inference_mblt_model_zoo.py --model-folder ./qwen2-vl-mxq --model-id mobilint/Qwen2-VL-2B-Instruct --prompt "What objects are in this image?"
-python inference_mblt_model_zoo.py --model-folder ./qwen2-vl-mxq --model-id mobilint/Qwen2-VL-2B-Instruct --max-length 1024
+python inference_mblt_model_zoo.py --model-folder ./qwen3-vl-mxq --model-id mobilint/Qwen3-VL-2B-Instruct --image /path/to/image.jpg
+python inference_mblt_model_zoo.py --model-folder ./qwen3-vl-mxq --model-id mobilint/Qwen3-VL-2B-Instruct --prompt "What objects are in this image?"
+python inference_mblt_model_zoo.py --model-folder ./qwen3-vl-mxq --model-id mobilint/Qwen3-VL-2B-Instruct --max-length 1024
 ```
 
 The script builds an `image-text-to-text` pipeline, feeds both the image and prompt to the model, and streams the generated output.
@@ -91,7 +91,7 @@ Use the same pattern under `vision_config` for the vision encoder.
 ### `inference_mblt_model_zoo.py`
 
 - `--model-folder`: Path to the prepared model folder.
-- `--model-id`: Hugging Face model ID used for processor download.
+- `--model-id`: Hugging Face model ID used for processor download. Keep this aligned with the Qwen3 VLM runtime registration used by your compiled `config.json`.
 - `--image`: Local path or URL for the input image.
 - `--prompt`: Prompt text passed along with the image.
 - `--max-length`: Maximum generation length.
