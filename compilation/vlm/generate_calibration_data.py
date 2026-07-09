@@ -35,7 +35,7 @@ from qbcompiler.model_dict.parser.backend.hf.util import (
     DefaultInputsCaptureContainer,
     InputCaptureCtxManager,
 )
-from qwen_vl_utils import process_vision_info
+from PIL import Image
 from transformers import AutoProcessor, Qwen3VLForConditionalGeneration
 
 IMAGE_SIZE = (224, 224)
@@ -67,8 +67,9 @@ PROMPTS = [
 def repreprocess_pixel_values(pixel_values, grid_thw):
     """Rearrange the processor's flat patch tensor into the NPU input layout.
 
-    pixel_values: (gt*gh*gw*Mh*Mw, c*pt*ph*pw). grid_thw: (gt, gh, gw).
-    Returns (gt, pt*c, gh*gw*ph, Mh*Mw*pw). For 224x224 input: (1, 6, 1024, 64).
+    pixel_values: (gt*gh*gw*Mh*Mw, c*pt*ph*pw). grid_thw: (gt, gh, gw). ph=pw (patch size)
+    are derived from the tensor at runtime. Example (Qwen3-VL, 224x224): grid (1, 14, 14)
+    -> returns (1, 6, 784, 64).
     """
     gt, gh, gw = grid_thw
     c, pt, Mh, Mw = 3, 2, 2, 2
@@ -155,15 +156,19 @@ def generate(model, processor, samples, output_dir, max_new_tokens, intermediate
 
     for idx, sample in enumerate(samples):
         print(f"\n[{idx + 1}/{len(samples)}] {os.path.basename(sample['image_url'])}")
+        # Feed the loaded image directly to the Qwen3-VL processor.
+        image = Image.open(sample["image_url"]).convert("RGB")
+        if image.size != IMAGE_SIZE:
+            raise ValueError(
+                f"{sample['image_url']}: image size {image.size} (W, H) != IMAGE_SIZE "
+                f"{IMAGE_SIZE}. Prepare the calibration images at exactly this size first."
+            )
         messages = [{"role": "user", "content": [
-            {"type": "image", "image": sample["image_url"]},
+            {"type": "image", "image": image},
             {"type": "text", "text": sample["prompt"]},
         ]}]
         text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-        image_inputs, _ = process_vision_info(messages)
-        if image_inputs:
-            image_inputs = [img.resize(IMAGE_SIZE) for img in image_inputs]
-        inputs = processor(text=[text], images=image_inputs, padding=True, return_tensors="pt").to(model.device)
+        inputs = processor(text=[text], images=[image], padding=True, return_tensors="pt").to(model.device)
 
         input_len = inputs["input_ids"].shape[1]
         vis_pixel_values = inputs["pixel_values"].float()
