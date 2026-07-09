@@ -9,14 +9,14 @@ if __name__ == "__main__":
     os.makedirs("./huggingface", exist_ok=True)
 
     snapshot_download(
-        repo_id="Qwen/Qwen2-VL-2B-Instruct",
+        repo_id="Qwen/Qwen3-VL-2B-Instruct",
         local_dir="./huggingface/",
         local_dir_use_symlinks=False,
-        allow_patterns=["model-00001-of-00002.safetensors"],  # optional: only download specific files
+        allow_patterns=["model.safetensors"],  # single-file model; embed_tokens lives here
     )
 
-    SOURCE_FILE = "./huggingface/model-00001-of-00002.safetensors"
-    TENSOR_NAME = "model.embed_tokens.weight"
+    SOURCE_FILE = "./huggingface/model.safetensors"
+    TENSOR_NAME = "model.language_model.embed_tokens.weight"
 
     # The filename "model.safetensors" is required by HuggingFace's
     # PreTrainedModel.from_pretrained() convention.
@@ -31,12 +31,13 @@ if __name__ == "__main__":
 
         tensor = f.get_tensor(TENSOR_NAME)
 
-    # Apply the same rotation matrix used during language model MXQ compilation.
-    # The token embedding is not compiled into MXQ (it runs as a CPU lookup),
-    # so it must be pre-rotated to match the quantized model's transformed space.
-    head_out_ch_rotation_matrix_path = "./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth"
+    # Apply the same SpinR1 rotation matrix generated during language model MXQ
+    # compilation (mxq_compile_language.py writes it under this path). The token
+    # embedding is not compiled into MXQ (it runs as a CPU lookup), so it must be
+    # pre-rotated to match the quantized model's transformed space.
+    head_out_ch_rotation_matrix_path = "./spinWeight/Qwen3-VL-2B-Instruct_text_model/R1/global_rotation.pth"
     head_out_ch_rotation_matrix = torch.jit.load(head_out_ch_rotation_matrix_path, map_location="cpu").state_dict()["0"]
 
-    embedding = tensor.double() @ head_out_ch_rotation_matrix
+    embedding = tensor.double() @ head_out_ch_rotation_matrix.double()
 
     save_file({TENSOR_NAME: embedding.float()}, TARGET_FILE)

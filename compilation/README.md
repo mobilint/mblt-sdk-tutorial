@@ -1,6 +1,6 @@
 # Mobilint Compiler Tutorial
 
-Tutorials in this section provide detailed instructions for compiling models using the Mobilint qbcompiler.
+This section contains step-by-step tutorials for compiling models with Mobilint `qbcompiler`.
 
 <!-- markdownlint-disable MD033 -->
 <div align="center">
@@ -10,13 +10,13 @@ Tutorials in this section provide detailed instructions for compiling models usi
 
 ## Compiler Preparation
 
-The Mobilint qbcompiler runs in a Linux environment with Docker installed.
-Before starting, ensure you have:
+Mobilint `qbcompiler` runs in a Linux environment with Docker installed.
+Before you begin, make sure you have:
 
 - [Ubuntu](https://ubuntu.com/) 20.04 LTS or later (WSL2 is also supported)
 - [Docker](https://docs.docker.com/engine/install/ubuntu/)
 
-If a GPU is available, it is recommended to use it for faster compilation.
+If a GPU is available, Mobilint recommends using it to reduce compilation time.
 In that case, you also need:
 
 - [NVIDIA Driver 535.183.01 or later](https://www.nvidia.com/en-us/drivers/)
@@ -27,7 +27,7 @@ After preparing the environment, download the latest qbcompiler image from [qbco
 - `{version}-cpu*` for compilation on CPU
 - `{version}-cuda*` for compilation on GPU with CUDA support
 
-Choose the Docker image that matches your setup.
+Choose the Docker image that matches your environment.
 For example, for version 1.0.1:
 
 ```bash
@@ -70,7 +70,7 @@ docker run -it --ipc=host \
 ```
 
 Next, visit the [Mobilint Download Center](https://dl.mobilint.com/) to download the latest qbcompiler wheel file.
-After logging in, go to ARIES -> qb Compiler and download the wheel file compatible with your environment.
+After logging in, go to `ARIES -> qb Compiler` and download the wheel file that matches your environment.
 
 ### REGULUS
 
@@ -90,7 +90,7 @@ docker run -it --ipc=host \
 ```
 
 Next, visit the [Mobilint Download Center](https://dl.mobilint.com/) to download the latest qbcompiler wheel file.
-After logging in, go to REGULUS -> qb Compiler and download the wheel file compatible with your environment.
+After logging in, go to `REGULUS -> qb Compiler` and download the wheel file that matches your environment.
 
 Copy it to the container and install:
 
@@ -100,12 +100,21 @@ docker exec -it {your_container_name} /bin/bash
 pip install {path_to_container_workspace}/{wheel_file_name}
 ```
 
+Before starting REGULUS compilation, reset host library overrides and activate the Mobilint cross-compilation environment:
+
+```bash
+unset LD_LIBRARY_PATH
+source /opt/crosstools/mobilint/{version}/{sdk}/environment-setup-cortexa53-mobilint-linux
+```
+
+This `unset LD_LIBRARY_PATH` step is important on `x86_64` hosts that already have CUDA, conda, or other host libraries in the environment, because those libraries can otherwise leak into the REGULUS cross toolchain.
+
 Verify the installation:
 
 ```bash
 pip list | grep qbcompiler # Verify the installation
 ```
 
-Now, you’re ready to compile your models!
+You are now ready to compile your models.
 
-Try the tutorials in current directory to compile your models.
+Continue with the tutorials in this directory for model-specific instructions.

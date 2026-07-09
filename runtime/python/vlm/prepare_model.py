@@ -39,8 +39,14 @@ def prepare_model_folder(
         print(f"Copying: {filename}")
         shutil.copy(src, dst)
 
-    # Add NPU core allocation to config.json
+    # Add NPU core allocation to config.json.
     # Required when MXQ is compiled with inference_scheme="all".
+    #
+    # The runtime reads each sub-model's NPU settings only from its own section
+    # (text_config for the language model, vision_config for the vision encoder).
+    # The compiler puts the language-model MXQ path at the top level, so we move
+    # it into text_config. Without this, the language model loads with no MXQ path
+    # and no cores and fails with "Invalid core IDs".
     #
     # Available core modes (vision encoder uses same fields under vision_config):
     #   single: target_cores=["0:0"]    — Cluster 0, Core 0 (default)
@@ -55,9 +61,13 @@ def prepare_model_folder(
         config = json.load(f)
 
     config["_name_or_path"] = model_id
-    config["target_cores"] = ["0:0"]
-    if "vision_config" in config:
-        config["vision_config"]["target_cores"] = ["0:0"]
+
+    # Language model: move its MXQ path into text_config and pick a core.
+    config["text_config"]["mxq_path"] = config.pop("mxq_path")
+    config["text_config"]["target_cores"] = ["0:0"]
+
+    # Vision encoder: its MXQ path is already in vision_config; just pick a core.
+    config["vision_config"]["target_cores"] = ["0:0"]
 
     with open(config_path, "w") as f:
         json.dump(config, f, indent=4)
@@ -87,13 +97,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output-folder",
         type=str,
-        default="./qwen2-vl-mxq",
+        default="./qwen3-vl-mxq",
         help="Destination folder for the prepared model",
     )
     parser.add_argument(
         "--model-id",
         type=str,
-        default="mobilint/Qwen2-VL-2B-Instruct",
+        default="mobilint/Qwen3-VL-2B-Instruct",
         help="HuggingFace model ID stored in config for mblt-model-zoo model registration",
     )
 

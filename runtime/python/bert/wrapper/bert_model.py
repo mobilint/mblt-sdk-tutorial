@@ -22,6 +22,7 @@ class BertMXQ(torch.nn.Module):
 
         self.acc = qbruntime.Accelerator()
         mc = qbruntime.ModelConfig()
+        mc.set_single_core_mode(None, [qbruntime.CoreId(qbruntime.Cluster.Cluster0, qbruntime.Core.Core0)])
         self.model = qbruntime.Model(mxq_path, mc)
         self.model.launch(self.acc)
 
@@ -31,13 +32,20 @@ class BertMXQ(torch.nn.Module):
         attention_mask: torch.Tensor | None = None,
         token_type_ids: torch.Tensor | None = None,
     ):
+        if input_ids is None:
+            raise ValueError("input_ids must be provided.")
+        if token_type_ids is None:
+            raise ValueError("token_type_ids must be provided.")
+
         word_embed = self.word_embeddings(input_ids)
         token_type_embed = self.token_type_embeddings(token_type_ids)
         position_embed = self.position_embeddings(torch.arange(input_ids.shape[1]))
         embedded_text = word_embed + token_type_embed + position_embed
         embedded_text = self.layernorm(embedded_text)
-
-        output = self.model.infer([embedded_text.cpu().numpy()])
+        embedded_text = embedded_text.to(torch.float32).contiguous().detach().numpy()
+        output = self.model.infer([embedded_text])
+        if output is None:
+            raise RuntimeError("Model inference returned no outputs.")
         return torch.from_numpy(output[0]).squeeze()
 
     def dispose(self):

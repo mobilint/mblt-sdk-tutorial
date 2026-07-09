@@ -1,33 +1,37 @@
-# 음성 인식 (STT) 모델 추론
+# STT 런타임
 
-이 튜토리얼은 Mobilint NPU 하드웨어에서 컴파일된 Whisper 음성 인식 모델로 추론을 실행하는 방법을 안내합니다.
+이 튜토리얼은 Mobilint NPU 하드웨어에서 컴파일된 Whisper 음성 인식 모델을 실행하는 방법을 설명합니다.
 
-이 튜토리얼에서는 [컴파일 튜토리얼](../../../compilation/stt/README.KR.md)에서 컴파일한 [Whisper Small](https://huggingface.co/mobilint/whisper-small) 모델을 사용합니다. **먼저 컴파일 튜토리얼을 완료해야** 다음 파일들이 준비됩니다:
+시작하기 전에 [../../../compilation/stt/README.KR.md](../../../compilation/stt/README.KR.md)의 컴파일 과정을 먼저 완료하세요. 이 디렉토리의 런타임 예제는 다음 파일이 준비되어 있다고 가정합니다.
 
-- `../../../compilation/stt/mxq/whisper-small_encoder.mxq` - 컴파일된 인코더
-- `../../../compilation/stt/mxq/whisper-small_decoder.mxq` - 컴파일된 디코더
-- `../../../compilation/stt/audio_files/` - 테스트용 오디오 샘플
+- `../../../compilation/stt/mxq/whisper-small_encoder.mxq`
+- `../../../compilation/stt/mxq/whisper-small_decoder.mxq`
+- `../../../compilation/stt/audio_files/`
 
-## 개요
+## 사전 준비
 
-추론 과정은 두 단계로 구성됩니다:
-
-1. **모델 준비**: MXQ 파일 정리 및 필요한 구성 파일 다운로드
-2. **추론 실행**: mblt-model-zoo를 사용하여 오디오 파일에 대한 음성 인식 수행
-
-이 튜토리얼은 [mblt-model-zoo](https://docs.mobilint.com/v1.2/en/model_zoo.html)를 사용하여 간편한 추론 방식을 제공합니다. mblt-model-zoo를 통해 컴파일된 MXQ 모델을 한 줄(`AutoModelForSpeechSeq2Seq.from_pretrained()`)로 로드할 수 있으며, 일반 HuggingFace 모델과 동일한 방식으로 사용할 수 있습니다. NPU 코어 할당, KV cache, 리소스 관리는 자동으로 처리됩니다.
-
-모든 스크립트는 `runtime/python/stt/` 디렉토리에서 실행합니다.
-
-## 사전 요구 사항
+필요한 패키지를 설치하세요.
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Step 1: 모델 폴더 준비
+## 개요
 
-컴파일된 MXQ 파일을 정리하고 HuggingFace에서 필요한 구성 파일을 다운로드합니다.
+이 튜토리얼은 `mblt-model-zoo`를 사용해 Hugging Face 스타일 API로 Whisper를 실행합니다. 런타임 흐름은 두 단계로 구성됩니다.
+
+1. 컴파일 결과로부터 모델 폴더를 준비합니다.
+2. 오디오 파일에 대해 전사 또는 번역을 실행합니다.
+
+준비된 모델 폴더에는 인코더 MXQ, 디코더 MXQ, 임베딩 가중치, generation config, NPU 코어 할당 설정이 함께 저장됩니다.
+
+## 이 튜토리얼의 파일
+
+- `prepare_model.py`: 런타임 추론용 Whisper 모델 폴더를 생성합니다.
+- `inference_mblt_model_zoo.py`: `mblt-model-zoo`를 통해 전사 또는 번역을 실행합니다.
+- `requirements.txt`: 이 튜토리얼에 필요한 Python 의존성입니다.
+
+## Step 1: 모델 폴더 준비
 
 ```bash
 python prepare_model.py \
@@ -37,19 +41,16 @@ python prepare_model.py \
     --base-model openai/whisper-small
 ```
 
-**수행 내용:**
+이 스크립트는 다음 작업을 수행합니다.
 
-- 컴파일된 MXQ 파일을 출력 폴더로 복사
-- 기본 모델에서 임베딩 가중치 추출 및 저장
-- mblt-model-zoo용 NPU 코어 할당 설정이 포함된 `config.json` 생성
+- 컴파일된 인코더와 디코더 MXQ 파일 복사
+- 기본 Whisper 설정 다운로드
+- 디코더 임베딩 가중치를 `model.safetensors`로 추출
+- 기본 NPU 코어 할당이 포함된 `config.json` 작성
 
-**출력:**
+## Step 2: 추론 실행
 
-- `./whisper-small-mxq/` - 추론 준비가 완료된 모델 폴더
-
-## Step 2: mblt-model-zoo를 사용한 추론
-
-오디오 파일에 대한 음성 인식 추론을 실행합니다. 이 스크립트는 mblt-model-zoo의 공식 Whisper 구현을 사용하여 HuggingFace `AutoModel` API로 MXQ 모델을 로드합니다.
+기본 전사 예제를 실행하려면 다음 명령을 사용하세요.
 
 ```bash
 python inference_mblt_model_zoo.py \
@@ -58,87 +59,48 @@ python inference_mblt_model_zoo.py \
     --model-id mobilint/whisper-small
 ```
 
-**추가 옵션:**
+자주 쓰는 옵션:
 
 ```bash
-# 소스 언어 지정 (예: 영어)
 python inference_mblt_model_zoo.py --audio audio.wav --model-folder ./whisper-small-mxq --model-id mobilint/whisper-small --language en
-
-# 음성을 영어로 번역
 python inference_mblt_model_zoo.py --audio audio.wav --model-folder ./whisper-small-mxq --model-id mobilint/whisper-small --task translate
 ```
 
-## NPU 추론 모드
+이 스크립트는 `librosa`로 오디오를 읽고 `16 kHz`로 리샘플링한 뒤, `AutoModelForSpeechSeq2Seq`로 생성을 수행하고 최종 텍스트를 출력합니다.
 
-NPU는 다양한 코어 모드를 지원합니다. 코어 모드는 `config.json`(`prepare_model.py`가 생성)에서 설정합니다.
+## NPU 코어 모드
 
-| 모드 | 설명 | config.json 필드 |
-|------|------|-----------------|
-| `single` | 각 코어가 독립적으로 추론 실행. 기본 모드. | `encoder_target_cores: ["0:0"]` |
-| `multi` | 여러 코어가 하나의 추론에 협력. | `encoder_core_mode: "multi"`, `encoder_target_clusters: [0]` |
-| `global4` | 4개 코어(1 클러스터)가 글로벌 모드로 실행. | `encoder_core_mode: "global4"`, `encoder_target_clusters: [0]` |
-| `global8` | 8개 코어(2 클러스터)가 글로벌 모드로 실행. 최대 처리량. | `encoder_core_mode: "global8"`, `encoder_target_clusters: [0, 1]` |
+생성된 `config.json`을 편집해 인코더와 디코더의 코어 할당을 바꿀 수 있습니다.
 
-디코더도 동일한 필드를 `decoder_` 접두사로 사용합니다 (예: `decoder_target_cores`, `decoder_core_mode`).
+| 모드 | 설명 | 예시 인코더 필드 |
+| --- | --- | --- |
+| `single` | 단일 코어 실행 | `encoder_target_cores: ["0:0"]` |
+| `multi` | 여러 코어가 하나의 추론에 협력 | `encoder_core_mode: "multi"`, `encoder_target_clusters: [0]` |
+| `global4` | 한 클러스터를 글로벌 모드로 사용 | `encoder_core_mode: "global4"`, `encoder_target_clusters: [0]` |
+| `global8` | 두 클러스터를 글로벌 모드로 사용 | `encoder_core_mode: "global8"`, `encoder_target_clusters: [0, 1]` |
 
-**예시: global8 모드로 변경**
+디코더는 같은 패턴을 `decoder_` 접두사로 사용합니다.
 
-`whisper-small-mxq/config.json`을 편집:
-```json
-{
-    "encoder_core_mode": "global8",
-    "encoder_target_clusters": [0, 1],
-    "decoder_core_mode": "global8",
-    "decoder_target_clusters": [0, 1]
-}
-```
-
-> **참고:** `target_cores` 형식은 `"cluster:core"`입니다 (예: `"0:0"` = 클러스터 0, 코어 0). multi/global4/global8 사용 시에는 `target_cores` 대신 `target_clusters`를 사용합니다.
-
-## 커맨드 라인 인자
+## 파라미터
 
 ### `prepare_model.py`
 
-| 인자 | 기본값 | 설명 |
-| --- | ----- | --- |
-| `--encoder-mxq` | `../../../compilation/stt/mxq/whisper-small_encoder.mxq` | 컴파일된 인코더 MXQ 파일 경로 |
-| `--decoder-mxq` | `../../../compilation/stt/mxq/whisper-small_decoder.mxq` | 컴파일된 디코더 MXQ 파일 경로 |
-| `--output-folder` | `./whisper-small-mxq` | 준비된 모델의 저장 폴더 |
-| `--base-model` | `openai/whisper-small` | 기본 구성 및 임베딩 추출용 HuggingFace 모델 ID |
-| `--model-id` | `mobilint/whisper-small` | mblt-model-zoo용 HuggingFace 모델 ID |
+- `--encoder-mxq`: 컴파일된 인코더 MXQ 파일 경로
+- `--decoder-mxq`: 컴파일된 디코더 MXQ 파일 경로
+- `--output-folder`: 준비된 모델 저장 폴더
+- `--base-model`: 설정과 임베딩 추출에 사용할 Hugging Face 기본 모델 ID
+- `--model-id`: 준비된 설정 파일에 저장할 Hugging Face 모델 ID
 
 ### `inference_mblt_model_zoo.py`
 
-| 인자 | 기본값 | 설명 |
-| --- | ----- | --- |
-| `--audio` | `../../../compilation/stt/audio_files/en_us_0000.wav` | 입력 오디오 파일 경로 |
-| `--model-folder` | `./whisper-small-mxq` | 준비된 모델 폴더 경로 |
-| `--model-id` | `mobilint/whisper-small` | 프로세서 다운로드용 HuggingFace 모델 ID |
-| `--language` | `None` (자동 감지) | 소스 언어 코드 (예: `en`, `ko`, `ja`) |
-| `--task` | `transcribe` | 수행 작업: `transcribe` (전사) 또는 `translate` (번역) |
+- `--audio`: 입력 오디오 파일 경로
+- `--model-folder`: 준비된 모델 폴더 경로
+- `--model-id`: 프로세서 다운로드에 사용할 Hugging Face 모델 ID
+- `--language`: `en`, `ko`, `ja` 같은 선택적 소스 언어 코드
+- `--task`: `transcribe` 또는 `translate`
 
-## 파일 구조
+## 예상 출력
 
-```text
-stt/
-├── prepare_model.py              # Step 1: 모델 폴더 준비
-├── inference_mblt_model_zoo.py   # Step 2: 추론 실행
-└── whisper-small-mxq/            # Step 1의 출력
-    ├── config.json               # NPU 코어 할당이 포함된 모델 구성
-    ├── whisper-small_encoder.mxq
-    ├── whisper-small_decoder.mxq
-    └── ...
-```
+스크립트는 generation이 끝난 뒤 최종 전사 또는 번역 결과를 출력합니다.
 
-## 참고 사항
-
-- 오디오 파일은 자동으로 16kHz로 리샘플링됩니다
-- 모델은 최대 30초 단위의 오디오 청크를 처리합니다
-- Whisper는 99개 이상의 언어를 지원합니다. 주요 코드: `en`, `ko`, `ja`, `zh`, `es`, `fr`, `de`
-
-## 참조
-
-- [OpenAI Whisper](https://github.com/openai/whisper)
-- [HuggingFace Whisper](https://huggingface.co/mobilint/whisper-small)
-- [mblt-model-zoo Documentation](https://docs.mobilint.com/v1.2/en/model_zoo.html)
-- [Mobilint Documentation](https://docs.mobilint.com)
+Whisper는 여러 언어를 지원하며, 예제 스크립트는 `--language`를 통해 언어를 직접 지정하거나 자동 감지를 사용할 수 있습니다.

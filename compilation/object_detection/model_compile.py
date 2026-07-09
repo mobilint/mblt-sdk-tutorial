@@ -4,11 +4,24 @@ from qbcompiler import (
     CalibrationConfig,
     PreprocessingConfig,
     Uint8InputConfig,
+    mblt_compile,
     mxq_compile,
 )
 
+
+def get_device_inference_sheme(target_device):
+    # regulus device only support single
+    if "regulus" in target_device:
+        return "single"
+    # aries device support all
+    elif "aries" in target_device:
+        return "all"
+    else:
+        raise ValueError(f"{target_device} not supported current qbcompiler version")
+
+
 if __name__ == "__main__":
-    parser = ArgumentParser(description="Compile YOLO11 ONNX model to MXQ model")
+    parser = ArgumentParser(description="Compile YOLO ONNX model to MXQ / MBLT")
     parser.add_argument(
         "--onnx-path",
         type=str,
@@ -26,6 +39,19 @@ if __name__ == "__main__":
         type=str,
         default="./yolo11m.mxq",
         help="Path to save the MXQ model",
+    )
+    parser.add_argument(
+        "--mblt-path",
+        type=str,
+        default="./yolo11m.mblt",
+        help="Path to save the MBLT model",
+    )
+    parser.add_argument(
+        "--target-device",
+        type=str,
+        choices=["regulus-ra", "regulus-rb", "aries-rb"],
+        default="aries-rb",
+        help="Target NPU (e.g. aries-rb, regulus-rb)",
     )
 
     args = parser.parse_args()
@@ -48,15 +74,29 @@ if __name__ == "__main__":
             "topk_ratio": 0.01,  # quantization topk
         },
     )
+
+    # inference_sheme is difference device by device
+    inferece_sheme = get_device_inference_sheme(args.target_device)
+
+    # ONNX -> MBLT : intermediate graph only (no quantization), for inspection/visualization
+    mblt_compile(
+        model=args.onnx_path,
+        mblt_save_path=args.mblt_path,
+        target_device=args.target_device,
+        backend="onnx",
+        device="cpu",
+    )
+
+    # ONNX -> MXQ : quantized package that runs on the NPU
     mxq_compile(
         model=args.onnx_path,
         calib_data_path=args.calib_data_path,
-        save_subgraph_type=2,  # save mblt file before quantization
-        output_subgraph_path=args.onnx_path.replace(".onnx", ".mblt"),
         save_path=args.save_path,
         image_channels=3,  # If there is grayscale image in calibration dataset, convert to RGB
         backend="onnx",
-        inference_scheme="all",  # now support all scheme in one model
+        device="gpu",
+        target_device=args.target_device,
+        inference_scheme=inferece_sheme,
         preprocessing_config=preprocessing_config,
         uint8_input_config=Uint8InputConfig(apply=True, inputs=[]),
         calibration_config=calibration_config,

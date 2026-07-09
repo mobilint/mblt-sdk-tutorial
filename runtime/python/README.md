@@ -1,32 +1,51 @@
 # Python Runtime
 
-The Python `qbruntime` library exposes the same NPU API on both ARIES and REGULUS. See the [runtime overview](../README.md) for the general driver and runtime-library setup; this document covers only the Python-specific steps.
+The Python `qbruntime` library exposes the same Mobilint NPU API on both ARIES and REGULUS. This page covers the Python-specific setup for the tutorials in this directory. For general runtime installation and device setup, see the [runtime overview](../README.md).
 
-## Usage Steps
+## Quick Start
 
-#### 1. Enable the Driver
+Follow these steps before running any Python tutorial in this directory.
 
-Make sure the Mobilint NPU driver is running on the host. If it is not installed, follow the [Driver Installation Guide](https://docs.mobilint.com/v1.2/en/installing_driver.html). When running inside Docker, expose the NPU to the container with `--device /dev/aries0:/dev/aries0`.
+### 1. Enable the NPU Driver
 
-#### 2. Install the Python Runtime Library
+Make sure the Mobilint NPU driver is installed and running on the host. If it is not installed yet, follow the [Driver Installation Guide](https://docs.mobilint.com/v1.2/en/installing_driver.html).
+
+If you are running inside Docker, expose the device to the container:
+
+```bash
+--device /dev/aries0:/dev/aries0
+```
+
+### 2. Install the Python Runtime Library
 
 ```bash
 pip install mobilint-qb-runtime
 ```
 
-#### 3. Install Model-specific Dependencies
+### 3. Install Tutorial-Specific Dependencies
 
-Install the packages required by each model tutorial (`image_classification/`, `object_detection/`, `llm/`, `stt/`, ...) — typically some subset of `numpy`, `PIL`, `torch`, `transformers`. The exact list is documented in each subdirectory README.
+Each tutorial directory documents its own Python dependencies. Depending on the model, you may need packages such as `numpy`, `Pillow`, `torch`, `transformers`, or `mblt-model-zoo`.
 
-#### 4. Run the Script
+Install the dependencies listed in the README for the tutorial you want to run, for example:
 
-Move into the desired model directory and run its inference script.
+- `image_classification/`
+- `object_detection/`
+- `bert/`
+- `llm/`
+- `stt/`
+- `vlm/`
 
-## REGULUS Preinstalled
+### 4. Run the Tutorial Script
 
-REGULUS target boards ship with the driver, the `qbruntime` library, and the utility tool already installed. Skip steps 1 and 2 and start from step 3 (model-specific dependencies).
+Move into the tutorial directory you want to use and run the documented script from there.
+
+## REGULUS Preinstalled Environment
+
+REGULUS target boards usually ship with the driver, `qbruntime`, and the utility tools already installed. In that environment, you can usually skip steps 1 and 2 and start from the tutorial-specific dependencies.
 
 ## Device Recommendation
 
-- **ARIES** (x86_64): **recommended**. The x86_64 host has enough CPU headroom and a complete Python ecosystem, so NPU inference is rarely bottlenecked by host-side preprocessing or postprocessing.
-- **REGULUS** (ARM64): **supported, but can be very slow**. The Cortex-A53 host CPU is far weaker than a typical x86_64 host, so Python-level preprocessing, postprocessing, and tensor manipulation (`numpy`, `torch`) often dominate end-to-end latency even when NPU inference itself is fast. For production workloads on REGULUS, use the [C++ runtime](../cpp/README.md) instead.
+- **ARIES** (`x86_64`): Recommended. Host-side preprocessing and postprocessing are less likely to become the bottleneck.
+- **REGULUS** (`ARM64`): Supported, but Python workloads can be slow because preprocessing, postprocessing, and tensor manipulation may dominate end-to-end latency.
+
+For production-style workloads on REGULUS, prefer the [C++ runtime](../cpp/README.md) when possible.

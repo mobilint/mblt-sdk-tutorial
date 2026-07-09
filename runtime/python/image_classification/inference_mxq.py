@@ -34,8 +34,8 @@ if __name__ == "__main__":
     def preprocess_resnet50(img_path: str) -> np.ndarray:
         """Preprocess the image for ResNet-50"""
         img = Image.open(img_path).convert("RGB")
-        resize_size = 256
-        crop_size = (224, 224)
+        resize_size = [256]
+        crop_size = [224, 224]
         out = F.pil_to_tensor(img)
         out = F.resize(out, size=resize_size, interpolation=InterpolationMode.BILINEAR)
         out = F.center_crop(out, output_size=crop_size)
@@ -48,6 +48,8 @@ if __name__ == "__main__":
 
     # ----Run inference
     output = mxq_model.infer(image)
+    if output is None:
+        raise RuntimeError("Model inference returned no outputs.")
 
     # ----Print inference results
     output = output[0].reshape(-1).astype(np.float32)

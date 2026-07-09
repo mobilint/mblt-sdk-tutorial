@@ -1,16 +1,16 @@
 # 음성-텍스트 변환(STT) 모델 컴파일
 
-이 튜토리얼은 Mobilint qbcompiler 컴파일러를 사용하여 Whisper 음성-텍스트 변환 모델을 컴파일하는 방법을 상세히 설명합니다. 컴파일 과정에서는 Whisper 모델(인코더와 디코더를 별도로)을 Mobilint NPU 하드웨어에서 효율적으로 실행할 수 있는 최적화된 `.mxq` 형식으로 변환합니다.
+이 튜토리얼은 Mobilint `qbcompiler`로 Whisper 음성-텍스트 변환 모델을 컴파일하는 방법을 설명합니다. 전체 과정에서는 Whisper 인코더와 디코더를 각각 Mobilint NPU용 최적화 `.mxq` 파일로 변환합니다.
 
-이 튜토리얼에서는 OpenAI가 개발한 다국어 음성 인식 모델인 [Whisper Small](https://huggingface.co/openai/whisper-small) 모델을 사용합니다.
+이 튜토리얼에서는 OpenAI가 개발한 다국어 음성 인식 모델 [Whisper Small](https://huggingface.co/openai/whisper-small)을 사용합니다.
 
 ## 개요
 
 컴파일 과정은 세 가지 주요 단계로 구성됩니다:
 
-1. **데이터 준비**: FLEURS 데이터셋에서 다국어 오디오 데이터 다운로드
-2. **캘리브레이션 데이터 생성**: 인코더와 디코더용 캘리브레이션 데이터셋 생성
-3. **모델 컴파일**: 인코더와 디코더를 각각 `.mxq` 형식으로 컴파일
+1. **데이터 준비**: FLEURS 데이터셋에서 다국어 오디오 데이터를 다운로드합니다.
+2. **캘리브레이션 데이터 생성**: 인코더와 디코더용 캘리브레이션 데이터셋을 생성합니다.
+3. **모델 컴파일**: 인코더와 디코더를 각각 `.mxq` 형식으로 컴파일합니다.
 
 모든 스크립트는 `stt/` 디렉토리에서 실행합니다.
 
@@ -22,7 +22,7 @@ pip install -r requirements.txt
 
 ## 1단계: 오디오 데이터 준비
 
-Google FLEURS 데이터셋에서 오디오 데이터를 다운로드합니다. 이 데이터에는 캘리브레이션에 사용될 다국어 오디오 샘플이 포함되어 있습니다.
+Google FLEURS 데이터셋에서 오디오 데이터를 다운로드합니다. 이 다국어 샘플은 캘리브레이션에 사용됩니다.
 
 ```bash
 python prepare_audio.py
@@ -30,8 +30,8 @@ python prepare_audio.py
 
 **실행 내용:**
 
-- 17개 언어에 대한 Google/FLEURS 데이터셋의 오디오 샘플 다운로드
-- 오디오 파일을 16kHz 모노 WAV 형식으로 리샘플링하여 저장
+- Google/FLEURS 데이터셋에서 17개 언어의 오디오 샘플 다운로드
+- 오디오 파일을 16 kHz 모노 WAV 형식으로 리샘플링해 저장
 
 **지원 언어:**
 
@@ -47,7 +47,7 @@ python prepare_audio.py
 
 Whisper 인코더와 디코더 모두에 대한 캘리브레이션 데이터를 생성합니다. 이 데이터는 컴파일 중 양자화에 필수적입니다.
 
-이 단계에서는 내부적으로 **Whisper Small** 모델을 로드하여 현실적인 캘리브레이션 입력을 생성합니다. 인코더 캘리브레이션은 오디오에서 멜 스펙트로그램을 추출하고, 디코더 캘리브레이션은 모델을 사용하여 전사/번역을 생성한 뒤 토큰 임베딩으로 변환합니다.
+이 단계에서는 내부적으로 **Whisper Small** 모델을 로드해 현실적인 캘리브레이션 입력을 생성합니다. 인코더 캘리브레이션은 오디오에서 멜 스펙트로그램을 추출하고, 디코더 캘리브레이션은 모델로 전사 또는 번역을 생성한 뒤 이를 토큰 임베딩으로 변환합니다.
 
 > **참고:** 이 단계에서는 디코더 캘리브레이션 데이터를 생성하기 위해 Whisper Small 모델로 추론을 수행합니다. GPU(CUDA)가 감지되면 자동으로 사용되어 데이터 생성 속도가 크게 향상됩니다. CPU에서도 정상 동작하지만 처리 시간이 더 오래 걸립니다.
 
@@ -59,7 +59,7 @@ python generate_calibration.py
 
 - Whisper 인코더용 캘리브레이션 데이터 생성 (멜 스펙트로그램 특징)
 - Whisper 디코더용 캘리브레이션 데이터 생성 (인코더 은닉 상태 + 디코더 임베딩)
-- Whisper Small 모델을 로드하여 전사 및 번역을 즉석에서 생성
+- Whisper Small 모델을 로드해 전사와 번역을 실시간으로 생성
 - 다양한 캘리브레이션을 위해 전사(80%)와 번역(20%) 작업을 무작위로 혼합
 
 **출력:**
@@ -103,6 +103,25 @@ python compile_decoder.py
 
 - `./mblt/whisper-small_decoder.mblt` - 중간 MBLT 형식
 - `./mxq/whisper-small_decoder.mxq` - NPU용 최종 양자화 모델
+
+### 대상 디바이스 (`--target-device`)
+
+인코더와 디코더 스크립트는 모두 `--target-device`로 대상 NPU를 지정합니다(기본값: `aries-rb`). REGULUS는 `inference_scheme="single"`만 지원하므로 `regulus` 디바이스를 지정하면 자동으로 적용됩니다.
+
+| 사용자 | `--target-device` |
+|---|---|
+| ARIES | `aries-rb` (기본값) |
+| REGULUS (2026-06 이후 고객) | `regulus-rb` |
+
+> **참고:** STT 컴파일은 신형 REGULUS(`regulus-rb`, 2026-06 이후 고객)에서 지원됩니다. 구형 REGULUS(`regulus-ra`, 2026-06 이전 고객)는 이 워크플로를 지원하지 않습니다.
+
+```bash
+# REGULUS (2026-06 이후 고객)
+python compile_encoder.py --target-device regulus-rb
+python compile_decoder.py --target-device regulus-rb
+```
+
+출력 파일은 ARIES와 동일하게 `./mblt/`, `./mxq/` 경로에 저장됩니다.
 
 ## 문제 해결
 

@@ -1,8 +1,15 @@
-"""Qwen2-VL Vision Encoder Compilation to MBLT Format"""
+"""Compile the Qwen3-VL vision encoder (HF -> MBLT) with ModelParser.
+
+The vision feature entry point is hooked to capture pixel_values / image_grid_thw,
+which are reshaped to the NPU layout and run through ModelParser.
+"""
+
+import argparse
+import os
 
 from qbcompiler.model_dict.common import DataFormat, LayerType
-from qbcompiler.model_dict.parser.backend.fx_hf_extensions.transformers.models.qwen2vl import (
-    VisionModelForQwen2VL,
+from qbcompiler.model_dict.parser.backend.fx_hf_extensions.transformers.models.qwen3vl import (
+    VisionModelForQwen3VL,
     repreprocess_pixel_values,
 )
 from qbcompiler.model_dict.parser.backend.hf.util import (
@@ -11,161 +18,76 @@ from qbcompiler.model_dict.parser.backend.hf.util import (
 )
 from qbcompiler.model_dict.parser.backend.torch.util import wrap_tensor
 from qbcompiler.model_dict.parser.parser import ModelParser
-from utils import (
-    create_sample_messages,
-    load_model_and_processor,
-    prepare_inputs,
-    print_compilation_summary,
-    serialize_to_mblt,
-    validate_compiled_model,
-)
+from utils import create_sample_messages, load_model_and_processor, prepare_inputs, serialize_to_mblt
+
+TARGET_DEVICES = ["regulus-ra", "aries-rb", "regulus-rb"]
+IMAGE_URL = "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/bee.jpg?download=true"
 
 
-def compile_vision_encoder(
-    model,
-    processor,
-    messages: list[dict],
-    image_size: tuple[int, int] = (224, 224),
-    output_path: str = "mblt/Qwen2-VL-2B-Instruct_vision_transformer.mblt",
-    target_device: str = "aries2",
-    ignore_weight: bool = False,
-    debug: bool = True,
-) -> tuple[str, str, str]:
-    """
-    Compile Qwen2-VL vision encoder to MBLT format.
+def capture_vision_inputs(model, inputs):
+    """Capture pixel_values / image_grid_thw at the vision feature entry point."""
+    container = DefaultInputsCaptureContainer()
+    with InputCaptureCtxManager(model.model.get_image_feature_class, 1, container):
+        model(**inputs)
+    if not container.captured_kwargs:
+        raise RuntimeError("Vision feature hook captured no inputs.")
+    captured = container.captured_kwargs[0]
+    return captured["pixel_values"], captured["image_grid_thw"]
 
-    This function:
-    1. Captures vision encoder inputs during a sample inference
-    2. Reprocesses pixel values to Aries 2-compatible format
-    3. Applies architectural patches (3D→2D conv, split QKV, etc.)
-    4. Compiles the model using qbcompiler ModelParser
-    5. Serializes to MBLT binary format
-    6. Validates output by comparing with original model
 
-    Args:
-        model: Qwen2VLForConditionalGeneration model
-        processor: AutoProcessor for Qwen2-VL
-        messages: Sample messages for input capture
-        image_size: Target image size for preprocessing
-        output_path: Path to save the compiled MBLT file
-        target_device: Target device architecture (default: "aries2")
-        ignore_weight: If True, don't save weights (graph structure only)
-        debug: Enable debug logging during compilation
-
-    Returns:
-        Tuple of (mblt_path, inference_values_path, comparison_path)
-    """
-
-    print("=" * 80)
-    print("VISION ENCODER COMPILATION")
-    print("=" * 80)
-
-    inputs = prepare_inputs(processor, messages, model.device, image_size)
-
-    # STEP 1: Capture vision encoder inputs
-    print("\n[1/6] Capturing vision encoder inputs...")
-
-    inputs_container = DefaultInputsCaptureContainer()
-    max_call_limit = 1  # Only capture the first call
-
-    with InputCaptureCtxManager(model.visual, max_call_limit, inputs_container):
-        _ = model.generate(**inputs, max_new_tokens=20)
-
-    pixel_values = inputs_container.captured_args[0][0]
-    grid_thw = inputs_container.captured_kwargs[0]["grid_thw"]
-
-    print(f"   Captured pixel_values: {pixel_values.shape}")
-    print(f"   Captured grid_thw: {grid_thw}")
-
-    # STEP 2: Reprocess pixel values for Aries 2
-    print("\n[2/6] Reprocessing pixel values to Aries 2 format...")
-
-    images = repreprocess_pixel_values(pixel_values, grid_thw[0])
-
-    print(f"   Reprocessed shape: {images.shape}")
-
-    fd_inputs = {"images": wrap_tensor("images", images.to(model.device))}
-    grid_thw = grid_thw.to(model.device)
-
-    # STEP 3: Create patched vision model
-    print("\n[3/6] Applying Aries 2 architectural patches...")
-
-    vision_model = VisionModelForQwen2VL(model)
-    vision_model.set_grid_thw(grid_thw)
-    vision_model.to(model.device)
-
-    # STEP 4: Compile with qbcompiler parser
-    print(f"\n[4/6] Compiling to MBLT with qbcompiler parser (target: {target_device})...")
-
+def build_parser(vision_model, target_device):
+    """Configure a torch-backend ModelParser for the vision encoder."""
     parser = ModelParser(
         model=vision_model,
         backend="torch",
         target_device=target_device,
-        # Prevents YOLO pattern detection from false-matching VLM operators
         yolo_decode_include=True,
     )
-
     parser.cfg.allocate_to_devices = True
     parser.cfg.split_supported_concat = True
+    return parser
 
-    parser.parse(
-        feed_dict=fd_inputs,
-        save_subgraph_type=1,
-        debug=debug,
-    )
 
-    md, wd = parser.get_md_wd(body_only=False)
-
-    # STEP 5: Serialize to MBLT format
-    print("\n[5/6] Serializing to MBLT binary format...")
-
-    # Set data format for input constants to NHWC (Aries 2 layout)
-    for sg in md.subgraphs:
-        for op in sg.operators:
+def set_input_constants_nhwc(model_dict):
+    """Vision input constants use the NHWC layout on the NPU."""
+    for subgraph in model_dict.subgraphs:
+        for op in subgraph.operators:
             if op.layertype == LayerType.InputConstant:
-                sg.activations[op.options.outputs[0]].dataformat = DataFormat.NHWC
+                subgraph.activations[op.options.outputs[0]].dataformat = DataFormat.NHWC
 
-    serialize_to_mblt(
-        md,
-        wd,
-        output_path,
-        ignore_weight=ignore_weight,
-        sort_operators=True,
-    )
 
-    # STEP 6: Validation
-    print("\n[6/6] Validating compiled model...")
+def main():
+    args = _parse_args()
+    os.makedirs(os.path.dirname(os.path.abspath(args.save_path)), exist_ok=True)
 
-    inference_values_path, comparison_path = validate_compiled_model(parser, model.device, output_path)
+    model, processor = load_model_and_processor(args.model)
+    messages = create_sample_messages(IMAGE_URL, "Describe this image in detail.")
+    inputs = prepare_inputs(processor, messages, model.device, tuple(args.image_size))
 
-    print_compilation_summary(
-        "VISION ENCODER",
-        output_path,
-        inference_values_path,
-        comparison_path,
-    )
+    pixel_values, grid_thw = capture_vision_inputs(model, inputs)
+    images = repreprocess_pixel_values(pixel_values, grid_thw[0])
+    feed_dict = {"images": wrap_tensor("images", images.to(model.device))}
 
-    return output_path, inference_values_path, comparison_path
+    vision_model = VisionModelForQwen3VL(model.model)
+    vision_model.set_grid_thw(grid_thw.to(model.device))
+    vision_model.to(model.device)
+
+    parser = build_parser(vision_model, args.target_device)
+    parser.parse(feed_dict=feed_dict, save_subgraph_type=1, debug=False)
+
+    model_dict, weight_dict = parser.get_md_wd(body_only=False)
+    set_input_constants_nhwc(model_dict)
+    serialize_to_mblt(model_dict, weight_dict, args.save_path)
+
+
+def _parse_args():
+    parser = argparse.ArgumentParser(description="Compile Qwen3-VL vision encoder to MBLT")
+    parser.add_argument("--model", default="Qwen/Qwen3-VL-2B-Instruct")
+    parser.add_argument("--save-path", default="mblt/Qwen3-VL-2B-Instruct_vision_transformer.mblt")
+    parser.add_argument("--target-device", required=True, choices=TARGET_DEVICES)
+    parser.add_argument("--image-size", type=int, nargs=2, default=[224, 224])
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
-    model_name = "Qwen/Qwen2-VL-2B-Instruct"
-    output_path = "mblt/Qwen2-VL-2B-Instruct_vision_transformer.mblt"
-
-    model, processor = load_model_and_processor(model_name)
-
-    messages = create_sample_messages(
-        image_url="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/bee.jpg?download=true",
-        text_prompt="Describe this image in detail with document format.",
-    )
-
-    compile_vision_encoder(
-        model=model,
-        processor=processor,
-        messages=messages,
-        image_size=(224, 224),
-        output_path=output_path,
-        target_device="aries2",
-        ignore_weight=False,
-        debug=False,
-    )
+    main()

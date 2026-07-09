@@ -1,95 +1,151 @@
 # Image Classification Model Compilation
 
-This tutorial provides comprehensive instructions for compiling image classification models using the Mobilint `qbcompiler`.
+This tutorial explains how to compile an image classification model with Mobilint `qbcompiler`.
 
-We will use the [ResNet-50](https://docs.pytorch.org/vision/main/models/generated/torchvision.models.resnet50.html) model, available via `torchvision`. This model, pretrained on the ImageNet-1K dataset, is a standard benchmark for classifying images into 1,000 distinct categories.
+The example uses [ResNet-50](https://docs.pytorch.org/vision/main/models/generated/torchvision.models.resnet50.html) from `torchvision`. This model is pretrained on ImageNet-1K and is a standard benchmark for classifying images into 1,000 categories.
 
 ## Prerequisites
 
-Before starting, ensure you have the following installed:
+Before you begin, make sure the following are available:
 
-- qbcompiler
-- HuggingFace account with access to the ImageNet dataset (to use the gated dataset)
+- `qbcompiler`
+- A Hugging Face account with access to the gated ImageNet dataset
 
-## Overview
-
-The compilation workflow consists of three primary steps:
-
-1. **Model Preparation**: Download the model and export it to ONNX format.
-2. **Calibration Dataset Preparation**: Create a representative calibration dataset from ImageNet.
-3. **Model Compilation**: Convert the model to the `.mxq` format using the calibration data.
-
-Also, you need to install the following packages:
+Install the package used to download the dataset:
 
 ```bash
 pip install datasets
 ```
 
-## Step 1: Model Preparation
+## Overview
 
-First, we need to prepare the model. We will use the `torchvision` library to download the pretrained model and export it to ONNX format through `torch.onnx.export`.
+The workflow has three main steps:
+
+1. **Prepare the model**: Download ResNet-50 and export it to ONNX.
+2. **Prepare the calibration dataset**: Build a representative calibration set from ImageNet.
+3. **Compile the model**: Convert the ONNX model to `.mxq` using the calibration data.
+
+## Step 1: Prepare the Model
+
+Use `torchvision` to download the pretrained model, then export it to ONNX with `torch.onnx.export()`.
 
 ```python
 import torch
-from torchvision.models import resnet50, ResNet50_Weights
+from torchvision.models import ResNet50_Weights, resnet50
 
-# Using pretrained weights:
+# Use pretrained weights.
 model = resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
 model.eval()
 
-# Create dummy input based on the model's input shape
-input = torch.randn(1, 3, 224, 224)
+# Create a dummy input that matches the model input shape.
+dummy_input = torch.randn(1, 3, 224, 224)
 
-# Export to ONNX
-torch.onnx.export(model, input, "resnet50.onnx")
+# Export to ONNX.
+torch.onnx.export(model, (dummy_input,), "resnet50.onnx")
 ```
 
-By executing the above code (`prepare_model.py`), the exported ONNX model is saved as `resnet50.onnx` in the current directory.
+Run the script:
 
-## Step 2: Calibration Dataset Preparation
+```bash
+python prepare_model.py
+```
 
-A calibration dataset is a set of images that represent the typical input distribution of the model. We will use the [ImageNet dataset](https://huggingface.co/datasets/ILSVRC/imagenet-1k) for this tutorial.
+This saves the exported model as `resnet50.onnx` in the current directory.
 
-Before using the dataset, sign up for an account on [HuggingFace](https://huggingface.co/) and accept the agreement to use the dataset on the [dataset page](https://huggingface.co/datasets/ILSVRC/imagenet-1k).
+## Step 2: Prepare the Calibration Dataset Source
 
-Then, log in to HuggingFace using the following command and replace <your_huggingface_token> with your actual HuggingFace token:
+The calibration dataset is used to collect activation statistics for quantization. For this ResNet-50 example, use the [ImageNet dataset](https://huggingface.co/datasets/ILSVRC/imagenet-1k).
+
+Before downloading the dataset:
+
+- Create a [Hugging Face](https://huggingface.co/) account.
+- Accept the dataset terms on the [ImageNet-1K dataset page](https://huggingface.co/datasets/ILSVRC/imagenet-1k).
+
+Then log in with your Hugging Face token:
 
 ```bash
 hf auth login --token <your_huggingface_token>
 ```
 
-If you are not sure about your HuggingFace token, you can find it in your [HuggingFace account settings](https://huggingface.co/settings/tokens).
+If you do not know your token, check your [Hugging Face token settings](https://huggingface.co/settings/tokens).
 
-Then, download the dataset from HuggingFace and save it to the `imagenet-1k-selected` directory. This script will select 1 image from each class of the dataset and save 1000 image files to the `imagenet-1k-selected` directory.
+Next, run the dataset preparation script:
 
 ```bash
 python prepare_imagenet.py
 ```
 
-**What it does:**
+What this script does:
 
-- Downloads the dataset from HuggingFace
-- Selects 1 image from each class of the dataset
-- Saves the selected images to the `imagenet-1k-selected` directory
+- Downloads the validation split from Hugging Face
+- Selects one image for each of the 1,000 classes
+- Saves the selected images to `imagenet-1k-selected/`
 
 **Output:**
 
-- `imagenet-1k-selected/` directory containing the selected images
+- `imagenet-1k-selected/`, containing 1,000 images
 
-The selected image dataset is the calibration dataset we will use.
+This directory is the calibration image set used in the next step.
 
-## Step 3: Model Compilation
+## Step 2-1 (Optional): Convert Images to Preprocessed Tensors
 
-Before running the compilation, verify the preprocessing steps required by the model. According to the [official ResNet-50 documentation](https://docs.pytorch.org/vision/main/models/generated/torchvision.models.resnet50.html), the required operations include:
+The calibration data can also be prepared as preprocessed `.npy` tensors. This is useful when your model requires a custom preprocessing function and you want to generate the tensor inputs yourself.
 
-- Resizing the shorter side to 256 pixels (bilinear interpolation)
-- Center cropping to 224x224 pixels
-- Rescaling to the [0, 1] range
-- Normalizing with mean `[0.485, 0.456, 0.406]` and standard deviation `[0.229, 0.224, 0.225]`
+Since `qbcompiler` v1.0.0, a standardized calibration dataset generation flow is available, so you can usually skip this step. Use it only when you need explicit control over preprocessing.
 
-The Mobilint compilation API uses the preprocessing pipeline during calibration. The normalization operation (mean/std and /255 scaling) is fused into the MXQ model via `fuseIntoFirstLayer` and `Uint8InputConfig`, allowing the model to accept uint8 input directly at runtime. Spatial transforms (resize and centerCrop) are not fused and must be performed at runtime.
+The conversion script assumes a preprocessing function that:
 
-In `model_compile.py`, we define the preprocessing pipeline as follows. This pipeline is applied to calibration images.
+- Takes an image path as input
+- Returns a NumPy tensor
+- Produces tensors in `HWC` format for calibration data
+
+Example preprocessing function:
+
+```python
+def pre_ftn(img_path):
+    img = Image.open(img_path).convert("RGB")
+    preprocess_pipeline = [
+        T.Resize(256, interpolation=T.InterpolationMode.BILINEAR),
+        T.CenterCrop((224, 224)),
+        T.ToTensor(),  # [0, 255] -> [0, 1]
+        T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ]
+    preprocess = T.Compose(preprocess_pipeline)
+    tensor = cast(torch.Tensor, preprocess(img))
+    return tensor.permute((1, 2, 0)).numpy()  # (C, H, W) -> (H, W, C)
+```
+
+The script uses `make_calib_man()` to generate the tensor dataset:
+
+```python
+make_calib_man(
+    pre_ftn=pre_ftn,
+    data_dir=args.source_path,
+    save_dir=os.path.dirname(args.npy_path),
+    save_name=os.path.basename(args.npy_path),
+    remove_npy=True,  # Clean the destination before writing new .npy files.
+)
+```
+
+Run the script:
+
+```bash
+python convert_img_to_tensor.py
+```
+
+By default, it reads images from `./imagenet-1k-selected` and writes the tensor dataset under `./calib_data_tensor`.
+
+## Step 3: Compile the Model
+
+Before compilation, confirm the preprocessing required by the model. According to the [official ResNet-50 documentation](https://docs.pytorch.org/vision/main/models/generated/torchvision.models.resnet50.html), the expected preprocessing is:
+
+- Resize the shorter side to 256 pixels with bilinear interpolation
+- Center crop to `224x224`
+- Rescale pixel values to `[0, 1]`
+- Normalize with mean `[0.485, 0.456, 0.406]`
+- Normalize with standard deviation `[0.229, 0.224, 0.225]`
+
+For this tutorial, `qbcompiler` applies that preprocessing through a standardized preprocessing pipeline:
 
 ```python
 preprocess_pipeline = [
@@ -97,12 +153,12 @@ preprocess_pipeline = [
     {"op": "centerCrop", "height": 224, "width": 224},
     {
         "op": "normalize",
+        "scaleToUint8": True,  # [0, 255] -> [0, 1]
         "mean": [0.485, 0.456, 0.406],
         "std": [0.229, 0.224, 0.225],
-        "scaleToUint8": True,  # [0, 255] -> [0, 1]
-        "fuseIntoFirstLayer": True, # fuse into MXQ
+        "fuseIntoFirstLayer": True,
     },
-]  # preprocessing operations for resnet 50
+]  # Preprocessing operations for ResNet-50.
 
 preprocessing_config = PreprocessingConfig(
     apply=True,
@@ -112,48 +168,86 @@ preprocessing_config = PreprocessingConfig(
 )
 ```
 
-Also, we define the following quantization configuration, which is used to quantize the model.
+The normalization step, including `/255` scaling, is fused into the MXQ model through `fuseIntoFirstLayer` and `Uint8InputConfig`. This lets the compiled model accept `uint8` input directly at runtime. Spatial transforms such as `resize` and `centerCrop` are not fused, so they still need to be applied at runtime.
+
+When you enable preprocessing fusion, set the MXQ input type to `uint8`:
+
+```python
+# ONNX -> MXQ: quantized package that runs on the NPU
+mxq_compile(
+    # ... model, calibration data, backend, and target device settings
+    preprocessing_config=preprocessing_config,
+    uint8_input_config=Uint8InputConfig(apply=True, inputs=[]),
+    calibration_config=calibration_config,
+)
+```
+
+If you want to keep the original input format, disable both `fuseIntoFirstLayer` and `Uint8InputConfig`.
+
+The example also uses the following quantization configuration:
 
 ```python
 calibration_config = CalibrationConfig(
-        method=1,  # 0 for per tensor, 1 for per channel
-        output=0,  # 0 for layer, 1 for channel
-        mode=1,  # maxpercentile
-        max_percentile={
-            "percentile": 0.9999,  # quantization percentile
-            "topk_ratio": 0.01,  # quantization topk
-        },
-    )
+    method=1,  # 0 for per tensor, 1 for per channel
+    output=0,  # 0 for layer, 1 for channel
+    mode=1,  # maxpercentile
+    max_percentile={
+        "percentile": 0.9999,  # quantization percentile
+        "topk_ratio": 0.01,  # quantization top-k ratio
+    },
+)
 ```
 
-After configuring the settings, run the script for your target device.
+After the settings are configured, run `model_compile.py` with `--target-device`. The same script supports both ARIES and REGULUS devices.
 
-**Parameters:**
+## Step 3-1 (Optional): Compile with Prepared Tensor Files
+
+If you already prepared `.npy` tensor files, you can use that directory as `calib_data_path` instead of providing raw image files and a preprocessing pipeline.
+
+```python
+mxq_compile(
+    model=args.onnx_path,
+    calib_data_path=args.calib_data_path,  # Directory of .npy files, or a .txt file listing them
+    save_path=args.save_path,
+    image_channels=3,  # Convert grayscale calibration images to RGB if needed
+    backend="onnx",
+    device="gpu",
+    target_device=args.target_device,
+    inference_scheme=inferece_sheme,
+    calibration_config=calibration_config,
+)
+```
+
+Parameters:
 
 - `--onnx-path`: Path to the ONNX model
 - `--calib-data-path`: Path to the calibration data
-- `--save-path`: Path to save the MXQ model
+- `--save-path`: Path to save the MXQ model (`onnx -> mxq`)
+- `--mblt-path`: Path to save the MBLT intermediate graph (`onnx -> mblt`)
+- `--target-device` (required): Target NPU. See the table below. The inference scheme is selected automatically (`ARIES = all`, `REGULUS = single`).
 
 **Output:**
 
-- `{path_to_save_model}` file path containing the compiled model
+- MXQ model at `--save-path` (`onnx -> mxq`, quantized NPU package)
+- MBLT graph at `--mblt-path` (`onnx -> mblt`, pre-quantization intermediate graph)
 
-### ARIES
+### Select the Target Device (`--target-device`)
 
-ARIES uses `inference_scheme="all"` to support multiple inference schemes in a single MXQ model.
-
-```bash
-python model_compile.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq
-```
-
-After executing the above command, the compiled model will be saved as `resnet50.mxq` in the current directory.
-
-### REGULUS
-
-REGULUS only supports `inference_scheme="single"`. Use `model_compile_regulus.py`.
+| User | `--target-device` |
+| --- | --- |
+| ARIES | `aries-rb` |
+| REGULUS (customers before 2026-06) | `regulus-ra` |
+| REGULUS (customers from 2026-06) | `regulus-rb` |
 
 ```bash
-python model_compile_regulus.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq
+# ARIES
+python model_compile.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq --mblt-path ./resnet50.mblt --target-device aries-rb
+
+# REGULUS (customers before 2026-06)
+python model_compile.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq --mblt-path ./resnet50.mblt --target-device regulus-ra
+
+# REGULUS (customers from 2026-06)
+python model_compile.py --onnx-path ./resnet50.onnx --calib-data-path ./imagenet-1k-selected --save-path ./resnet50.mxq --mblt-path ./resnet50.mblt --target-device regulus-rb
 ```
 
-After executing the above command, the compiled model will be saved as `resnet50.mxq` in the current directory.
+After the command finishes, `resnet50.mxq` and `resnet50.mblt` are saved in the current directory.

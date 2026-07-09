@@ -1,6 +1,6 @@
 # Mobilint 컴파일러 튜토리얼 (Mobilint Compiler Tutorial)
 
-이 섹션의 튜토리얼은 Mobilint qb 컴파일러를 사용하여 모델을 컴파일하는 방법에 대한 상세한 안내를 제공합니다.
+이 섹션에는 Mobilint `qbcompiler`로 모델을 컴파일하는 방법을 단계별로 설명한 튜토리얼이 정리되어 있습니다.
 
 <!-- markdownlint-disable MD033 -->
 <div align="center">
@@ -10,14 +10,14 @@
 
 ## 컴파일러 준비 (Compiler Preparation)
 
-Mobilint qb 컴파일러는 Docker가 설치된 Linux 환경에서 실행됩니다.
-시작하기 전에 다음 사항이 준비되어 있는지 확인하세요:
+Mobilint `qbcompiler`는 Docker가 설치된 Linux 환경에서 실행됩니다.
+시작하기 전에 다음 항목이 준비되어 있는지 확인하세요.
 
 - [Ubuntu](https://ubuntu.com/) 20.04 LTS 이상 (WSL2 지원)
 - [Docker](https://docs.docker.com/engine/install/ubuntu/)
 
-GPU를 사용할 수 있는 경우, 더 빠른 컴파일을 위해 GPU 사용을 권장합니다.
-이 경우 다음 항목들이 추가로 필요합니다:
+GPU를 사용할 수 있다면 컴파일 시간을 줄이기 위해 사용하는 것이 좋습니다.
+이 경우 다음 항목도 추가로 필요합니다.
 
 - [NVIDIA Driver 535.183.01 이상](https://www.nvidia.com/en-us/drivers/)
 - [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/index.html#)
@@ -27,7 +27,7 @@ GPU를 사용할 수 있는 경우, 더 빠른 컴파일을 위해 GPU 사용을
 - `{version}-cpu*`: CPU에서 컴파일 시 사용
 - `{version}-cuda*`: CUDA를 지원하는 GPU에서 컴파일 시 사용
 
-사용자 환경에 맞는 Docker 이미지를 선택하세요.
+사용 중인 환경에 맞는 Docker 이미지를 선택하세요.
 예를 들어, 버전 1.0.1의 경우 다음과 같습니다:
 
 ```bash
@@ -70,7 +70,7 @@ docker run -it --ipc=host \
 ```
 
 다음으로, [Mobilint 다운로드 센터](https://dl.mobilint.com/)를 방문하여 최신 qbcompiler wheel 파일을 다운로드하세요.
-로그인 후, ARIES -> qb Compiler 메뉴에서 사용자 환경과 호환되는 wheel 파일을 다운로드할 수 있습니다.
+로그인한 뒤 `ARIES -> qb Compiler` 메뉴에서 현재 환경에 맞는 wheel 파일을 다운로드하세요.
 
 ### REGULUS
 
@@ -90,7 +90,7 @@ docker run -it --ipc=host \
 ```
 
 다음으로, [Mobilint 다운로드 센터](https://dl.mobilint.com/)를 방문하여 최신 qbcompiler wheel 파일을 다운로드하세요.
-로그인 후, REGULUS -> qb Compiler 메뉴에서 사용자 환경과 호환되는 wheel 파일을 다운로드할 수 있습니다.
+로그인한 뒤 `REGULUS -> qb Compiler` 메뉴에서 현재 환경에 맞는 wheel 파일을 다운로드하세요.
 
 다운로드한 파일을 컨테이너로 복사하고 설치합니다:
 
@@ -100,12 +100,21 @@ docker exec -it {your_container_name} /bin/bash
 pip install {path_to_container_workspace}/{wheel_file_name}
 ```
 
+REGULUS 컴파일을 시작하기 전에, 호스트 라이브러리 override를 초기화하고 Mobilint 크로스 컴파일 환경을 활성화하세요:
+
+```bash
+unset LD_LIBRARY_PATH
+source /opt/crosstools/mobilint/{version}/{sdk}/environment-setup-cortexa53-mobilint-linux
+```
+
+이 `unset LD_LIBRARY_PATH` 단계는 CUDA, conda, 기타 호스트 라이브러리가 이미 환경 변수에 들어 있는 `x86_64` 호스트에서 특히 중요합니다. 이 값을 그대로 두면 해당 라이브러리가 REGULUS 크로스 툴체인으로 섞여 들어갈 수 있습니다.
+
 설치된 내용을 확인합니다:
 
 ```bash
 pip list | grep qbcompiler # 설치 확인
 ```
 
-이제 모델을 컴파일할 준비가 되었습니다!
+이제 모델을 컴파일할 준비가 되었습니다.
 
-현재 디렉토리의 튜토리얼을 따라 모델을 컴파일해 보세요.
+이 디렉토리의 튜토리얼을 이어서 따라가며 모델별 컴파일 절차를 진행하세요.

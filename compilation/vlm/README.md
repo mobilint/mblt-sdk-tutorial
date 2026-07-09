@@ -1,29 +1,31 @@
 # Vision Language Model (VLM) Compilation
 
-This tutorial provides detailed instructions for compiling Vision Language Models (VLMs) using the Mobilint qbcompiler compiler.
+This tutorial explains how to compile a vision-language model (VLM) with Mobilint `qbcompiler`.
 
-In this tutorial, we will use the [Qwen2-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct) model, a state-of-the-art vision-language model developed by Qwen.
+In this tutorial, we will use the [Qwen3-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct) model, a state-of-the-art vision-language model developed by Qwen. Qwen3-VL introduces a deepstack visual pathway: the vision encoder produces image embeds plus three deepstack feature maps that are injected into the early decoder layers, so both the calibration data and the decoder compilation carry deepstack tensors.
+
+The quantization settings in this tutorial use the benchmark-best 2B configuration: the decoder is compiled with 8-bit weights, 16-bit activations on the embedding and deepstack inputs, SpinR1/SpinR2 rotations, and a weight-scale search; the encoder uses 16-bit activations on the merger and deepstack merger `fc2` layers together with a `head_out_ch_rotation` that reuses the decoder's SpinR1 matrix.
 
 ## Overview
 
 The VLM compilation process consists of three main stages:
 
-1. **Calibration Data Generation**: Create calibration datasets for quantization
-2. **MBLT Compilation**: Compile the model to MBLT (Mobilint Binary LayouT) format
-3. **MXQ Compilation**: Apply advanced quantization and compile to `.mxq` format for deployment
+1. **Calibration Data Generation**: Create calibration datasets for quantization.
+2. **MBLT Compilation**: Compile the model to MBLT (Mobilint Binary LayouT) format.
+3. **MXQ Compilation**: Apply advanced quantization and compile to `.mxq` format for deployment.
 
-The compilation process is performed separately for the **language model** (decoder) and **vision encoder** components.
+The workflow compiles the **language model** (decoder) and the **vision encoder** separately.
 
-After compilation, you will have all necessary files in the `mxq/` directory ready for deployment on NPU.
+After compilation, the `mxq/` directory contains all files required for deployment on the NPU.
 
 ## Prerequisites
 
-Before starting, ensure you have:
+Before you begin, make sure the following are available:
 
 - Python 3.8 or higher
-- qbcompiler SDK compiler installed (version >= 1.0.1 required)
-- (optional) CUDA-capable GPU for calibration and compilation
-- Sufficient disk space (~20GB for model + calibration data)
+- `qbcompiler` SDK installed (version `>= 1.0.1`)
+- Optional CUDA-capable GPU for calibration and compilation
+- Sufficient disk space (about 20 GB for the model and calibration data)
 
 ### Install Required Dependencies
 
@@ -35,7 +37,7 @@ pip install transformers==4.57.1 qwen-vl-utils==0.0.14 accelerate==1.13.0
 
 ### Download Calibration Images
 
-The calibration process uses images from the COCO dataset. A download script is provided to automatically fetch 100 images:
+The calibration flow uses images from the COCO dataset. A helper script is provided to download 100 images automatically:
 
 ```bash
 python download_images.py
@@ -43,10 +45,10 @@ python download_images.py
 
 **What it does:**
 
-- Downloads 100 images from the COCO 2017 validation set using HuggingFace datasets
-- Automatically resizes images to 224x224 resolution
-- Saves images to the `images/` directory as JPEG files
-- If the COCO download fails, generates synthetic sample images as fallback
+- Downloads 100 images from the COCO 2017 validation set using Hugging Face Datasets
+- Automatically resizes the images to `224x224`
+- Saves the images as JPEG files in the `images/` directory
+- Falls back to synthetic sample images if the COCO download fails
 
 **Output:**
 
@@ -58,83 +60,46 @@ The calibration scripts will automatically use all images in the `images/` direc
 
 Calibration data is essential for quantization, as it helps the compiler understand the typical activation ranges of the model.
 
-### Step 1.1: Generate Language Model Calibration Data
+### Step 1.1: Generate Calibration Data
 
-Generate calibration data for the language model (decoder):
+A single script generates calibration data for both the language model (decoder) and the vision encoder while reusing one loaded model:
 
 ```bash
-python generate_language_calibration_data.py \
-    --model-name Qwen/Qwen2-VL-2B-Instruct \
-    --output-dir ./calibration_data/language \
+python generate_calibration_data.py \
+    --model-name Qwen/Qwen3-VL-2B-Instruct \
+    --output-dir ./calibration_data \
     --num-samples 100 \
-    --max-new-tokens 500
+    --max-new-tokens 512
 ```
 
 **Parameters:**
 
 - `--model-name`: HuggingFace model identifier
-- `--output-dir`: Directory to save calibration data
+- `--output-dir`: Base directory; `language/`, `vision/`, `prefill/`, and `decode/` subdirectories are created under it
 - `--num-samples`: Number of calibration samples (default: all available images)
-- `--max-new-tokens`: Maximum tokens to generate per sample (captures longer sequences)
+- `--max-new-tokens`: Maximum tokens for the decode generation pass
+- `--intermediate-ratios`: Decode-prefix ratios to save (1.0 is always appended)
 
 **What it does:**
 
-- Loads all images from `images/` folder (100 JPEG images downloaded earlier)
-- Cycles through 20 diverse prompt types (object identification, detailed description, visual reasoning, spatial understanding, etc.)
-- Captures `inputs_embeds` tensors after vision features are merged into text embeddings
-- Saves calibration data as `.npy` files with metadata
+- Loads all images from `images/` folder and cycles through 20 diverse prompt types
+- Language: runs two passes per image. Pass 1 captures the decoder prefill inputs (`inputs_embeds` and the three `deepstack_visual_embeds` layers) after vision features are merged; Pass 2 runs a full generate to collect the decode token sequence. Prefill and decode samples are then merged into a single `language/` directory
+- Vision: captures vision encoder pixel values reshaped to the NPU layout `[H, W, 6]` (image size fixed at 224x224)
+- Saves calibration data as `.npy` files; `language/` is indexed by a single `npy_files.json`
 
 **Output structure:**
 
 ```text
-calibration_data/language/
- sample_000/
-    inputs_embeds.npy    # [1, seq_len, 1536]
- sample_001/
-    inputs_embeds.npy
- ...
- metadata.json            # Sample information
- npy_files.txt           # List of all .npy paths
-```
-
-### Step 1.2: Generate Vision Encoder Calibration Data
-
-Generate calibration data for the vision encoder:
-
-```bash
-python generate_vision_calibration_data.py \
-    --model-name Qwen/Qwen2-VL-2B-Instruct \
-    --output-dir ./calibration_data/vision \
-    --num-samples 100
-```
-
-**Parameters:**
-
-- `--model-name`: HuggingFace model identifier
-- `--output-dir`: Directory to save calibration data
-- `--num-samples`: Number of calibration samples (default: all available images)
-
-**Note:** Image size is fixed at 224x224 for vision encoder calibration.
-
-**What it does:**
-
-- Loads all images from `images/` folder (100 JPEG images downloaded earlier)
-- Cycles through diverse prompts (same as language calibration)
-- Captures vision encoder inputs (pixel values)
-- Reshapes to format compatible with ARIES architecture: `[896, 56, 6]`
-- Saves calibration data as `.npy` files with metadata
-
-**Output structure:**
-
-```text
-calibration_data/vision/
- sample_000/
-    images.npy          # [896, 56, 6]
- sample_001/
-    images.npy
- ...
- metadata.json           # Sample information
- npy_files.txt          # List of all .npy paths
+calibration_data/
+ language/
+    prefill_000/{inputs_embeds.npy, deepstack_visual_embeds.npy}  # [1, seq_len, 2048], [3, seq_len, 2048]
+    decode_000/{inputs_embeds.npy, deepstack_visual_embeds.npy}
+    ...
+    npy_files.json
+ vision/
+    sample_000/images.npy           # [H, W, 6]
+    ...
+    npy_files.txt
 ```
 
 ## Stage 2: MBLT Compilation
@@ -143,10 +108,14 @@ MBLT (Mobilint Binary LayouT) is an intermediate format that represents the mode
 
 ### Step 2.1: Compile Language Model to MBLT
 
-Compile the language model (decoder) to MBLT format:
+Compile the language model (decoder) to MBLT format. `--target-device` is required (`aries-rb` or `regulus-rb`):
 
 ```bash
-python mblt_compile_language.py
+# ARIES
+python mblt_compile_language.py --target-device aries-rb
+
+# REGULUS (customers from 2026-06)
+python mblt_compile_language.py --target-device regulus-rb
 ```
 
 **What it does:**
@@ -158,30 +127,33 @@ python mblt_compile_language.py
   - **Last-query slicing**: Optimizes the final decoder layer for decode phase
   - **Stateful KV cache wrappers**: Enables efficient auto-regressive generation
   - **Dynamic shape handling**: Supports variable sequence lengths
-- Compiles the model using qbcompiler's ModelParser with PyTorch FX tracing
+- Pads the three `deepstack_visual_embeds` layers to the full sequence length via `build_full_visual_embeds` and `visual_pos_masks`
+- Slices `position_ids` to the first 3 mrope axes (t/h/w) for the cached rotary embedding
 - Configures dynamic shapes for attention operators
-- Serializes to MBLT binary format
-- Validates output by comparing with original model
+- Exports to MBLT format via `mblt_compile()`
 
 **Key transformations:**
 
 - Input embeddings dimension marked as dynamic: `[batch, seq_len, hidden_size]`
+- `deepstack_visual_embeds` sequence-length axis marked as dynamic
 - Attention mask and position IDs marked as dynamic for variable sequences
 - Cache position marked as dynamic for auto-regressive generation
-- RoPE embeddings pre-computed for max sequence length (16384)
+- RoPE embeddings pre-computed from the captured position IDs
 
 **Output files:**
 
-- `./mblt/Qwen2-VL-2B-Instruct_text_model.mblt`: Compiled model in MBLT format
-- `./mblt/Qwen2-VL-2B-Instruct_text_model.infer`: Inference values for validation
-- `./mblt/Qwen2-VL-2B-Instruct_text_model.json`: Comparison results with original model
+- `./mblt/Qwen3-VL-2B-Instruct_text_model.mblt`: Compiled model in MBLT format
 
 ### Step 2.2: Compile Vision Encoder to MBLT
 
-Compile the vision encoder to MBLT format:
+Compile the vision encoder to MBLT format. `--target-device` is required (`aries-rb` or `regulus-rb`):
 
 ```bash
-python mblt_compile_vision.py
+# ARIES
+python mblt_compile_vision.py --target-device aries-rb
+
+# REGULUS (customers from 2026-06)
+python mblt_compile_vision.py --target-device regulus-rb
 ```
 
 **What it does:**
@@ -193,10 +165,7 @@ python mblt_compile_vision.py
   - **Split QKV projection**: Separates Query, Key, Value projections for better parallelization
   - **Pre-computed RoPE embeddings**: Eliminates runtime trigonometric operations
   - **Merged patchify operation**: Reduces memory transfers
-- Compiles the model using qbcompiler's ModelParser with PyTorch FX tracing
-- Sets data format to NHWC (NPU-friendly) for all input constants
-- Serializes to MBLT binary format
-- Validates output by comparing with original model
+- Exports to MBLT format via `mblt_compile()`
 
 **Key transformations:**
 
@@ -207,9 +176,7 @@ python mblt_compile_vision.py
 
 **Output files:**
 
-- `./mblt/Qwen2-VL-2B-Instruct_vision_transformer.mblt`: Compiled model in MBLT format
-- `./mblt/Qwen2-VL-2B-Instruct_vision_transformer.infer`: Inference values for validation
-- `./mblt/Qwen2-VL-2B-Instruct_vision_transformer.json`: Comparison results with original model
+- `./mblt/Qwen3-VL-2B-Instruct_vision_transformer.mblt`: Compiled model in MBLT format
 
 ## Stage 3: MXQ Compilation (Advanced Quantization)
 
@@ -217,70 +184,93 @@ MXQ (Mobilint eXeQutable) format applies advanced quantization techniques and pr
 
 ### Step 3.1: Compile Language Model to MXQ
 
-Compile the language model from MBLT to MXQ format:
+Compile the language model from MBLT to MXQ format. `--target-device` is required (`aries-rb` or `regulus-rb`):
 
 ```bash
-python mxq_compile_language.py
+# ARIES
+python mxq_compile_language.py --target-device aries-rb
+
+# REGULUS (customers from 2026-06)
+python mxq_compile_language.py --target-device regulus-rb
 ```
 
 **What it does:**
 
-- Loads the MBLT file: `./mblt/Qwen2-VL-2B-Instruct_text_model.mblt`
-- Loads calibration data from: `./calibration_data/language/npy_files.txt`
+- Loads the MBLT file: `./mblt/Qwen3-VL-2B-Instruct_text_model.mblt`
+- Loads calibration data from: `./calibration_data/language/npy_files.json`
 - Applies advanced quantization with equivalent transformations
-- Configures 16-bit activations for input embeddings: `inputs_embeds/reshape`
-- NPU inference scheme: `single`
-- **Generates rotation matrix** at: `./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
+- Configures 16-bit activations for the embedding and deepstack inputs: `inputs_embeds/reshape`, `deepstack_visual_embeds_0`
+- NPU inference scheme: set automatically by `--target-device` (`all` for ARIES, `single` for REGULUS)
+- **Generates rotation matrix** at: `./spinWeight/Qwen3-VL-2B-Instruct_text_model/R1/global_rotation.pth`
   - This rotation matrix is **required for vision encoder MXQ compilation**
 
-**Key configurations:**
+**Key configurations (benchmark-best 2B decoder):**
 
-- Calibration mode: 1 (standard calibration, `CompileConfig` default)
-- Activation 16-bit layers: `["inputs_embeds/reshape"]`
-- Inference scheme: `all`
-- Equivalent transformations: QK, UD (with learning), SPIN R1, SPIN R2
+- Calibration: mode 0 (Max), output 0
+- Weights: 8-bit (qbcompiler default); float32 weight dtype during compilation
+- Activation 16-bit layers: `["inputs_embeds/reshape", "deepstack_visual_embeds_0"]`
+- Inference scheme: `all` for ARIES, `single` for REGULUS
+- Equivalent transformations: UD (smoothing_factor=0.8), VO, SpinR1, SpinR2, optimize_ffn (QK disabled)
+- Weight-scale search enabled for query/key/value/out/ffn
 
 **Output files:**
 
-- `./mxq/Qwen2-VL-2B-Instruct_text_model.mxq`: Quantized model ready for ARIES deployment
-- `./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`: Global rotation matrix (needed for vision encoder)
+- `./mxq/Qwen3-VL-2B-Instruct_text_model.mxq`: Quantized model ready for deployment
+- `./spinWeight/Qwen3-VL-2B-Instruct_text_model/R1/global_rotation.pth`: Global rotation matrix (needed for vision encoder)
 
 ### Step 3.2: Compile Vision Encoder to MXQ
 
 **Important:** You must complete Step 3.1 (language model MXQ compilation) first, as the vision encoder compilation requires the rotation matrix generated during language model compilation.
 
-Compile the vision encoder from MBLT to MXQ format:
+Compile the vision encoder from MBLT to MXQ format. `--target-device` is required (`aries-rb` or `regulus-rb`):
 
 ```bash
-python mxq_compile_vision.py
+# ARIES
+python mxq_compile_vision.py --target-device aries-rb
+
+# REGULUS (customers from 2026-06)
+python mxq_compile_vision.py --target-device regulus-rb
 ```
 
 **What it does:**
 
-- Loads the MBLT file: `./mblt/Qwen2-VL-2B-Instruct_vision_transformer.mblt`
+- Loads the MBLT file: `./mblt/Qwen3-VL-2B-Instruct_vision_transformer.mblt`
 - Loads calibration data from: `./calibration_data/vision/npy_files.txt`
-- **Loads rotation matrix** from: `./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
+- **Loads rotation matrix** from: `./spinWeight/Qwen3-VL-2B-Instruct_text_model/R1/global_rotation.pth`
   - This matrix was generated during language model MXQ compilation
   - It ensures consistent quantization between vision and language components
 - Applies advanced quantization with equivalent transformations:
   - **Head output channel rotation**: Aligns vision encoder outputs with language model inputs using the shared rotation matrix
-- Configures 16-bit activations for merger layer: `model_merger_fc2` (This may not be necessary in the future)
+- Configures 16-bit activations for the merger and deepstack merger `fc2` layers
 - Uses multi-core compilation for vision encoder
 
-**Key configurations:**
+**Key configurations (benchmark-best 2B encoder):**
 
-- Calibration output mode: 1 (standard output calibration, `CompileConfig` default)
-- Activation 16-bit layers: `["model_merger_fc2"]`
-- Inference scheme: `all`
-- Equivalent transformations: Head output channel rotation (using language model rotation matrix)
-- Rotation matrix path: `./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
+- Calibration: mode 1 (MaxPercentile), output 0
+- Activation 16-bit layers: `["model_merger_linear_fc2", "model_deepstack_merger_list_0_linear_fc2", "model_deepstack_merger_list_1_linear_fc2", "model_deepstack_merger_list_2_linear_fc2"]`
+- Inference scheme: `all` for ARIES, `single` for REGULUS
+- Equivalent transformations: QK, UD, VO, head_out_ch_rotation (using language model rotation matrix), SpinR2, optimize_ffn (SpinR1 disabled)
+- Rotation matrix path: `./spinWeight/Qwen3-VL-2B-Instruct_text_model/R1/global_rotation.pth`
 
 **Why the rotation matrix is needed:**
 The vision encoder's output must be properly aligned with the language model's input space. The rotation matrix generated during language model quantization ensures that the vision features and text embeddings live in the same quantized space, maintaining accuracy when vision and language components are combined during inference.
 
 **Output files:**
 
-- `./mxq/Qwen2-VL-2B-Instruct_vision_transformer.mxq`: Quantized model ready for ARIES deployment
+- `./mxq/Qwen3-VL-2B-Instruct_vision_transformer.mxq`: Quantized model ready for deployment
+
+### Target device (`--target-device`)
+
+Both MXQ compile scripts use `--target-device` to select the target NPU. REGULUS supports only `inference_scheme="single"`, which is selected automatically when a `regulus` device is specified. As in the ARIES flow, compile the language model first so the rotation matrix is available before compiling the vision encoder.
+
+| User | `--target-device` |
+|---|---|
+| ARIES | `aries-rb` |
+| REGULUS (customers from 2026-06) | `regulus-rb` |
+
+> **Note:** VLM compilation is supported on newer REGULUS (`regulus-rb`, customers from 2026-06). Older REGULUS (`regulus-ra`, customers before 2026-06) do not support this workflow.
+
+Outputs are written to the same `./mxq/` paths regardless of the target device.
 
 ### Step 3.3: Prepare Inference Configuration Files
 
@@ -300,19 +290,17 @@ python get_config.py
 
 - Downloads `config.json` from the HuggingFace model repository
 - Modifies the config to point to the compiled MXQ model files:
-  - Sets `mxq_path` to `"Qwen2-VL-2B-Instruct_text_model.mxq"`
-  - Sets `vision_config.mxq_path` to `"Qwen2-VL-2B-Instruct_vision_transformer.mxq"`
+  - Sets `mxq_path` to `"Qwen3-VL-2B-Instruct_text_model.mxq"`
+  - Sets `vision_config.mxq_path` to `"Qwen3-VL-2B-Instruct_vision_transformer.mxq"`
 - Updates model architecture settings:
-  - Changes `architectures` to `["MobilintQwen2VLForConditionalGeneration"]`
-  - Changes `model_type` to `'mobilint-qwen2_vl'`
-  - Sets `max_position_embeddings` to 32768
-  - Sets `sliding_window` to 32768
-  - Enables `tie_word_embeddings`
+  - Changes `architectures` to `["MobilintQwen3VLForConditionalGeneration"]`
+  - Changes `model_type` to `'mobilint-qwen3_vl'`
+  - Sets `tie_word_embeddings` to `false` (the rotated embedding is provided separately)
 - Saves the modified config to `./mxq/config.json`
 
 #### Get Rotated Token Embedding Weight
 
-Next, download and prepare the token embedding weight (`model.embed_tokens.weight`) with rotation:
+Next, download and prepare the token embedding weight (`model.language_model.embed_tokens.weight`) with rotation:
 
 ```bash
 python get_safetensors.py
@@ -320,11 +308,11 @@ python get_safetensors.py
 
 **What it does:**
 
-- Downloads `model-00001-of-00002.safetensors` from HuggingFace
-- Extracts the token embedding weight (`model.embed_tokens.weight`) — the lookup table that maps token IDs to hidden state vectors
+- Downloads `model.safetensors` from HuggingFace (Qwen3-VL-2B ships a single, unsharded safetensors file)
+- Extracts the token embedding weight (`model.language_model.embed_tokens.weight`) — the lookup table that maps token IDs to hidden state vectors
 - Applies the rotation matrix from the language model MXQ compilation:
-  - Loads rotation matrix from: `./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth`
-  - Multiplies the token embedding weight with the rotation matrix to align with quantized space
+  - Loads rotation matrix from: `./spinWeight/Qwen3-VL-2B-Instruct_text_model/R1/global_rotation.pth`
+  - Right-multiplies the token embedding weight with the rotation matrix (`W @ R1`) to align with quantized space
 - Saves the result to `./mxq/model.safetensors`
 
 **Why token embedding rotation is needed:**
@@ -335,20 +323,20 @@ During MXQ compilation, the `SpinR1` equivalent transformation rotates the langu
 **Output files:**
 
 - `./mxq/config.json`: Modified model configuration pointing to MXQ files
-- `./mxq/model.safetensors`: Rotated token embedding weight (`model.embed_tokens.weight`)
+- `./mxq/model.safetensors`: Rotated token embedding weight (`model.language_model.embed_tokens.weight`)
 
 **Important:** After running these scripts, you will have all 4 files needed for inference in the `./mxq/` directory:
 
-1. `Qwen2-VL-2B-Instruct_text_model.mxq` (compiled language model)
-2. `Qwen2-VL-2B-Instruct_vision_transformer.mxq` (compiled vision encoder)
+1. `Qwen3-VL-2B-Instruct_text_model.mxq` (compiled language model)
+2. `Qwen3-VL-2B-Instruct_vision_transformer.mxq` (compiled vision encoder)
 3. `config.json` (model configuration)
 4. `model.safetensors` (rotated token embedding weight)
 
-No additional file copying is required!
+No additional file copying is required.
 
 ## Complete Compilation Pipeline
 
-Here's the complete sequence of commands to compile the full VLM:
+Use the following command sequence to compile the full VLM:
 
 ```bash
 # Stage 1: Calibration Data Generation
@@ -356,41 +344,35 @@ Here's the complete sequence of commands to compile the full VLM:
 # Download calibration images from COCO dataset
 python download_images.py
 
-# Generate language calibration data
-python generate_language_calibration_data.py \
-    --model-name Qwen/Qwen2-VL-2B-Instruct \
-    --output-dir ./calibration_data/language \
+# Generate calibration data (language + vision)
+python generate_calibration_data.py \
+    --model-name Qwen/Qwen3-VL-2B-Instruct \
+    --output-dir ./calibration_data \
     --num-samples 100 \
-    --max-new-tokens 500
-
-# Generate vision calibration data
-python generate_vision_calibration_data.py \
-    --model-name Qwen/Qwen2-VL-2B-Instruct \
-    --output-dir ./calibration_data/vision \
-    --num-samples 100
+    --max-new-tokens 512
 
 # Stage 2: MBLT Compilation
 
-# Compile language model to MBLT
-python mblt_compile_language.py
+# Compile language model to MBLT (--target-device required)
+python mblt_compile_language.py --target-device aries-rb
 
 # Compile vision encoder to MBLT
-python mblt_compile_vision.py
+python mblt_compile_vision.py --target-device aries-rb
 
 # Stage 3: MXQ Compilation and Inference Preparation
 # IMPORTANT: Compile language model FIRST (generates rotation matrix)
-python mxq_compile_language.py
+python mxq_compile_language.py --target-device aries-rb
 
 # Then compile vision encoder (uses rotation matrix from language model)
-python mxq_compile_vision.py
+python mxq_compile_vision.py --target-device aries-rb
 
 # Prepare inference files (config.json and rotated token embedding)
 python get_config.py
 python get_safetensors.py
 
 # All required files are now in the mxq/ directory:
-# - Qwen2-VL-2B-Instruct_text_model.mxq
-# - Qwen2-VL-2B-Instruct_vision_transformer.mxq
+# - Qwen3-VL-2B-Instruct_text_model.mxq
+# - Qwen3-VL-2B-Instruct_vision_transformer.mxq
 # - config.json
 # - model.safetensors
 ```
@@ -406,9 +388,9 @@ Original Model (HF) + Calibration Images
     |
 [Calibration] -> calibration_data/language/*.npy
     |
-[MBLT Compile] -> Qwen2-VL-2B-Instruct_text_model.mblt
+[MBLT Compile] -> Qwen3-VL-2B-Instruct_text_model.mblt
     |
-[MXQ Compile] -> Qwen2-VL-2B-Instruct_text_model.mxq
+[MXQ Compile] -> Qwen3-VL-2B-Instruct_text_model.mxq
     |
     +-> global_rotation.pth (needed for vision encoder)
 ```
@@ -422,9 +404,9 @@ Original Model (HF) + Calibration Images
     |
 [Calibration] -> calibration_data/vision/*.npy
     |
-[MBLT Compile] -> Qwen2-VL-2B-Instruct_vision_transformer.mblt
+[MBLT Compile] -> Qwen3-VL-2B-Instruct_vision_transformer.mblt
     |
-[MXQ Compile] -> Qwen2-VL-2B-Instruct_vision_transformer.mxq
+[MXQ Compile] -> Qwen3-VL-2B-Instruct_vision_transformer.mxq
     |            (Requires: global_rotation.pth from language model)
 ```
 
@@ -457,22 +439,17 @@ After completing all stages, you will have:
 
 ### MBLT Models (Hardware-Agnostic) - in `mblt/`
 
-- `Qwen2-VL-2B-Instruct_text_model.mblt`: Language model in MBLT format
-- `Qwen2-VL-2B-Instruct_vision_transformer.mblt`: Vision encoder in MBLT format
+- `Qwen3-VL-2B-Instruct_text_model.mblt`: Language model in MBLT format
+- `Qwen3-VL-2B-Instruct_vision_transformer.mblt`: Vision encoder in MBLT format
 
 ### MXQ Models and Deployment Files - in `mxq/`
 
 All files needed for deployment are in this single directory:
 
-- `Qwen2-VL-2B-Instruct_text_model.mxq`: Quantized language model
-- `Qwen2-VL-2B-Instruct_vision_transformer.mxq`: Quantized vision encoder
+- `Qwen3-VL-2B-Instruct_text_model.mxq`: Quantized language model
+- `Qwen3-VL-2B-Instruct_vision_transformer.mxq`: Quantized vision encoder
 - `config.json`: Model configuration with MXQ paths
-- `model.safetensors`: Rotated token embedding weight (`model.embed_tokens.weight`)
-
-### Validation Files - in `mblt/`
-
-- `*.infer`: Inference values for validation
-- `*.json`: Comparison results with original models
+- `model.safetensors`: Rotated token embedding weight (`model.language_model.embed_tokens.weight`)
 
 ## Troubleshooting
 
@@ -487,7 +464,7 @@ All files needed for deployment are in this single directory:
 If vision encoder MXQ compilation fails with a missing rotation matrix error:
 
 ```bash
-FileNotFoundError: ./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth
+FileNotFoundError: ./spinWeight/Qwen3-VL-2B-Instruct_text_model/R1/global_rotation.pth
 ```
 
 **Solution:** Run `mxq_compile_language.py` first to generate the rotation matrix.
@@ -496,7 +473,7 @@ FileNotFoundError: ./spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotati
 
 Ensure the calibration data paths in the MXQ compile scripts match your actual calibration data location:
 
-- Language: `./calibration_data/language/npy_files.txt`
+- Language: `./calibration_data/language/npy_files.json`
 - Vision: Update the path in `mxq_compile_vision.py` if your data is elsewhere
 
 ### Model Download Issues
@@ -523,12 +500,12 @@ This will download 100 images from COCO dataset to the `images/` directory.
 
 After completing all compilation stages, the `./mxq/` directory contains all 4 files needed for deployment:
 
-1. **Qwen2-VL-2B-Instruct_text_model.mxq** - Compiled language model
-2. **Qwen2-VL-2B-Instruct_vision_transformer.mxq** - Compiled vision encoder
+1. **Qwen3-VL-2B-Instruct_text_model.mxq** - Compiled language model
+2. **Qwen3-VL-2B-Instruct_vision_transformer.mxq** - Compiled vision encoder
 3. **config.json** - Model configuration with MXQ paths
-4. **model.safetensors** - Rotated token embedding weight (`model.embed_tokens.weight`)
+4. **model.safetensors** - Rotated token embedding weight (`model.language_model.embed_tokens.weight`)
 
-These files are ready for deployment on NPU using the Mobilint runtime.
+These files are ready for deployment on the NPU with the Mobilint runtime.
 
 ## Next Steps: Running Inference
 
@@ -544,7 +521,7 @@ The runtime tutorial demonstrates how to:
 
 ## References
 
-- [Qwen2-VL Model Card](https://huggingface.co/Qwen/Qwen2-VL-2B-Instruct)
+- [Qwen3-VL Model Card](https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct)
 - [Mobilint Documentation](https://docs.mobilint.com)
 
 ## Support

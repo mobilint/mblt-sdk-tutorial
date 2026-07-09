@@ -139,6 +139,7 @@ Pass this file path to `calib_data_path` of `mxq_compile()`:
 ```python
 mxq_compile(
     ...,
+    target_device="aries-rb",
     calib_data_path="calibration_data/language/npy_files.txt",
 )
 ```

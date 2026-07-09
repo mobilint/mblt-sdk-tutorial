@@ -1,16 +1,16 @@
 # Large Language Model (LLM) Compilation
 
-This tutorial provides instructions for compiling Large Language Models (LLMs) using the Mobilint qbcompiler.
+This tutorial explains how to compile a large language model (LLM) with Mobilint `qbcompiler`.
 
-In this tutorial, we will use the [Llama-3.2-1B-Instruct](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct) model, a 1B parameter language model developed by Meta.
+This tutorial uses [Llama-3.2-1B-Instruct](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct), a 1B-parameter language model developed by Meta.
 
 ## Overview
 
 The compilation process consists of three main steps:
 
-1. **Model Preparation**: Download the model and extract embedding weights
-2. **Calibration Data Generation**: Create calibration data from Wikipedia articles
-3. **Model Compilation**: Compile the model to `.mxq` format with 8-bit quantization
+1. **Model Preparation**: Download the model and extract embedding weights.
+2. **Calibration Data Generation**: Create calibration data from Wikipedia articles.
+3. **Model Compilation**: Compile the model to `.mxq` format with 8-bit quantization.
 
 ## Prerequisites
 
@@ -22,7 +22,7 @@ The compilation process consists of three main steps:
 pip install -r requirements.txt
 ```
 
-## Step 1: Download Model
+## Step 1: Download the Model
 
 Sign up on [Hugging Face](https://huggingface.co/) and accept the license on the [model page](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct), then log in:
 
@@ -72,6 +72,36 @@ python generate_mxq.py \
 **Output:**
 
 - `Llama-3.2-1B-Instruct.mxq` — Compiled model for NPU execution
+
+### Target device (`--target-device`)
+
+Use `--target-device` on the same scripts to select the target NPU (default: `aries-rb`). REGULUS supports only `inference_scheme="single"`, which is selected automatically when a `regulus` device is specified.
+
+| User | `--target-device` |
+|---|---|
+| ARIES | `aries-rb` (default) |
+| REGULUS (customers from 2026-06) | `regulus-rb` |
+
+> **Note:** LLM compilation is supported on newer REGULUS (`regulus-rb`, customers from 2026-06). Older REGULUS (`regulus-ra`, customers before 2026-06) do not support this workflow.
+
+```bash
+# 8-bit (REGULUS)
+python generate_mxq.py \
+  --model-path meta-llama/Llama-3.2-1B-Instruct \
+  --calib-data-path ./calibration_data/datas/meta-llama-Llama-3.2-1B-Instruct/en \
+  --save-path ./Llama-3.2-1B-Instruct.mxq \
+  --target-device regulus-rb
+
+# 4-bit (SpinQuant, REGULUS)
+python generate_mxq_4bit.py \
+  --model-path meta-llama/Llama-3.2-1B-Instruct \
+  --calib-data-path ./calibration_data/datas/meta-llama-Llama-3.2-1B-Instruct/en \
+  --save-path ./Llama-3.2-1B-Instruct_w4.mxq \
+  --bit w4 \
+  --target-device regulus-rb
+```
+
+The 4-bit variant also requires the embedding rotation step below.
 
 ## Next Steps
 

@@ -1,6 +1,6 @@
 import argparse
 
-import mblt_model_zoo.hf_transformers.models.qwen2_vl.modeling_qwen2_vl  # noqa: F401
+import mblt_model_zoo.hf_transformers.models.qwen3_vl.modeling_qwen3_vl  # noqa: F401
 from transformers import AutoModelForImageTextToText, AutoProcessor, TextStreamer, pipeline
 
 
@@ -9,13 +9,13 @@ def main():
     parser.add_argument(
         "--model-folder",
         type=str,
-        default="./qwen2-vl-mxq",
+        default="./qwen3-vl-mxq",
         help="Path to the prepared model folder",
     )
     parser.add_argument(
         "--model-id",
         type=str,
-        default="mobilint/Qwen2-VL-2B-Instruct",
+        default="mobilint/Qwen3-VL-2B-Instruct",
         help="HuggingFace model ID for processor download",
     )
     parser.add_argument(
@@ -47,8 +47,8 @@ def main():
     model = AutoModelForImageTextToText.from_pretrained(args.model_folder)
 
     # Load processor from HuggingFace.
-    # trust_remote_code=True is required because mobilint/Qwen2-VL-2B-Instruct
-    # uses a custom processor (MobilintQwen2VLProcessor) hosted on HuggingFace.
+    # trust_remote_code=True is required because the Mobilint Qwen3 VLM repo
+    # provides the custom processor implementation used at runtime.
     processor = AutoProcessor.from_pretrained(args.model_id, trust_remote_code=True)
 
     # Create pipeline
