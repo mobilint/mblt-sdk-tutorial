@@ -27,7 +27,7 @@ class LlamaMXQ(LlamaPreTrainedModel, GenerationMixin):
 
         self.acc = qbruntime.Accelerator(0)  # LLM allows only 1 accelerator
         mc = qbruntime.ModelConfig()  # LLM allows only 1 core
-        mc.set_single_core_mode(1)
+        mc.set_single_core_mode(None, [qbruntime.CoreId(qbruntime.Cluster.Cluster0, qbruntime.Core.Core0)])
         self.mxq_model = qbruntime.Model(mxq_path, mc)
         self.mxq_model.launch(self.acc)
         self.mxq_path = mxq_path

@@ -111,6 +111,7 @@ if __name__ == "__main__":
         model=args.model_path,
         target_device=args.target_device,
         calib_data_path=args.calib_data_path,
+        target_device="aries2",
         save_path=args.save_path,
         backend="torch",
         device=device,
