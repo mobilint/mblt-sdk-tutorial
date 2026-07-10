@@ -59,7 +59,10 @@ def prepare_inputs(
     ``image_size`` optionally resizes images for faster, lower-memory compilation.
     """
     text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-    image_inputs, video_inputs = process_vision_info(messages)
+    # Match process_vision_info's resize granularity to the model's patch size.
+    image_inputs, video_inputs = process_vision_info(
+        messages, image_patch_size=processor.image_processor.patch_size
+    )
     if image_size is not None and image_inputs:
         image_inputs = [image_inputs[0].resize(image_size)]
 
