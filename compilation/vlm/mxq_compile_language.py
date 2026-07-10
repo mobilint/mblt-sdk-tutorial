@@ -1,9 +1,10 @@
-"""Compile the Qwen3-VL language model MBLT to MXQ (decoder, benchmark-best 2B config).
+"""Compile the Qwen3-VL language model MBLT to MXQ (decoder, benchmark-best 4B config).
 
-This run applies 8-bit weights, 16-bit activations on inputs_embeds/deepstack,
-SpinR1/SpinR2 rotations, and a weight-scale search. It GENERATES the SpinR1
+This run applies 4-bit weights (value projection promoted to 8-bit), 16-bit
+activations on inputs_embeds/deepstack, SpinR1/SpinR2 rotations, OPTQ, and a
+weight-scale search. It GENERATES the SpinR1
 rotation matrix at:
-    ./spinWeight/Qwen3-VL-2B-Instruct_text_model/R1/global_rotation.pth
+    ./spinWeight/Qwen3-VL-4B-Instruct_text_model/R1/global_rotation.pth
 which the vision (encoder) MXQ compilation and get_safetensors.py reuse. Run this
 BEFORE mxq_compile_vision.py.
 """
@@ -46,8 +47,8 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    mblt_path = "mblt/Qwen3-VL-2B-Instruct_text_model.mblt"
-    save_path = "mxq/Qwen3-VL-2B-Instruct_text_model.mxq"
+    mblt_path = "mblt/Qwen3-VL-4B-Instruct_text_model.mblt"
+    save_path = "mxq/Qwen3-VL-4B-Instruct_text_model.mxq"
     calib_data_path = "calibration_data/language/npy_files.json"
     device = "gpu" if torch.cuda.is_available() else "cpu"
 
@@ -59,6 +60,16 @@ if __name__ == "__main__":
     calibration_config = CalibrationConfig(output=0, mode=0)
 
     bit_config = BitConfig(
+        transformer=BitConfig.Transformer(
+            weight=BitConfig.Transformer.Weight(
+                query=4,
+                key=4,
+                value=8,
+                output=4,
+                ffn=4,
+                head=4,
+            ),
+        ),
         layer_overrides=BitConfig.LayerOverrides(
             activation_16bits=[
                 "inputs_embeds/reshape",
@@ -89,7 +100,14 @@ if __name__ == "__main__":
         optimize_ffn=EquivalentTransformationConfig.OptimizeFfn(apply=True),
     )
 
-    optq_config: OptqConfig | None = None
+    optq_config: OptqConfig | None = OptqConfig(
+        apply=True,
+        attributes=OptqConfig.Attributes(
+            act_order=True,
+            block_size=128,
+            perc_damp=0.01,
+        ),
+    )
 
     search_weight_scale_config = SearchWeightScaleConfig(
         apply=True,

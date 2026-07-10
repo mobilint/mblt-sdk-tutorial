@@ -9,7 +9,7 @@ from safetensors.torch import save_file
 if __name__ == "__main__":
     os.makedirs("./huggingface", exist_ok=True)
 
-    REPO_ID = "Qwen/Qwen3-VL-2B-Instruct"  # or "Qwen/Qwen3-VL-4B-Instruct", "Qwen/Qwen3-VL-8B-Instruct"
+    REPO_ID = "Qwen/Qwen3-VL-4B-Instruct"  # or "Qwen/Qwen3-VL-2B-Instruct", "Qwen/Qwen3-VL-8B-Instruct"
     TENSOR_NAME = "model.language_model.embed_tokens.weight"
 
     # Resolve the safetensors file that holds the embedding, regardless of model.
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     # compilation (mxq_compile_language.py writes it under this path). The token
     # embedding is not compiled into MXQ (it runs as a CPU lookup), so it must be
     # pre-rotated to match the quantized model's transformed space.
-    head_out_ch_rotation_matrix_path = "./spinWeight/Qwen3-VL-2B-Instruct_text_model/R1/global_rotation.pth"
+    head_out_ch_rotation_matrix_path = "./spinWeight/Qwen3-VL-4B-Instruct_text_model/R1/global_rotation.pth"
     head_out_ch_rotation_matrix = torch.jit.load(head_out_ch_rotation_matrix_path, map_location="cpu").state_dict()["0"]
 
     embedding = tensor.double() @ head_out_ch_rotation_matrix.double()

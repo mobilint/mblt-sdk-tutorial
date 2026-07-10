@@ -82,8 +82,8 @@ def main():
 
 def _parse_args():
     parser = argparse.ArgumentParser(description="Compile Qwen3-VL vision encoder to MBLT")
-    parser.add_argument("--model", default="Qwen/Qwen3-VL-2B-Instruct")
-    parser.add_argument("--save-path", default="mblt/Qwen3-VL-2B-Instruct_vision_transformer.mblt")
+    parser.add_argument("--model", default="Qwen/Qwen3-VL-4B-Instruct")
+    parser.add_argument("--save-path", default="mblt/Qwen3-VL-4B-Instruct_vision_transformer.mblt")
     parser.add_argument("--target-device", required=True, choices=TARGET_DEVICES)
     parser.add_argument("--image-size", type=int, nargs=2, default=[224, 224])
     return parser.parse_args()

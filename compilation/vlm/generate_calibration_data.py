@@ -267,7 +267,7 @@ def generate(model, processor, samples, output_dir, max_new_tokens, intermediate
 
 def main():
     parser = argparse.ArgumentParser(description="Generate Qwen3-VL calibration data (language + vision)")
-    parser.add_argument("--model-name", type=str, default="Qwen/Qwen3-VL-2B-Instruct", help="HuggingFace model id")
+    parser.add_argument("--model-name", type=str, default="Qwen/Qwen3-VL-4B-Instruct", help="HuggingFace model id")
     parser.add_argument("--output-dir", type=str, default="./calibration_data", help="Base output directory")
     parser.add_argument("--num-samples", type=int, default=100, help="Limit number of samples (default: all images)")
     parser.add_argument("--max-new-tokens", type=int, default=1024, help="Max tokens for the decode generation pass")
