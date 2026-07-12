@@ -103,7 +103,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model-id",
         type=str,
-        default="mobilint/Qwen3-VL-2B-Instruct",
+        default="mobilint/Qwen3-VL-4B-Instruct",
         help="HuggingFace model ID stored in config for mblt-model-zoo model registration",
     )
 
