@@ -20,7 +20,7 @@ pip install -r requirements.txt
 
 This tutorial runs multimodal image-text inference through a Hugging Face-style API. The runtime flow has two stages:
 
-1. Prepare a self-contained model folder (clone the HF repo, then swap in your compiled MXQ).
+1. Prepare a self-contained model folder (download the HF repo, then swap in your compiled MXQ).
 2. Run image-text generation with a prompt and an image.
 
 The prepared folder is self-contained: it holds `config.json`, the bundled proxy classes, the tokenizer/processor, the two MXQ files, and `model.safetensors`. Inference therefore needs only `--model-folder`.
@@ -35,7 +35,7 @@ The prepared folder is self-contained: it holds `config.json`, the bundled proxy
 
 ```bash
 python prepare_model.py \
-    --repo-url https://huggingface.co/mobilint/Qwen3-VL-4B-Instruct \
+    --repo-id mobilint/Qwen3-VL-4B-Instruct \
     --compilation-dir ../../../compilation/vlm/mxq \
     --output-folder ./Qwen3-VL-4B-Instruct \
     --force
@@ -43,13 +43,12 @@ python prepare_model.py \
 
 This script:
 
-- `git clone`s the Hugging Face repo (self-contained `config.json`, proxy classes, tokenizer)
-- Removes the repo's bundled `.mxq` / `.safetensors`
+- Downloads the Hugging Face repo via `huggingface_hub.snapshot_download` (self-contained `config.json`, proxy classes, tokenizer), skipping the repo's own `.mxq` / `.safetensors`
 - Copies your compiled `.mxq` (×2) and `.safetensors` from the compilation directory
 - Patches `config.json`'s `text_config.mxq_path` / `vision_config.mxq_path` to the copied filenames (the repo's core allocation is kept)
 
-> Requires `git-lfs` so the repo's tracked files clone as real files, not pointers.
-> The compiled model size must match the cloned repo (e.g. 4B artifacts ↔ 4B repo).
+> No `git-lfs` needed — `snapshot_download` fetches real files (`huggingface_hub` ships with `transformers`).
+> The compiled model size must match the downloaded repo (e.g. 4B artifacts ↔ 4B repo).
 
 ## Step 2: Run Inference
 
@@ -86,9 +85,9 @@ Use the same pattern under `vision_config` for the vision encoder.
 
 ### `prepare_model.py`
 
-- `--repo-url`: Hugging Face repo to clone (self-contained config, proxy classes, tokenizer).
+- `--repo-id`: Hugging Face repo id to download (self-contained config, proxy classes, tokenizer).
 - `--compilation-dir`: Path to the compilation output directory (2 `.mxq` + 1 `.safetensors`).
-- `--output-folder`: Destination folder (cloned repo with the compiled artifacts swapped in).
+- `--output-folder`: Destination folder (downloaded repo with the compiled artifacts swapped in).
 - `--force`: Remove `--output-folder` first if it already exists.
 
 ### `inference_mblt_model_zoo.py`

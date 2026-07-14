@@ -20,7 +20,7 @@ pip install -r requirements.txt
 
 이 튜토리얼은 Hugging Face 스타일 API로 멀티모달 이미지-텍스트 추론을 실행합니다. 런타임 흐름은 두 단계로 구성됩니다.
 
-1. 자체 완결형(self-contained) 모델 폴더를 준비합니다 (HF 레포를 clone한 뒤 컴파일한 MXQ로 교체).
+1. 자체 완결형(self-contained) 모델 폴더를 준비합니다 (HF 레포를 다운로드한 뒤 컴파일한 MXQ로 교체).
 2. 이미지와 프롬프트를 사용해 이미지-텍스트 생성을 실행합니다.
 
 준비된 폴더는 자체 완결형입니다. `config.json`, 번들된 proxy 클래스, tokenizer/processor, MXQ 2개, `model.safetensors`를 모두 담고 있어 추론 시 `--model-folder`만 있으면 됩니다.
@@ -35,7 +35,7 @@ pip install -r requirements.txt
 
 ```bash
 python prepare_model.py \
-    --repo-url https://huggingface.co/mobilint/Qwen3-VL-4B-Instruct \
+    --repo-id mobilint/Qwen3-VL-4B-Instruct \
     --compilation-dir ../../../compilation/vlm/mxq \
     --output-folder ./Qwen3-VL-4B-Instruct \
     --force
@@ -43,13 +43,12 @@ python prepare_model.py \
 
 이 스크립트는 다음 작업을 수행합니다.
 
-- Hugging Face 레포를 `git clone` (자체 완결형 `config.json`, proxy 클래스, tokenizer 포함)
-- 레포에 들어있던 기존 `.mxq` / `.safetensors` 삭제
+- `huggingface_hub.snapshot_download`로 Hugging Face 레포를 다운로드 (자체 완결형 `config.json`, proxy 클래스, tokenizer 포함). 레포의 기존 `.mxq` / `.safetensors`는 건너뜁니다.
 - 컴파일 디렉토리의 `.mxq` 2개와 `.safetensors`를 복사
 - `config.json`의 `text_config.mxq_path` / `vision_config.mxq_path`를 복사한 파일명으로 패치 (레포의 코어 할당 값은 유지)
 
-> `git-lfs`가 있어야 레포의 tracked 파일이 포인터가 아닌 실제 파일로 clone됩니다.
-> 컴파일된 모델 크기와 clone한 레포의 크기가 일치해야 합니다 (예: 4B 산출물 ↔ 4B 레포).
+> `git-lfs`가 필요 없습니다 — `snapshot_download`가 실제 파일을 받아옵니다 (`huggingface_hub`는 `transformers`와 함께 설치됨).
+> 컴파일된 모델 크기와 다운로드한 레포의 크기가 일치해야 합니다 (예: 4B 산출물 ↔ 4B 레포).
 
 ## Step 2: 추론 실행
 
@@ -86,9 +85,9 @@ python inference_mblt_model_zoo.py --model-folder ./Qwen3-VL-4B-Instruct --max-l
 
 ### `prepare_model.py`
 
-- `--repo-url`: clone할 Hugging Face 레포 (자체 완결형 config·proxy·tokenizer 포함)
+- `--repo-id`: 다운로드할 Hugging Face 레포 id (자체 완결형 config·proxy·tokenizer 포함)
 - `--compilation-dir`: 컴파일 출력 디렉토리 경로 (`.mxq` 2개 + `.safetensors` 1개)
-- `--output-folder`: 결과 폴더 (clone한 레포에 컴파일 산출물을 교체해 넣음)
+- `--output-folder`: 결과 폴더 (다운로드한 레포에 컴파일 산출물을 교체해 넣음)
 - `--force`: `--output-folder`가 이미 있으면 먼저 삭제
 
 ### `inference_mblt_model_zoo.py`

@@ -3,32 +3,38 @@ import glob
 import json
 import os
 import shutil
-import subprocess
 
-DEFAULT_REPO_URL = "https://huggingface.co/mobilint/Qwen3-VL-4B-Instruct"
+from huggingface_hub import snapshot_download
+
+DEFAULT_REPO_ID = "mobilint/Qwen3-VL-4B-Instruct"
 
 
-def clone_repo(repo_url: str, output_folder: str, force: bool) -> None:
-    """git clone the HF repo into output_folder (self-contained: config, proxy, tokenizer).
+def download_repo(repo_id: str, output_folder: str, force: bool) -> None:
+    """Download the HF repo into output_folder (self-contained: config, proxy, tokenizer).
 
-    Requires git-lfs so the large tracked files (tokenizer, etc.) are real files,
-    not LFS pointers.
+    The repo's own `.mxq` / `.safetensors` are skipped — they are replaced with the
+    freshly compiled artifacts in the next step.
     """
     if os.path.exists(output_folder):
         if not force:
             raise FileExistsError(
-                f"{output_folder} already exists. Use --force to remove and re-clone."
+                f"{output_folder} already exists. Use --force to remove and re-download."
             )
         print(f"Removing existing folder: {output_folder}")
         shutil.rmtree(output_folder)
 
-    print(f"Cloning {repo_url} -> {output_folder}")
-    subprocess.run(["git", "clone", repo_url, output_folder], check=True)
+    print(f"Downloading {repo_id} -> {output_folder}")
+    snapshot_download(
+        repo_id=repo_id,
+        local_dir=output_folder,
+        ignore_patterns=["*.mxq", "*.safetensors"],
+    )
 
 
 def replace_artifacts(compilation_dir: str, output_folder: str) -> tuple[str, str]:
-    """Delete the repo's old .mxq/.safetensors and copy the freshly compiled ones.
+    """Copy the freshly compiled MXQ/safetensors into the folder.
 
+    Any leftover `.mxq` / `.safetensors` in the folder are removed first.
     Returns (vision_mxq_filename, text_mxq_filename).
     """
     for pattern in ("*.mxq", "*.safetensors"):
@@ -57,7 +63,7 @@ def replace_artifacts(compilation_dir: str, output_folder: str) -> tuple[str, st
 def patch_config(output_folder: str, vision_mxq: str, text_mxq: str) -> None:
     """Point config.json's mxq_path fields at the copied MXQ files.
 
-    Core allocation (core_mode / target_cores) from the cloned repo is left as-is.
+    Core allocation (core_mode / target_cores) from the downloaded repo is left as-is.
     """
     config_path = os.path.join(output_folder, "config.json")
     with open(config_path) as f:
@@ -73,9 +79,9 @@ def patch_config(output_folder: str, vision_mxq: str, text_mxq: str) -> None:
     print(f"Patched config.json: text_config.mxq_path={text_mxq}, vision_config.mxq_path={vision_mxq}")
 
 
-def prepare_model_folder(repo_url: str, compilation_dir: str, output_folder: str, force: bool) -> None:
-    """Build a self-contained model folder: clone repo, swap in compiled MXQ, patch config."""
-    clone_repo(repo_url, output_folder, force)
+def prepare_model_folder(repo_id: str, compilation_dir: str, output_folder: str, force: bool) -> None:
+    """Build a self-contained model folder: download repo, swap in compiled MXQ, patch config."""
+    download_repo(repo_id, output_folder, force)
     vision_mxq, text_mxq = replace_artifacts(compilation_dir, output_folder)
     patch_config(output_folder, vision_mxq, text_mxq)
 
@@ -96,12 +102,12 @@ def prepare_model_folder(repo_url: str, compilation_dir: str, output_folder: str
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Prepare a self-contained VLM MXQ model folder")
-    parser.add_argument("--repo-url", type=str, default=DEFAULT_REPO_URL,
-                        help="HuggingFace repo to clone (self-contained config/proxy/tokenizer).")
+    parser.add_argument("--repo-id", type=str, default=DEFAULT_REPO_ID,
+                        help="HuggingFace repo id to download (self-contained config/proxy/tokenizer).")
     parser.add_argument("--compilation-dir", type=str, default="../../../compilation/vlm/mxq",
                         help="Compilation output dir holding the 2 .mxq and 1 .safetensors.")
     parser.add_argument("--output-folder", type=str, default="./Qwen3-VL-4B-Instruct",
-                        help="Destination folder (cloned repo + swapped-in compiled artifacts).")
+                        help="Destination folder (downloaded repo + swapped-in compiled artifacts).")
     parser.add_argument("--force", action="store_true",
                         help="Remove output-folder first if it already exists.")
     args = parser.parse_args()
@@ -113,7 +119,7 @@ if __name__ == "__main__":
         )
 
     prepare_model_folder(
-        repo_url=args.repo_url,
+        repo_id=args.repo_id,
         compilation_dir=args.compilation_dir,
         output_folder=args.output_folder,
         force=args.force,
