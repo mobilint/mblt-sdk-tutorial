@@ -1,11 +1,11 @@
 # VLM 런타임
 
-이 튜토리얼은 Mobilint NPU 하드웨어에서 컴파일된 `Qwen3-VL-2B-Instruct` 모델을 실행하는 방법을 설명합니다.
+이 튜토리얼은 Mobilint NPU 하드웨어에서 컴파일된 `Qwen3-VL-4B-Instruct` 모델을 실행하는 방법을 설명합니다.
 
 시작하기 전에 [../../../compilation/vlm/README.KR.md](../../../compilation/vlm/README.KR.md)의 컴파일 과정을 먼저 완료하세요. 이 디렉토리의 런타임 예제는 `../../../compilation/vlm/mxq/`에 다음 파일이 준비되어 있다고 가정합니다.
 
-- `Qwen3-VL-2B-Instruct_text_model.mxq`
-- `Qwen3-VL-2B-Instruct_vision_transformer.mxq`
+- `Qwen3-VL-4B-Instruct_text_model.mxq`
+- `Qwen3-VL-4B-Instruct_vision_transformer.mxq`
 - `config.json`
 - `model.safetensors`
 
@@ -38,7 +38,7 @@ pip install -r requirements.txt
 python prepare_model.py \
     --compilation-dir ../../../compilation/vlm/mxq \
     --output-folder ./qwen3-vl-mxq \
-    --model-id mobilint/Qwen3-VL-2B-Instruct
+    --model-id mobilint/Qwen3-VL-4B-Instruct
 ```
 
 이 스크립트는 다음 작업을 수행합니다.
@@ -54,15 +54,15 @@ python prepare_model.py \
 ```bash
 python inference_mblt_model_zoo.py \
     --model-folder ./qwen3-vl-mxq \
-    --model-id mobilint/Qwen3-VL-2B-Instruct
+    --model-id mobilint/Qwen3-VL-4B-Instruct
 ```
 
 자주 쓰는 옵션:
 
 ```bash
-python inference_mblt_model_zoo.py --model-folder ./qwen3-vl-mxq --model-id mobilint/Qwen3-VL-2B-Instruct --image /path/to/image.jpg
-python inference_mblt_model_zoo.py --model-folder ./qwen3-vl-mxq --model-id mobilint/Qwen3-VL-2B-Instruct --prompt "이 이미지에는 어떤 물체가 있나요?"
-python inference_mblt_model_zoo.py --model-folder ./qwen3-vl-mxq --model-id mobilint/Qwen3-VL-2B-Instruct --max-length 1024
+python inference_mblt_model_zoo.py --model-folder ./qwen3-vl-mxq --model-id mobilint/Qwen3-VL-4B-Instruct --image /path/to/image.jpg
+python inference_mblt_model_zoo.py --model-folder ./qwen3-vl-mxq --model-id mobilint/Qwen3-VL-4B-Instruct --prompt "이 이미지에는 어떤 물체가 있나요?"
+python inference_mblt_model_zoo.py --model-folder ./qwen3-vl-mxq --model-id mobilint/Qwen3-VL-4B-Instruct --max-length 1024
 ```
 
 이 스크립트는 `image-text-to-text` 파이프라인을 구성하고, 이미지와 프롬프트를 함께 모델에 전달한 뒤 생성 결과를 스트리밍 출력합니다.

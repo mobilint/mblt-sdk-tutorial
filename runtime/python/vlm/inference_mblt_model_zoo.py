@@ -15,7 +15,7 @@ def main():
     parser.add_argument(
         "--model-id",
         type=str,
-        default="mobilint/Qwen3-VL-2B-Instruct",
+        default="mobilint/Qwen3-VL-4B-Instruct",
         help="HuggingFace model ID for processor download",
     )
     parser.add_argument(
