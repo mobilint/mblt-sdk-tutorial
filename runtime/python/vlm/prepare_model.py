@@ -1,123 +1,122 @@
 import argparse
+import glob
 import json
 import os
 import shutil
+import subprocess
+
+DEFAULT_REPO_URL = "https://huggingface.co/mobilint/Qwen3-VL-4B-Instruct"
 
 
-def prepare_model_folder(
-    compilation_dir: str,
-    output_folder: str,
-    model_id: str,
-):
+def clone_repo(repo_url: str, output_folder: str, force: bool) -> None:
+    """git clone the HF repo into output_folder (self-contained: config, proxy, tokenizer).
+
+    Requires git-lfs so the large tracked files (tokenizer, etc.) are real files,
+    not LFS pointers.
     """
-    Prepare a model folder for VLM MXQ inference.
+    if os.path.exists(output_folder):
+        if not force:
+            raise FileExistsError(
+                f"{output_folder} already exists. Use --force to remove and re-clone."
+            )
+        print(f"Removing existing folder: {output_folder}")
+        shutil.rmtree(output_folder)
 
-    Args:
-        compilation_dir: Path to the compilation output directory containing MXQ files
-        output_folder: Destination folder for the prepared model
-        model_id: HuggingFace model ID stored in config for mblt-model-zoo model registration
+    print(f"Cloning {repo_url} -> {output_folder}")
+    subprocess.run(["git", "clone", repo_url, output_folder], check=True)
+
+
+def replace_artifacts(compilation_dir: str, output_folder: str) -> tuple[str, str]:
+    """Delete the repo's old .mxq/.safetensors and copy the freshly compiled ones.
+
+    Returns (vision_mxq_filename, text_mxq_filename).
     """
-    os.makedirs(output_folder, exist_ok=True)
+    for pattern in ("*.mxq", "*.safetensors"):
+        for path in glob.glob(os.path.join(output_folder, pattern)):
+            print(f"Removing old artifact: {os.path.basename(path)}")
+            os.remove(path)
 
-    # Copy all files from compilation output
-    required_files = [
-        "config.json",
-        "model.safetensors",
-    ]
-
-    # Find MXQ files
-    mxq_files = [f for f in os.listdir(compilation_dir) if f.endswith(".mxq")]
+    mxq_files = sorted(f for f in os.listdir(compilation_dir) if f.endswith(".mxq"))
+    safetensors = sorted(f for f in os.listdir(compilation_dir) if f.endswith(".safetensors"))
     if len(mxq_files) < 2:
-        raise FileNotFoundError(f"Expected at least 2 MXQ files in {compilation_dir}, found {len(mxq_files)}")
+        raise FileNotFoundError(f"Expected 2 .mxq in {compilation_dir}, found {mxq_files}")
+    if not safetensors:
+        raise FileNotFoundError(f"Expected 1 .safetensors in {compilation_dir}, found none")
 
-    all_files = required_files + mxq_files
-    for filename in all_files:
-        src = os.path.join(compilation_dir, filename)
-        dst = os.path.join(output_folder, filename)
-        if not os.path.exists(src):
-            raise FileNotFoundError(f"Required file not found: {src}")
+    for filename in mxq_files + safetensors[:1]:
         print(f"Copying: {filename}")
-        shutil.copy(src, dst)
+        shutil.copy(os.path.join(compilation_dir, filename), os.path.join(output_folder, filename))
 
-    # Add NPU core allocation to config.json.
-    # Required when MXQ is compiled with inference_scheme="all".
-    #
-    # The runtime reads each sub-model's NPU settings only from its own section
-    # (text_config for the language model, vision_config for the vision encoder).
-    # The compiler puts the language-model MXQ path at the top level, so we move
-    # it into text_config. Without this, the language model loads with no MXQ path
-    # and no cores and fails with "Invalid core IDs".
-    #
-    # Available core modes (vision encoder uses same fields under vision_config):
-    #   single: target_cores=["0:0"]    — Cluster 0, Core 0 (default)
-    #           target_cores=["0:1"]    — Cluster 0, Core 1
-    #           target_cores=["0:3"]    — Cluster 0, Core 3
-    #           target_cores=["1:0"]    — Cluster 1, Core 0
-    #   multi:   core_mode="multi",   target_clusters=[0]
-    #   global4: core_mode="global4", target_clusters=[0]
-    #   global8: core_mode="global8", target_clusters=[0, 1]
+    vision_mxq = next((f for f in mxq_files if "vision" in f.lower()), None)
+    text_mxq = next((f for f in mxq_files if "text" in f.lower() or "language" in f.lower()), None)
+    if vision_mxq is None or text_mxq is None:
+        raise ValueError(f"Could not classify vision/text MXQ from {mxq_files}")
+    return vision_mxq, text_mxq
+
+
+def patch_config(output_folder: str, vision_mxq: str, text_mxq: str) -> None:
+    """Point config.json's mxq_path fields at the copied MXQ files.
+
+    Core allocation (core_mode / target_cores) from the cloned repo is left as-is.
+    """
     config_path = os.path.join(output_folder, "config.json")
     with open(config_path) as f:
         config = json.load(f)
 
-    config["_name_or_path"] = model_id
-
-    # Language model: move its MXQ path into text_config and pick a core.
-    config["text_config"]["mxq_path"] = config.pop("mxq_path")
-    config["text_config"]["target_cores"] = ["0:0"]
-
-    # Vision encoder: its MXQ path is already in vision_config; just pick a core.
-    config["vision_config"]["target_cores"] = ["0:0"]
+    # Some compiled configs keep the language-model path at top level; normalize.
+    config.pop("mxq_path", None)
+    config["text_config"]["mxq_path"] = text_mxq
+    config["vision_config"]["mxq_path"] = vision_mxq
 
     with open(config_path, "w") as f:
         json.dump(config, f, indent=4)
-    print("Updated config.json with NPU core allocation")
+    print(f"Patched config.json: text_config.mxq_path={text_mxq}, vision_config.mxq_path={vision_mxq}")
 
-    # Print summary
+
+def prepare_model_folder(repo_url: str, compilation_dir: str, output_folder: str, force: bool) -> None:
+    """Build a self-contained model folder: clone repo, swap in compiled MXQ, patch config."""
+    clone_repo(repo_url, output_folder, force)
+    vision_mxq, text_mxq = replace_artifacts(compilation_dir, output_folder)
+    patch_config(output_folder, vision_mxq, text_mxq)
+
     print(f"\nModel folder prepared: {output_folder}")
     print("Contents:")
-    for f in sorted(os.listdir(output_folder)):
-        size = os.path.getsize(os.path.join(output_folder, f))
+    for name in sorted(os.listdir(output_folder)):
+        path = os.path.join(output_folder, name)
+        if os.path.isdir(path):
+            continue
+        size = os.path.getsize(path)
         if size > 1024 * 1024:
-            print(f"  {f} ({size / 1024 / 1024:.2f} MB)")
+            print(f"  {name} ({size / 1024 / 1024:.2f} MB)")
         elif size > 1024:
-            print(f"  {f} ({size / 1024:.2f} KB)")
+            print(f"  {name} ({size / 1024:.2f} KB)")
         else:
-            print(f"  {f} ({size} bytes)")
+            print(f"  {name} ({size} bytes)")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Prepare Model Folder for VLM MXQ Inference")
-    parser.add_argument(
-        "--compilation-dir",
-        type=str,
-        default="../../../compilation/vlm/mxq",
-        help="Path to the compilation output directory",
-    )
-    parser.add_argument(
-        "--output-folder",
-        type=str,
-        default="./qwen3-vl-mxq",
-        help="Destination folder for the prepared model",
-    )
-    parser.add_argument(
-        "--model-id",
-        type=str,
-        default="mobilint/Qwen3-VL-4B-Instruct",
-        help="HuggingFace model ID stored in config for mblt-model-zoo model registration",
-    )
-
+    parser = argparse.ArgumentParser(description="Prepare a self-contained VLM MXQ model folder")
+    parser.add_argument("--repo-url", type=str, default=DEFAULT_REPO_URL,
+                        help="HuggingFace repo to clone (self-contained config/proxy/tokenizer).")
+    parser.add_argument("--compilation-dir", type=str, default="../../../compilation/vlm/mxq",
+                        help="Compilation output dir holding the 2 .mxq and 1 .safetensors.")
+    parser.add_argument("--output-folder", type=str, default="./Qwen3-VL-4B-Instruct",
+                        help="Destination folder (cloned repo + swapped-in compiled artifacts).")
+    parser.add_argument("--force", action="store_true",
+                        help="Remove output-folder first if it already exists.")
     args = parser.parse_args()
 
     if not os.path.exists(args.compilation_dir):
         raise FileNotFoundError(
-            f"Compilation directory not found: {args.compilation_dir}\nPlease run the compilation tutorial first."
+            f"Compilation directory not found: {args.compilation_dir}\n"
+            f"Please run the compilation tutorial first."
         )
 
     prepare_model_folder(
+        repo_url=args.repo_url,
         compilation_dir=args.compilation_dir,
         output_folder=args.output_folder,
-        model_id=args.model_id,
+        force=args.force,
     )
 
     print("\nYou can now run inference with:")

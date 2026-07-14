@@ -6,7 +6,6 @@
 
 - `Qwen3-VL-4B-Instruct_text_model.mxq`
 - `Qwen3-VL-4B-Instruct_vision_transformer.mxq`
-- `config.json`
 - `model.safetensors`
 
 ## 사전 준비
@@ -19,12 +18,12 @@ pip install -r requirements.txt
 
 ## 개요
 
-이 튜토리얼은 `mblt-model-zoo`를 사용해 Hugging Face 스타일 API로 멀티모달 이미지-텍스트 추론을 실행합니다. 런타임 흐름은 두 단계로 구성됩니다.
+이 튜토리얼은 Hugging Face 스타일 API로 멀티모달 이미지-텍스트 추론을 실행합니다. 런타임 흐름은 두 단계로 구성됩니다.
 
-1. 컴파일 결과로부터 모델 폴더를 준비합니다.
+1. 자체 완결형(self-contained) 모델 폴더를 준비합니다 (HF 레포를 clone한 뒤 컴파일한 MXQ로 교체).
 2. 이미지와 프롬프트를 사용해 이미지-텍스트 생성을 실행합니다.
 
-준비된 모델 폴더에는 텍스트 모델 MXQ, 비전 인코더 MXQ, 설정 파일, safetensors 가중치, NPU 코어 할당 정보가 함께 저장됩니다.
+준비된 폴더는 자체 완결형입니다. `config.json`, 번들된 proxy 클래스, tokenizer/processor, MXQ 2개, `model.safetensors`를 모두 담고 있어 추론 시 `--model-folder`만 있으면 됩니다.
 
 ## 이 튜토리얼의 파일
 
@@ -36,40 +35,43 @@ pip install -r requirements.txt
 
 ```bash
 python prepare_model.py \
+    --repo-url https://huggingface.co/mobilint/Qwen3-VL-4B-Instruct \
     --compilation-dir ../../../compilation/vlm/mxq \
-    --output-folder ./qwen3-vl-mxq \
-    --model-id mobilint/Qwen3-VL-4B-Instruct
+    --output-folder ./Qwen3-VL-4B-Instruct \
+    --force
 ```
 
 이 스크립트는 다음 작업을 수행합니다.
 
-- 컴파일된 MXQ 파일, `config.json`, `model.safetensors` 복사
-- `config.json`에 기본 NPU 코어 할당 설정 추가
-- 준비된 폴더가 사용할 모델 ID에 맞게 `_name_or_path` 업데이트
+- Hugging Face 레포를 `git clone` (자체 완결형 `config.json`, proxy 클래스, tokenizer 포함)
+- 레포에 들어있던 기존 `.mxq` / `.safetensors` 삭제
+- 컴파일 디렉토리의 `.mxq` 2개와 `.safetensors`를 복사
+- `config.json`의 `text_config.mxq_path` / `vision_config.mxq_path`를 복사한 파일명으로 패치 (레포의 코어 할당 값은 유지)
+
+> `git-lfs`가 있어야 레포의 tracked 파일이 포인터가 아닌 실제 파일로 clone됩니다.
+> 컴파일된 모델 크기와 clone한 레포의 크기가 일치해야 합니다 (예: 4B 산출물 ↔ 4B 레포).
 
 ## Step 2: 추론 실행
 
 기본 예제를 실행하려면 다음 명령을 사용하세요.
 
 ```bash
-python inference_mblt_model_zoo.py \
-    --model-folder ./qwen3-vl-mxq \
-    --model-id mobilint/Qwen3-VL-4B-Instruct
+python inference_mblt_model_zoo.py --model-folder ./Qwen3-VL-4B-Instruct
 ```
 
 자주 쓰는 옵션:
 
 ```bash
-python inference_mblt_model_zoo.py --model-folder ./qwen3-vl-mxq --model-id mobilint/Qwen3-VL-4B-Instruct --image /path/to/image.jpg
-python inference_mblt_model_zoo.py --model-folder ./qwen3-vl-mxq --model-id mobilint/Qwen3-VL-4B-Instruct --prompt "이 이미지에는 어떤 물체가 있나요?"
-python inference_mblt_model_zoo.py --model-folder ./qwen3-vl-mxq --model-id mobilint/Qwen3-VL-4B-Instruct --max-length 1024
+python inference_mblt_model_zoo.py --model-folder ./Qwen3-VL-4B-Instruct --image /path/to/image.jpg
+python inference_mblt_model_zoo.py --model-folder ./Qwen3-VL-4B-Instruct --prompt "이 이미지에는 어떤 물체가 있나요?"
+python inference_mblt_model_zoo.py --model-folder ./Qwen3-VL-4B-Instruct --max-length 1024
 ```
 
 이 스크립트는 `image-text-to-text` 파이프라인을 구성하고, 이미지와 프롬프트를 함께 모델에 전달한 뒤 생성 결과를 스트리밍 출력합니다.
 
 ## NPU 코어 모드
 
-생성된 `config.json`을 편집해 언어 모델과 비전 인코더의 코어 할당을 바꿀 수 있습니다.
+모델 폴더의 `config.json`을 편집해 언어 모델과 비전 인코더의 코어 할당을 바꿀 수 있습니다.
 
 | 모드 | 설명 | 예시 언어 모델 필드 |
 | --- | --- | --- |
@@ -84,14 +86,14 @@ python inference_mblt_model_zoo.py --model-folder ./qwen3-vl-mxq --model-id mobi
 
 ### `prepare_model.py`
 
-- `--compilation-dir`: 컴파일 출력 디렉토리 경로
-- `--output-folder`: 준비된 모델 저장 폴더
-- `--model-id`: 준비된 설정 파일에 저장할 Hugging Face 모델 ID
+- `--repo-url`: clone할 Hugging Face 레포 (자체 완결형 config·proxy·tokenizer 포함)
+- `--compilation-dir`: 컴파일 출력 디렉토리 경로 (`.mxq` 2개 + `.safetensors` 1개)
+- `--output-folder`: 결과 폴더 (clone한 레포에 컴파일 산출물을 교체해 넣음)
+- `--force`: `--output-folder`가 이미 있으면 먼저 삭제
 
 ### `inference_mblt_model_zoo.py`
 
-- `--model-folder`: 준비된 모델 폴더 경로
-- `--model-id`: 프로세서 다운로드에 사용할 Hugging Face 모델 ID. 컴파일된 `config.json`과 동일한 Qwen3 VLM 런타임 등록값을 사용하세요.
+- `--model-folder`: 자체 완결형 모델 폴더 경로. 모델과 프로세서를 모두 이 폴더에서 `trust_remote_code=True`로 로드합니다.
 - `--image`: 입력 이미지의 로컬 경로 또는 URL
 - `--prompt`: 이미지와 함께 전달할 프롬프트 텍스트
 - `--max-length`: 최대 생성 길이
