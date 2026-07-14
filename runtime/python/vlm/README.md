@@ -6,7 +6,6 @@ Before starting, complete the compilation flow in [../../../compilation/vlm/READ
 
 - `Qwen3-VL-4B-Instruct_text_model.mxq`
 - `Qwen3-VL-4B-Instruct_vision_transformer.mxq`
-- `config.json`
 - `model.safetensors`
 
 ## Prerequisites
@@ -19,12 +18,12 @@ pip install -r requirements.txt
 
 ## Overview
 
-This tutorial uses `mblt-model-zoo` to run multimodal image-text inference through a Hugging Face-style API. The runtime flow has two stages:
+This tutorial runs multimodal image-text inference through a Hugging Face-style API. The runtime flow has two stages:
 
-1. Prepare a model folder from the compilation outputs.
+1. Prepare a self-contained model folder (clone the HF repo, then swap in your compiled MXQ).
 2. Run image-text generation with a prompt and an image.
 
-The prepared model folder keeps the text model MXQ, vision encoder MXQ, configuration, safetensors weights, and NPU core allocation in one place.
+The prepared folder is self-contained: it holds `config.json`, the bundled proxy classes, the tokenizer/processor, the two MXQ files, and `model.safetensors`. Inference therefore needs only `--model-folder`.
 
 ## Files in This Tutorial
 
@@ -36,40 +35,43 @@ The prepared model folder keeps the text model MXQ, vision encoder MXQ, configur
 
 ```bash
 python prepare_model.py \
+    --repo-url https://huggingface.co/mobilint/Qwen3-VL-4B-Instruct \
     --compilation-dir ../../../compilation/vlm/mxq \
-    --output-folder ./qwen3-vl-mxq \
-    --model-id mobilint/Qwen3-VL-4B-Instruct
+    --output-folder ./Qwen3-VL-4B-Instruct \
+    --force
 ```
 
 This script:
 
-- Copies the compiled MXQ files, `config.json`, and `model.safetensors`
-- Adds default NPU core allocation to `config.json`
-- Updates `_name_or_path` so the prepared folder matches the intended model ID
+- `git clone`s the Hugging Face repo (self-contained `config.json`, proxy classes, tokenizer)
+- Removes the repo's bundled `.mxq` / `.safetensors`
+- Copies your compiled `.mxq` (×2) and `.safetensors` from the compilation directory
+- Patches `config.json`'s `text_config.mxq_path` / `vision_config.mxq_path` to the copied filenames (the repo's core allocation is kept)
+
+> Requires `git-lfs` so the repo's tracked files clone as real files, not pointers.
+> The compiled model size must match the cloned repo (e.g. 4B artifacts ↔ 4B repo).
 
 ## Step 2: Run Inference
 
 Run the default example:
 
 ```bash
-python inference_mblt_model_zoo.py \
-    --model-folder ./qwen3-vl-mxq \
-    --model-id mobilint/Qwen3-VL-4B-Instruct
+python inference_mblt_model_zoo.py --model-folder ./Qwen3-VL-4B-Instruct
 ```
 
 Useful options:
 
 ```bash
-python inference_mblt_model_zoo.py --model-folder ./qwen3-vl-mxq --model-id mobilint/Qwen3-VL-4B-Instruct --image /path/to/image.jpg
-python inference_mblt_model_zoo.py --model-folder ./qwen3-vl-mxq --model-id mobilint/Qwen3-VL-4B-Instruct --prompt "What objects are in this image?"
-python inference_mblt_model_zoo.py --model-folder ./qwen3-vl-mxq --model-id mobilint/Qwen3-VL-4B-Instruct --max-length 1024
+python inference_mblt_model_zoo.py --model-folder ./Qwen3-VL-4B-Instruct --image /path/to/image.jpg
+python inference_mblt_model_zoo.py --model-folder ./Qwen3-VL-4B-Instruct --prompt "What objects are in this image?"
+python inference_mblt_model_zoo.py --model-folder ./Qwen3-VL-4B-Instruct --max-length 1024
 ```
 
 The script builds an `image-text-to-text` pipeline, feeds both the image and prompt to the model, and streams the generated output.
 
 ## NPU Core Modes
 
-The generated `config.json` can be edited to change the language-model and vision-encoder core allocation.
+The model folder's `config.json` can be edited to change the language-model and vision-encoder core allocation.
 
 | Mode | Description | Example language-model fields |
 | --- | --- | --- |
@@ -84,14 +86,14 @@ Use the same pattern under `vision_config` for the vision encoder.
 
 ### `prepare_model.py`
 
-- `--compilation-dir`: Path to the compilation output directory.
-- `--output-folder`: Destination folder for the prepared model.
-- `--model-id`: Hugging Face model ID stored in the prepared config.
+- `--repo-url`: Hugging Face repo to clone (self-contained config, proxy classes, tokenizer).
+- `--compilation-dir`: Path to the compilation output directory (2 `.mxq` + 1 `.safetensors`).
+- `--output-folder`: Destination folder (cloned repo with the compiled artifacts swapped in).
+- `--force`: Remove `--output-folder` first if it already exists.
 
 ### `inference_mblt_model_zoo.py`
 
-- `--model-folder`: Path to the prepared model folder.
-- `--model-id`: Hugging Face model ID used for processor download. Keep this aligned with the Qwen3 VLM runtime registration used by your compiled `config.json`.
+- `--model-folder`: Path to the self-contained model folder. The model and processor both load from here with `trust_remote_code=True`.
 - `--image`: Local path or URL for the input image.
 - `--prompt`: Prompt text passed along with the image.
 - `--max-length`: Maximum generation length.

@@ -1,22 +1,15 @@
 import argparse
 
-import mblt_model_zoo.hf_transformers.models.qwen3_vl.modeling_qwen3_vl  # noqa: F401
 from transformers import AutoModelForImageTextToText, AutoProcessor, TextStreamer, pipeline
 
 
 def main():
-    parser = argparse.ArgumentParser(description="VLM Inference using mblt-model-zoo")
+    parser = argparse.ArgumentParser(description="VLM Inference using a self-contained MXQ model folder")
     parser.add_argument(
         "--model-folder",
         type=str,
-        default="./qwen3-vl-mxq",
-        help="Path to the prepared model folder",
-    )
-    parser.add_argument(
-        "--model-id",
-        type=str,
-        default="mobilint/Qwen3-VL-4B-Instruct",
-        help="HuggingFace model ID for processor download",
+        default="./Qwen3-VL-4B-Instruct",
+        help="Path to the self-contained model folder (config, proxy, tokenizer, MXQ).",
     )
     parser.add_argument(
         "--image",
@@ -39,17 +32,14 @@ def main():
 
     args = parser.parse_args()
 
-    # Load model from config.json in model folder.
-    # config.json contains MXQ paths, NPU core allocation (target_cores),
-    # and _name_or_path for automatic processor download.
-    # Core mode can be changed by editing config.json — see README for details.
+    # Load the model and processor from the same local folder.
+    # The folder is self-contained: config.json's auto_map points at the bundled
+    # proxy classes, so trust_remote_code=True loads everything from here (no
+    # separate HuggingFace model-id needed). config.json holds the MXQ paths and
+    # NPU core allocation.
     print(f"Loading model from {args.model_folder}...")
-    model = AutoModelForImageTextToText.from_pretrained(args.model_folder)
-
-    # Load processor from HuggingFace.
-    # trust_remote_code=True is required because the Mobilint Qwen3 VLM repo
-    # provides the custom processor implementation used at runtime.
-    processor = AutoProcessor.from_pretrained(args.model_id, trust_remote_code=True)
+    model = AutoModelForImageTextToText.from_pretrained(args.model_folder, trust_remote_code=True)
+    processor = AutoProcessor.from_pretrained(args.model_folder, trust_remote_code=True)
 
     # Create pipeline
     pipe = pipeline(
