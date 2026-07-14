@@ -16,7 +16,7 @@ The VLM compilation process consists of three main stages:
 
 The workflow compiles the **language model** (decoder) and the **vision encoder** separately.
 
-After compilation, the `mxq/` directory contains all files required for deployment on the NPU.
+After compilation, the `mxq/` directory contains the compiled artifacts that the runtime step (`prepare_model.py`) turns into a deployable, self-contained model folder.
 
 ## Prerequisites
 
@@ -416,9 +416,9 @@ After completing all stages, you will have:
 - `Qwen3-VL-4B-Instruct_text_model.mblt`: Language model in MBLT format
 - `Qwen3-VL-4B-Instruct_vision_transformer.mblt`: Vision encoder in MBLT format
 
-### MXQ Models and Deployment Files - in `mxq/`
+### MXQ Models and Compiled Artifacts - in `mxq/`
 
-All files needed for deployment are in this single directory:
+The compiled artifacts are collected in this single directory. The runtime step combines them with the `config.json`, proxy classes, and tokenizer/processor cloned from the HF repo to build a deployable model folder:
 
 - `Qwen3-VL-4B-Instruct_text_model.mxq`: Quantized language model
 - `Qwen3-VL-4B-Instruct_vision_transformer.mxq`: Quantized vision encoder
@@ -471,13 +471,13 @@ This will download 100 images from COCO dataset to the `images/` directory.
 
 ## Deployment
 
-After completing all compilation stages, the `./mxq/` directory contains the compiled model files:
+After completing all compilation stages, the `./mxq/` directory contains the compiled artifacts used to build the runtime model folder:
 
 1. **Qwen3-VL-4B-Instruct_text_model.mxq** - Compiled language model
 2. **Qwen3-VL-4B-Instruct_vision_transformer.mxq** - Compiled vision encoder
 3. **model.safetensors** - Rotated token embedding weight (`model.language_model.embed_tokens.weight`)
 
-These files are ready for deployment on the NPU with the Mobilint runtime.
+These artifacts are not deployable on their own. The runtime step (`prepare_model.py`) clones the Hugging Face repo — which provides `config.json`, the proxy classes, and the tokenizer/processor — and swaps in these compiled artifacts to produce a self-contained model folder. See the Runtime Inference Tutorial for details.
 
 ## Next Steps: Running Inference
 

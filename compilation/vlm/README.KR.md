@@ -16,7 +16,7 @@ VLM 컴파일 과정은 세 가지 주요 단계로 구성됩니다:
 
 이 워크플로에서는 **언어 모델**(디코더)과 **비전 인코더**를 각각 별도로 컴파일합니다.
 
-컴파일이 끝나면 NPU 배포에 필요한 모든 파일이 `mxq/` 디렉토리에 정리됩니다.
+컴파일이 끝나면 `mxq/` 디렉토리에는 런타임 단계(`prepare_model.py`)가 배포 가능한 자체 완결형 모델 폴더로 만들어 주는 컴파일 산출물이 정리됩니다.
 
 ## 사전 요구사항
 
@@ -416,9 +416,9 @@ python get_safetensors.py
 - `Qwen3-VL-4B-Instruct_text_model.mblt`: MBLT 형식의 언어 모델
 - `Qwen3-VL-4B-Instruct_vision_transformer.mblt`: MBLT 형식의 비전 인코더
 
-### MXQ 모델 및 배포 파일 - `mxq/`에 위치
+### MXQ 모델 및 컴파일 산출물 - `mxq/`에 위치
 
-배포에 필요한 모든 파일이 이 단일 디렉토리에 있습니다:
+컴파일 산출물이 이 단일 디렉토리에 정리됩니다. 런타임 단계에서 HF 저장소에서 clone한 `config.json`, proxy 클래스, tokenizer/processor와 결합해 배포 가능한 모델 폴더를 만듭니다:
 
 - `Qwen3-VL-4B-Instruct_text_model.mxq`: 양자화된 언어 모델
 - `Qwen3-VL-4B-Instruct_vision_transformer.mxq`: 양자화된 비전 인코더
@@ -471,13 +471,13 @@ python download_images.py
 
 ## 배포
 
-모든 컴파일 단계를 완료한 후 `./mxq/` 디렉토리에는 컴파일된 모델 파일이 포함됩니다:
+모든 컴파일 단계를 완료한 후 `./mxq/` 디렉토리에는 런타임 모델 폴더를 만들기 위한 컴파일 산출물이 포함됩니다:
 
 1. **Qwen3-VL-4B-Instruct_text_model.mxq** - 컴파일된 언어 모델
 2. **Qwen3-VL-4B-Instruct_vision_transformer.mxq** - 컴파일된 비전 인코더
 3. **model.safetensors** - 회전된 토큰 임베딩 가중치 (`model.language_model.embed_tokens.weight`)
 
-이 파일들은 Mobilint 런타임을 사용하여 NPU에서 배포할 준비가 되었습니다.
+이 산출물만으로는 배포할 수 없습니다. 런타임 단계(`prepare_model.py`)에서 Hugging Face 저장소를 clone하여 `config.json`, proxy 클래스, tokenizer/processor를 가져온 뒤 이 컴파일 산출물을 넣어 자체 완결형(self-contained) 모델 폴더를 만듭니다. 자세한 내용은 런타임 추론 튜토리얼을 참조하세요.
 
 ## 다음 단계: 추론 실행
 
