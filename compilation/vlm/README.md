@@ -272,35 +272,15 @@ Both MXQ compile scripts use `--target-device` to select the target NPU. REGULUS
 
 Outputs are written to the same `./mxq/` paths regardless of the target device.
 
-### Step 3.3: Prepare Inference Configuration Files
+### Step 3.3: Prepare the Rotated Token Embedding
 
-After compiling both models to MXQ format, you need to prepare the configuration files for inference. This step downloads the necessary model configuration files and prepares them for use with the compiled MXQ models.
+After compiling both models to MXQ format, you need to prepare the rotated token embedding weight for inference.
 
 **Important:** This step must be done after completing both MXQ compilations (Steps 3.1 and 3.2) because it requires the rotation matrix from the language model compilation.
 
-#### Get Model Configuration
-
-First, download and prepare the model configuration file:
-
-```bash
-python get_config.py
-```
-
-**What it does:**
-
-- Downloads `config.json` from the HuggingFace model repository
-- Modifies the config to point to the compiled MXQ model files:
-  - Sets `mxq_path` to `"Qwen3-VL-2B-Instruct_text_model.mxq"`
-  - Sets `vision_config.mxq_path` to `"Qwen3-VL-2B-Instruct_vision_transformer.mxq"`
-- Updates model architecture settings:
-  - Changes `architectures` to `["MobilintQwen3VLForConditionalGeneration"]`
-  - Changes `model_type` to `'mobilint-qwen3_vl'`
-  - Sets `tie_word_embeddings` to `false` (the rotated embedding is provided separately)
-- Saves the modified config to `./mxq/config.json`
-
 #### Get Rotated Token Embedding Weight
 
-Next, download and prepare the token embedding weight (`model.language_model.embed_tokens.weight`) with rotation:
+Download and prepare the token embedding weight (`model.language_model.embed_tokens.weight`) with rotation:
 
 ```bash
 python get_safetensors.py
@@ -322,15 +302,13 @@ During MXQ compilation, the `SpinR1` equivalent transformation rotates the langu
 
 **Output files:**
 
-- `./mxq/config.json`: Modified model configuration pointing to MXQ files
 - `./mxq/model.safetensors`: Rotated token embedding weight (`model.language_model.embed_tokens.weight`)
 
-**Important:** After running these scripts, you will have all 4 files needed for inference in the `./mxq/` directory:
+**Important:** After running this script, the `./mxq/` directory contains the compiled model files:
 
 1. `Qwen3-VL-2B-Instruct_text_model.mxq` (compiled language model)
 2. `Qwen3-VL-2B-Instruct_vision_transformer.mxq` (compiled vision encoder)
-3. `config.json` (model configuration)
-4. `model.safetensors` (rotated token embedding weight)
+3. `model.safetensors` (rotated token embedding weight)
 
 No additional file copying is required.
 
@@ -366,14 +344,12 @@ python mxq_compile_language.py --target-device aries-rb
 # Then compile vision encoder (uses rotation matrix from language model)
 python mxq_compile_vision.py --target-device aries-rb
 
-# Prepare inference files (config.json and rotated token embedding)
-python get_config.py
+# Prepare the rotated token embedding
 python get_safetensors.py
 
 # All required files are now in the mxq/ directory:
 # - Qwen3-VL-2B-Instruct_text_model.mxq
 # - Qwen3-VL-2B-Instruct_vision_transformer.mxq
-# - config.json
 # - model.safetensors
 ```
 
@@ -410,12 +386,9 @@ Original Model (HF) + Calibration Images
     |            (Requires: global_rotation.pth from language model)
 ```
 
-### Configuration Files Preparation
+### Token Embedding Preparation
 
 ```text
-[get_config.py] -> config.json
-                   (Modified with MXQ paths)
-
 [get_safetensors.py] -> model.safetensors
                         (Rotated token embedding weight)
 ```
@@ -426,7 +399,7 @@ Original Model (HF) + Calibration Images
 2. Always run `mxq_compile_language.py` **before** `mxq_compile_vision.py`
 3. Both MBLT files can be compiled independently, but MXQ files must follow the order above
 4. `get_safetensors.py` requires the rotation matrix from language model MXQ compilation
-5. All 4 output files (2 MXQ models, config.json, model.safetensors) must be in the same directory
+5. All output files (2 MXQ models, model.safetensors) must be in the same directory
 
 ## Output Summary
 
@@ -448,7 +421,6 @@ All files needed for deployment are in this single directory:
 
 - `Qwen3-VL-2B-Instruct_text_model.mxq`: Quantized language model
 - `Qwen3-VL-2B-Instruct_vision_transformer.mxq`: Quantized vision encoder
-- `config.json`: Model configuration with MXQ paths
 - `model.safetensors`: Rotated token embedding weight (`model.language_model.embed_tokens.weight`)
 
 ## Troubleshooting
@@ -498,12 +470,11 @@ This will download 100 images from COCO dataset to the `images/` directory.
 
 ## Deployment
 
-After completing all compilation stages, the `./mxq/` directory contains all 4 files needed for deployment:
+After completing all compilation stages, the `./mxq/` directory contains the compiled model files:
 
 1. **Qwen3-VL-2B-Instruct_text_model.mxq** - Compiled language model
 2. **Qwen3-VL-2B-Instruct_vision_transformer.mxq** - Compiled vision encoder
-3. **config.json** - Model configuration with MXQ paths
-4. **model.safetensors** - Rotated token embedding weight (`model.language_model.embed_tokens.weight`)
+3. **model.safetensors** - Rotated token embedding weight (`model.language_model.embed_tokens.weight`)
 
 These files are ready for deployment on the NPU with the Mobilint runtime.
 

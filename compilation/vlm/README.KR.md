@@ -272,35 +272,15 @@ python mxq_compile_vision.py --target-device regulus-rb
 
 출력은 대상 디바이스와 관계없이 동일한 `./mxq/` 경로에 저장됩니다.
 
-### Step 3.3: 추론 구성 파일 준비
+### Step 3.3: 회전된 토큰 임베딩 준비
 
-두 모델을 모두 MXQ 형식으로 컴파일한 후 추론을 위한 구성 파일을 준비해야 합니다. 이 단계는 필요한 모델 구성 파일을 다운로드하고 컴파일된 MXQ 모델과 함께 사용할 수 있도록 준비합니다.
+두 모델을 모두 MXQ 형식으로 컴파일한 후 추론을 위한 회전된 토큰 임베딩 가중치를 준비해야 합니다.
 
 **중요:** 이 단계는 언어 모델 컴파일의 회전 행렬이 필요하므로 두 MXQ 컴파일(Step 3.1 및 3.2)을 모두 완료한 후에 수행해야 합니다.
 
-#### 모델 구성 가져오기
-
-먼저 모델 구성 파일을 다운로드하고 준비합니다:
-
-```bash
-python get_config.py
-```
-
-**이 작업의 내용:**
-
-- HuggingFace 모델 저장소에서 `config.json` 다운로드
-- 컴파일된 MXQ 모델 파일을 가리키도록 구성 수정:
-  - `mxq_path`를 `"Qwen3-VL-2B-Instruct_text_model.mxq"`로 설정
-  - `vision_config.mxq_path`를 `"Qwen3-VL-2B-Instruct_vision_transformer.mxq"`로 설정
-- 모델 아키텍처 설정 업데이트:
-  - `architectures`를 `["MobilintQwen3VLForConditionalGeneration"]`로 변경
-  - `model_type`을 `'mobilint-qwen3_vl'`로 변경
-  - `tie_word_embeddings`를 `false`로 설정 (회전된 임베딩은 별도로 제공됨)
-- 수정된 구성을 `./mxq/config.json`에 저장
-
 #### 회전된 토큰 임베딩 가중치 준비
 
-다음으로 토큰 임베딩 가중치(`model.language_model.embed_tokens.weight`)를 다운로드하고 회전을 적용합니다:
+토큰 임베딩 가중치(`model.language_model.embed_tokens.weight`)를 다운로드하고 회전을 적용합니다:
 
 ```bash
 python get_safetensors.py
@@ -322,15 +302,13 @@ MXQ 컴파일 시 `SpinR1` 등가 변환이 언어 모델 내부 가중치를 �
 
 **출력 파일:**
 
-- `./mxq/config.json`: MXQ 파일을 가리키는 수정된 모델 구성
 - `./mxq/model.safetensors`: 회전된 토큰 임베딩 가중치 (`model.language_model.embed_tokens.weight`)
 
-**중요:** 이 스크립트를 실행한 후 `./mxq/` 디렉토리에 추론에 필요한 4개의 파일이 모두 생성됩니다:
+**중요:** 이 스크립트를 실행한 후 `./mxq/` 디렉토리에는 컴파일된 모델 파일이 있습니다:
 
 1. `Qwen3-VL-2B-Instruct_text_model.mxq` (컴파일된 언어 모델)
 2. `Qwen3-VL-2B-Instruct_vision_transformer.mxq` (컴파일된 비전 인코더)
-3. `config.json` (모델 구성)
-4. `model.safetensors` (회전된 토큰 임베딩 가중치)
+3. `model.safetensors` (회전된 토큰 임베딩 가중치)
 
 추가 파일 복사가 필요하지 않습니다!
 
@@ -366,14 +344,12 @@ python mxq_compile_language.py --target-device aries-rb
 # 그런 다음 비전 인코더 컴파일 (언어 모델의 회전 행렬 사용)
 python mxq_compile_vision.py --target-device aries-rb
 
-# 추론 파일 준비 (config.json 및 회전된 토큰 임베딩)
-python get_config.py
+# 회전된 토큰 임베딩 준비
 python get_safetensors.py
 
 # 모든 필요한 파일이 이제 mxq/ 디렉토리에 있습니다:
 # - Qwen3-VL-2B-Instruct_text_model.mxq
 # - Qwen3-VL-2B-Instruct_vision_transformer.mxq
-# - config.json
 # - model.safetensors
 ```
 
@@ -410,12 +386,9 @@ python get_safetensors.py
     |            (요구사항: 언어 모델의 global_rotation.pth)
 ```
 
-### 구성 파일 준비
+### 토큰 임베딩 준비
 
 ```text
-[get_config.py] -> config.json
-                   (MXQ 경로로 수정됨)
-
 [get_safetensors.py] -> model.safetensors
                         (회전된 토큰 임베딩 가중치)
 ```
@@ -426,7 +399,7 @@ python get_safetensors.py
 2. 항상 `mxq_compile_vision.py` **이전에** `mxq_compile_language.py`를 실행하세요
 3. 두 MBLT 파일은 독립적으로 컴파일할 수 있지만, MXQ 파일은 위 순서를 따라야 합니다
 4. `get_safetensors.py`는 언어 모델 MXQ 컴파일의 회전 행렬이 필요합니다
-5. 배포를 위해 4개의 출력 파일(2개의 MXQ 모델, config.json, model.safetensors)이 모두 같은 디렉토리에 있어야 합니다
+5. 모든 출력 파일(2개의 MXQ 모델, model.safetensors)이 모두 같은 디렉토리에 있어야 합니다
 
 ## 출력 요약
 
@@ -448,7 +421,6 @@ python get_safetensors.py
 
 - `Qwen3-VL-2B-Instruct_text_model.mxq`: 양자화된 언어 모델
 - `Qwen3-VL-2B-Instruct_vision_transformer.mxq`: 양자화된 비전 인코더
-- `config.json`: MXQ 경로가 포함된 모델 구성
 - `model.safetensors`: 회전된 토큰 임베딩 가중치 (`model.language_model.embed_tokens.weight`)
 
 ## 문제 해결
@@ -498,12 +470,11 @@ python download_images.py
 
 ## 배포
 
-모든 컴파일 단계를 완료한 후 `./mxq/` 디렉토리에는 배포에 필요한 4개의 파일이 모두 포함됩니다:
+모든 컴파일 단계를 완료한 후 `./mxq/` 디렉토리에는 컴파일된 모델 파일이 포함됩니다:
 
 1. **Qwen3-VL-2B-Instruct_text_model.mxq** - 컴파일된 언어 모델
 2. **Qwen3-VL-2B-Instruct_vision_transformer.mxq** - 컴파일된 비전 인코더
-3. **config.json** - MXQ 경로가 포함된 모델 구성
-4. **model.safetensors** - 회전된 토큰 임베딩 가중치 (`model.language_model.embed_tokens.weight`)
+3. **model.safetensors** - 회전된 토큰 임베딩 가중치 (`model.language_model.embed_tokens.weight`)
 
 이 파일들은 Mobilint 런타임을 사용하여 NPU에서 배포할 준비가 되었습니다.
 
