@@ -9,6 +9,14 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: update-clone-badge
+  cancel-in-progress: false
+
+env:
+  SOURCE_BRANCH: master
+  BADGE_BRANCH: badges
+
 jobs:
   update:
     runs-on: ubuntu-latest
@@ -16,6 +24,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Fetch clone statistics
         env:
@@ -29,10 +39,8 @@ jobs:
               "https://api.github.com/repos/${GITHUB_REPOSITORY}/traffic/clones"
           )"
 
-          clone_count="$(jq -r '.count' <<< "${response}")"
-          unique_count="$(jq -r '.uniques' <<< "${response}")"
-
-          mkdir -p .github/badges
+          clone_count="$(jq -er '.count' <<< "${response}")"
+          unique_count="$(jq -er '.uniques' <<< "${response}")"
 
           jq -n \
             --arg message "${clone_count} total / ${unique_count} unique" \
@@ -42,16 +50,68 @@ jobs:
               message: $message,
               color: "blue",
               cacheSeconds: 3600
-            }' > .github/badges/clones.json
+            }' > "${RUNNER_TEMP}/clones.json"
 
-      - name: Commit updated badge data
+      - name: Checkout badge branch and merge master
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # 최신 master를 명시적으로 가져옵니다.
+          git fetch origin \
+            "${SOURCE_BRANCH}:refs/remotes/origin/${SOURCE_BRANCH}"
+
+          if git ls-remote \
+            --exit-code \
+            --heads \
+            origin \
+            "${BADGE_BRANCH}" >/dev/null 2>&1; then
+
+            # 기존 badges 브랜치를 가져옵니다.
+            git fetch origin \
+              "${BADGE_BRANCH}:refs/remotes/origin/${BADGE_BRANCH}"
+
+            git switch \
+              --force-create "${BADGE_BRANCH}" \
+              "origin/${BADGE_BRANCH}"
+
+            # 기존 badges가 orphan branch라면 최초 1회에 한해
+            # unrelated histories 병합이 필요합니다.
+            if git merge-base \
+              HEAD \
+              "origin/${SOURCE_BRANCH}" >/dev/null 2>&1; then
+              git merge \
+                --no-edit \
+                "origin/${SOURCE_BRANCH}"
+            else
+              git merge \
+                --no-edit \
+                --allow-unrelated-histories \
+                "origin/${SOURCE_BRANCH}"
+            fi
+          else
+            # badges 브랜치가 아직 없다면 master에서 생성합니다.
+            git switch \
+              --create "${BADGE_BRANCH}" \
+              "origin/${SOURCE_BRANCH}"
+          fi
+
+      - name: Update badge data
+        run: |
+          mkdir -p .github/badges
+
+          cp "${RUNNER_TEMP}/clones.json" \
+            .github/badges/clones.json
 
           git add .github/badges/clones.json
 
           if ! git diff --cached --quiet; then
             git commit -m "chore: update clone badge [skip ci]"
-            git push
+          else
+            echo "Clone badge data has not changed."
           fi
+
+      - name: Push badge branch
+        run: |
+          git push origin "HEAD:${BADGE_BRANCH}"
