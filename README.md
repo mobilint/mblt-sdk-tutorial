@@ -10,6 +10,8 @@
 </div>
 <!-- markdownlint-enable MD033 -->
 
+[![GitHub clones](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmobilint%2Fmblt-sdk-tutorial%2Fmain%2F.github%2Fbadges%2Fclones.json)](https://github.com/mobilint/mblt-sdk-tutorial/graphs/traffic)
+
 This repository provides examples and explanations to help users easily get started with the Mobilint SDK qb, which includes the compiler (qbcompiler) and the runtime software (qbruntime) library.
 
 Models converted using the compiler can be executed on the Mobilint NPU through the runtime. When properly configured, this workflow enables models to achieve faster inference performance while maintaining the original model’s accuracy.
