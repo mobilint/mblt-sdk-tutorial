@@ -273,3 +273,5 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 node_modules/
+
+!.github/badges/clones.json
