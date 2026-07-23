@@ -1,12 +1,7 @@
 // Implementation of YoloDecoder declared in decode.h.
 // Performs DFL box decoding, sigmoid class scoring, and class-offset greedy NMS on NPU outputs.
 // Face detection uses a single class (nc=1), but the decode path is identical to the
-// multi-class anchor-free Detect head; the per-class NMS offset simply collapses to one class.
-//
-// (KR) decode.h 에 선언된 YoloDecoder 구현.
-// NPU 출력에 대해 DFL 박스 디코딩, sigmoid 클래스 스코어링, 클래스별 오프셋 greedy NMS 를 수행한다.
-// 얼굴 탐지는 단일 클래스(nc=1)지만 디코드 경로는 다중 클래스 anchor-free Detect 헤드와 동일하다.
-// 클래스별 NMS 오프셋은 단일 클래스에서는 한 클래스로 수렴한다.
+// multi-class anchor-free Detect head; the per-class NMS offset collapses to one class.
 #include "decode.h"
 
 #include <algorithm>
@@ -30,12 +25,11 @@ YoloDecoder::YoloDecoder(int nc, int nl, int img_size, int reg_max,
     invconf_ = invsigmoid(conf_thres_);
 
     // Strides follow 2^(3+i): [8, 16, 32, ...] for P3/P4/P5 feature maps.
-    // (KR: stride 는 2^(3+i) 패턴: P3/P4/P5 특징맵에 대해 [8, 16, 32, ...].)
     strides_.resize(nl_);
     for (int i = 0; i < nl_; ++i) {
         strides_[i] = 1 << (3 + i);
     }
-    // Anchor centers are offset by 0.5 to place them at grid cell centers (KR: anchor 중심을 격자 셀 중앙에 맞추기 위해 0.5 오프셋 적용)
+    // Anchor centers are offset by 0.5 to place them at grid cell centers.
     for (int s : strides_) {
         int gh = img_size_ / s;
         int gw = img_size_ / s;
@@ -50,7 +44,6 @@ YoloDecoder::YoloDecoder(int nc, int nl, int img_size, int reg_max,
 }
 
 // Classifies flat NPU output tensors by stride into box (reg_max*4 * H*W) and cls (nc * H*W) groups.
-// (KR: NPU raw 출력 텐서를 stride 별 box(reg_max*4 * H*W) 와 cls(nc * H*W) 그룹으로 분류한다.)
 struct StagedTensor {
     const float* data;
     int channels;
@@ -83,7 +76,6 @@ static std::vector<StagedTensor> stage_outputs(
         }
     }
     // Sort ascending by stride (8, 16, 32) to match the anchor flattening order in the constructor.
-    // (KR: 생성자에서 anchor 를 평면화한 순서와 맞추기 위해 stride 오름차순(8, 16, 32)으로 정렬.)
     auto by_stride = [](const StagedTensor& a, const StagedTensor& b) {
         return a.stride < b.stride;
     };
@@ -105,7 +97,7 @@ static std::vector<StagedTensor> stage_outputs(
     return ordered;
 }
 
-// Computes IoU between two boxes given in xyxy format. (KR: xyxy 포맷 두 박스의 IoU 를 계산한다.)
+// Computes IoU between two boxes given in xyxy format.
 static inline float iou_xyxy(float ax1, float ay1, float ax2, float ay2,
                              float bx1, float by1, float bx2, float by2) {
     float ix1 = std::max(ax1, bx1);
@@ -130,12 +122,11 @@ std::vector<YoloDecoder::Detection> YoloDecoder::decode(
     if (staged.empty()) return {};
 
     // Build per-anchor access structs; staged is ordered [det0, cls0, det1, cls1, ...].
-    // (KR: anchor 별 접근 구조체 구성; staged 는 [det0, cls0, det1, cls1, ...] 순서.)
     struct AnchorAccess {
-        const float* box_base;   // (reg_max*4, hw) 의 시작점
-        const float* cls_base;   // (nc, hw) 의 시작점
+        const float* box_base;   // start of (reg_max*4, hw) block
+        const float* cls_base;   // start of (nc, hw) block
         int hw;
-        int local;               // index within this stride's grid (0..hw-1) (KR: 이 stride 격자 안의 인덱스)
+        int local;               // index within this stride's grid (0..hw-1)
     };
     std::vector<AnchorAccess> access(total_anchors);
 
@@ -150,12 +141,8 @@ std::vector<YoloDecoder::Detection> YoloDecoder::decode(
     }
 
     // Invariant: every anchor slot in `access` must be populated before the
-    // pre-filter loop dereferences it. stage_outputs() only checks that the
-    // det/cls tensor counts match each other, so a partial input (one stride
-    // pair missing) could leave the trailing anchor slots uninitialized.
-    // (KR: pre-filter 가 access 를 deref 하기 전 모든 anchor slot 이 채워졌
-    // 는지 확인. stage_outputs() 는 det/cls 개수 일치만 검사하므로 한 stride
-    // 짝이 빠진 입력에서는 뒤쪽 anchor slot 이 초기화되지 않은 상태로 남는다.)
+    // pre-filter loop dereferences it. stage_outputs() only checks that det/cls
+    // counts match, so a partial input could leave trailing slots uninitialized.
     if (anchor_idx != total_anchors) {
         throw std::runtime_error(
             "YoloDecoder::decode: NPU outputs do not cover all anchors ("
@@ -164,7 +151,6 @@ std::vector<YoloDecoder::Detection> YoloDecoder::decode(
     }
 
     // Pre-filter: keep only anchors whose max cls logit exceeds invconf_ (cheap logit-space threshold).
-    // (KR: 사전 필터: max cls logit 이 invconf_ 를 초과하는 anchor 만 유지(저렴한 logit 공간 임계값).)
     std::vector<int> active;
     active.reserve(total_anchors);
     for (int a = 0; a < total_anchors; ++a) {
@@ -181,7 +167,6 @@ std::vector<YoloDecoder::Detection> YoloDecoder::decode(
     if (active.empty()) return {};
 
     // DFL decode + sigmoid(cls): convert passing anchors to (x1,y1,x2,y2,conf,cls) detections.
-    // (KR: DFL 디코드 + sigmoid(cls): 통과 anchor 를 (x1,y1,x2,y2,conf,cls) 탐지 결과로 변환.)
     std::vector<Detection> dets;
     dets.reserve(active.size() * 2);
 
@@ -194,7 +179,6 @@ std::vector<YoloDecoder::Detection> YoloDecoder::decode(
         int local = acc.local;
 
         // DFL softmax over reg_max bins for each of 4 sides (left, top, right, bottom).
-        // (KR: 4변(left, top, right, bottom) 각각에 대해 reg_max bin 으로 DFL softmax 적용.)
         float dist[4];
         for (int side = 0; side < 4; ++side) {
             float maxv = -std::numeric_limits<float>::infinity();
@@ -217,7 +201,6 @@ std::vector<YoloDecoder::Detection> YoloDecoder::decode(
         }
 
         // Convert DFL distances to xyxy pixel coords: (anchor - left/top) * stride and (anchor + right/bottom) * stride.
-        // (KR: DFL 거리를 xyxy 픽셀 좌표로 변환: (anchor - left/top) * stride, (anchor + right/bottom) * stride.)
         float cx = anchors_[a].first;
         float cy = anchors_[a].second;
         float st = stride_per_anchor_[a];
@@ -227,7 +210,6 @@ std::vector<YoloDecoder::Detection> YoloDecoder::decode(
         float y2 = (cy + dist[3]) * st;
 
         // Emit one Detection per class whose sigmoid score exceeds conf_thres.
-        // (KR: sigmoid 점수가 conf_thres 를 초과하는 클래스마다 Detection 을 생성.)
         for (int c = 0; c < nc_; ++c) {
             float logit = acc.cls_base[c * hw + local];
             if (logit <= invconf_) continue;
@@ -239,7 +221,6 @@ std::vector<YoloDecoder::Detection> YoloDecoder::decode(
     if (dets.empty()) return {};
 
     // Cap candidates at 30000 before NMS to bound worst-case O(n^2) cost (matches ultralytics default).
-    // (KR: NMS 전 후보를 30000 개로 제한해 최악의 O(n^2) 비용을 억제(ultralytics 기본값과 동일).)
     constexpr int max_pre = 30000;
     if (static_cast<int>(dets.size()) > max_pre) {
         std::partial_sort(
@@ -252,7 +233,6 @@ std::vector<YoloDecoder::Detection> YoloDecoder::decode(
     }
 
     // Greedy NMS with per-class coordinate offset (max_wh=7680) so boxes of different classes never suppress each other.
-    // (KR: 클래스별 좌표 오프셋(max_wh=7680) 적용 greedy NMS; 다른 클래스 박스끼리는 억제되지 않는다.)
     constexpr float max_wh = 7680.0f;
     std::vector<Detection> out;
     out.reserve(std::min<int>(max_det_, static_cast<int>(dets.size())));

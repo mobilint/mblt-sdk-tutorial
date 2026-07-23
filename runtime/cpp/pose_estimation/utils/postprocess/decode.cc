@@ -1,10 +1,6 @@
 // Implementation of YoloPoseDecoder declared in decode.h.
 // Performs DFL box decoding, sigmoid class scoring, anchor-based keypoint decoding,
 // and class-offset greedy NMS on NPU outputs.
-//
-// (KR) decode.h 에 선언된 YoloPoseDecoder 구현.
-// NPU 출력에 대해 DFL 박스 디코딩, sigmoid 클래스 스코어링, anchor 기반 키포인트 디코딩,
-// 클래스별 오프셋 greedy NMS 를 수행한다.
 #include "decode.h"
 
 #include <algorithm>
@@ -30,12 +26,11 @@ YoloPoseDecoder::YoloPoseDecoder(int nc, int nl, int img_size, int reg_max,
     invconf_ = invsigmoid(conf_thres_);
 
     // Strides follow 2^(3+i): [8, 16, 32, ...] for P3/P4/P5 feature maps.
-    // (KR: stride 는 2^(3+i) 패턴: P3/P4/P5 특징맵에 대해 [8, 16, 32, ...].)
     strides_.resize(nl_);
     for (int i = 0; i < nl_; ++i) {
         strides_[i] = 1 << (3 + i);
     }
-    // Anchor centers are offset by 0.5 to place them at grid cell centers (KR: anchor 중심을 격자 셀 중앙에 맞추기 위해 0.5 오프셋 적용)
+    // Anchor centers are offset by 0.5 to place them at grid cell centers.
     for (int s : strides_) {
         int gh = img_size_ / s;
         int gw = img_size_ / s;
@@ -51,7 +46,6 @@ YoloPoseDecoder::YoloPoseDecoder(int nc, int nl, int img_size, int reg_max,
 
 // Classifies flat NPU output tensors by stride into box (reg_max*4 * H*W), cls (nc * H*W),
 // and kpt (num_keypoints*3 * H*W) groups.
-// (KR: NPU raw 출력 텐서를 stride 별 box(reg_max*4 * H*W), cls(nc * H*W), kpt(num_keypoints*3 * H*W) 그룹으로 분류한다.)
 struct StagedTensor {
     const float* data;
     int channels;
@@ -88,7 +82,6 @@ static void stage_outputs(const std::vector<std::vector<float>>& raw, int nc,
         }
     }
     // Sort ascending by stride (8, 16, 32) to match the anchor flattening order in the constructor.
-    // (KR: 생성자에서 anchor 를 평면화한 순서와 맞추기 위해 stride 오름차순(8, 16, 32)으로 정렬.)
     auto by_stride = [](const StagedTensor& a, const StagedTensor& b) {
         return a.stride < b.stride;
     };
@@ -106,7 +99,7 @@ static void stage_outputs(const std::vector<std::vector<float>>& raw, int nc,
     }
 }
 
-// Computes IoU between two boxes given in xyxy format. (KR: xyxy 포맷 두 박스의 IoU 를 계산한다.)
+// Computes IoU between two boxes given in xyxy format.
 static inline float iou_xyxy(float ax1, float ay1, float ax2, float ay2,
                              float bx1, float by1, float bx2, float by2) {
     float ix1 = std::max(ax1, bx1);
@@ -133,13 +126,12 @@ std::vector<YoloPoseDecoder::Detection> YoloPoseDecoder::decode(
     if (det_tensors.empty()) return {};
 
     // Build per-anchor access structs; tensors are stride-aligned across the three groups.
-    // (KR: anchor 별 접근 구조체 구성; 세 그룹은 stride 기준으로 정렬되어 있다.)
     struct AnchorAccess {
-        const float* box_base;   // (reg_max*4, hw) 의 시작점
-        const float* cls_base;   // (nc, hw) 의 시작점
-        const float* kpt_base;   // (num_keypoints*3, hw) 의 시작점
+        const float* box_base;   // start of (reg_max*4, hw)
+        const float* cls_base;   // start of (nc, hw)
+        const float* kpt_base;   // start of (num_keypoints*3, hw)
         int hw;
-        int local;               // index within this stride's grid (0..hw-1) (KR: 이 stride 격자 안의 인덱스)
+        int local;               // index within this stride's grid (0..hw-1)
     };
     std::vector<AnchorAccess> access(total_anchors);
 
@@ -158,9 +150,6 @@ std::vector<YoloPoseDecoder::Detection> YoloPoseDecoder::decode(
     // pre-filter loop dereferences it. stage_outputs() only checks that the
     // det/cls/kpt tensor counts match each other, so a partial input (one stride
     // group missing) could leave the trailing anchor slots uninitialized.
-    // (KR: pre-filter 가 access 를 deref 하기 전 모든 anchor slot 이 채워졌
-    // 는지 확인. stage_outputs() 는 det/cls/kpt 개수 일치만 검사하므로 한 stride
-    // 묶음이 빠진 입력에서는 뒤쪽 anchor slot 이 초기화되지 않은 상태로 남는다.)
     if (anchor_idx != total_anchors) {
         throw std::runtime_error(
             "YoloPoseDecoder::decode: NPU outputs do not cover all anchors ("
@@ -169,7 +158,6 @@ std::vector<YoloPoseDecoder::Detection> YoloPoseDecoder::decode(
     }
 
     // Pre-filter: keep only anchors whose max cls logit exceeds invconf_ (cheap logit-space threshold).
-    // (KR: 사전 필터: max cls logit 이 invconf_ 를 초과하는 anchor 만 유지(저렴한 logit 공간 임계값).)
     std::vector<int> active;
     active.reserve(total_anchors);
     for (int a = 0; a < total_anchors; ++a) {
@@ -186,7 +174,6 @@ std::vector<YoloPoseDecoder::Detection> YoloPoseDecoder::decode(
     if (active.empty()) return {};
 
     // DFL decode + sigmoid(cls) + keypoint decode: convert passing anchors to detections.
-    // (KR: DFL 디코드 + sigmoid(cls) + 키포인트 디코드: 통과 anchor 를 탐지 결과로 변환.)
     std::vector<Detection> dets;
     dets.reserve(active.size() * 2);
 
@@ -199,7 +186,6 @@ std::vector<YoloPoseDecoder::Detection> YoloPoseDecoder::decode(
         int local = acc.local;
 
         // DFL softmax over reg_max bins for each of 4 sides (left, top, right, bottom).
-        // (KR: 4변(left, top, right, bottom) 각각에 대해 reg_max bin 으로 DFL softmax 적용.)
         float dist[4];
         for (int side = 0; side < 4; ++side) {
             float maxv = -std::numeric_limits<float>::infinity();
@@ -222,7 +208,6 @@ std::vector<YoloPoseDecoder::Detection> YoloPoseDecoder::decode(
         }
 
         // Convert DFL distances to xyxy pixel coords: (anchor - left/top) * stride and (anchor + right/bottom) * stride.
-        // (KR: DFL 거리를 xyxy 픽셀 좌표로 변환: (anchor - left/top) * stride, (anchor + right/bottom) * stride.)
         float cx = anchors_[a].first;
         float cy = anchors_[a].second;
         float st = stride_per_anchor_[a];
@@ -234,10 +219,7 @@ std::vector<YoloPoseDecoder::Detection> YoloPoseDecoder::decode(
         // Decode keypoints for this anchor. The kpt tensor packs num_keypoints*3 channels
         // as [k0_x, k0_y, k0_score, k1_x, ...] (channel = k*3 + comp), matching the python
         // view(1, num_keypoints, 3, -1). Coordinates use (raw * 2 + anchor - 0.5) * stride;
-        // score uses sigmoid. (KR: 이 anchor 의 키포인트 디코드. kpt 텐서는 num_keypoints*3
-        // 채널을 [k0_x, k0_y, k0_score, ...] (채널 = k*3 + comp) 로 담으며 python 의
-        // view(1, num_keypoints, 3, -1) 과 일치한다. 좌표는 (raw * 2 + anchor - 0.5) * stride,
-        // score 는 sigmoid.)
+        // score uses sigmoid.
         std::vector<Keypoint> kpts(num_keypoints_);
         for (int k = 0; k < num_keypoints_; ++k) {
             float raw_x = acc.kpt_base[(k * 3 + 0) * hw + local];
@@ -249,7 +231,6 @@ std::vector<YoloPoseDecoder::Detection> YoloPoseDecoder::decode(
         }
 
         // Emit one Detection per class whose sigmoid score exceeds conf_thres.
-        // (KR: sigmoid 점수가 conf_thres 를 초과하는 클래스마다 Detection 을 생성.)
         for (int c = 0; c < nc_; ++c) {
             float logit = acc.cls_base[c * hw + local];
             if (logit <= invconf_) continue;
@@ -261,7 +242,6 @@ std::vector<YoloPoseDecoder::Detection> YoloPoseDecoder::decode(
     if (dets.empty()) return {};
 
     // Cap candidates at 30000 before NMS to bound worst-case O(n^2) cost (matches ultralytics default).
-    // (KR: NMS 전 후보를 30000 개로 제한해 최악의 O(n^2) 비용을 억제(ultralytics 기본값과 동일).)
     constexpr int max_pre = 30000;
     if (static_cast<int>(dets.size()) > max_pre) {
         std::partial_sort(
@@ -274,7 +254,6 @@ std::vector<YoloPoseDecoder::Detection> YoloPoseDecoder::decode(
     }
 
     // Greedy NMS with per-class coordinate offset (max_wh=7680) so boxes of different classes never suppress each other.
-    // (KR: 클래스별 좌표 오프셋(max_wh=7680) 적용 greedy NMS; 다른 클래스 박스끼리는 억제되지 않는다.)
     constexpr float max_wh = 7680.0f;
     std::vector<Detection> out;
     out.reserve(std::min<int>(max_det_, static_cast<int>(dets.size())));
@@ -315,7 +294,7 @@ void YoloPoseDecoder::scale_to_original(std::vector<Detection>& dets,
         d.x2 = std::clamp((d.x2 - dw) / r, 0.0f, static_cast<float>(orig_w));
         d.y1 = std::clamp((d.y1 - dh) / r, 0.0f, static_cast<float>(orig_h));
         d.y2 = std::clamp((d.y2 - dh) / r, 0.0f, static_cast<float>(orig_h));
-        // Keypoints share the same letterbox transform as the box (KR: 키포인트는 박스와 동일한 letterbox 변환을 공유).
+        // Keypoints share the same letterbox transform as the box.
         for (auto& kp : d.kpts) {
             kp.x = std::clamp((kp.x - dw) / r, 0.0f, static_cast<float>(orig_w));
             kp.y = std::clamp((kp.y - dh) / r, 0.0f, static_cast<float>(orig_h));

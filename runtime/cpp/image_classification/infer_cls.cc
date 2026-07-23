@@ -1,14 +1,14 @@
 // Image classification inference on Mobilint NPU.
 //
-// Preprocessing: resize(256) + centerCrop(224) + BGR2RGB (done in code)
-// Normalization: fused into MXQ model (fuseIntoFirstLayer)
-// Input: uint8 cropped image
+// Preprocessing lives in preprocess() / preprocess_float(): resize 256 + centerCrop 224 + BGR2RGB,
+// and for float also /255 + torch mean/std.
+// Input mode via --input: uint8 feeds the fused-normalization MXQ; float feeds a normalized float tensor to the !uint8 MXQ.
 //
 // Usage:
-//   ./infer-cls <model.mxq> <image_path> <labels_file>
+//   ./infer-cls <model.mxq> <image_path> <labels_file> [--input uint8|float]
 //
 // Example:
-//   ./infer-cls resnet50.mxq example.jpg imagenet_labels.txt
+//   ./infer-cls resnet50.mxq example.jpg imagenet_labels.txt   # ARIES / REGULUS regulus-rb
 
 #include <qbruntime/qbruntime.h>
 
@@ -33,8 +33,8 @@ std::vector<std::string> load_labels(const std::string& path) {
     return labels;
 }
 
-// ResNet-50 preprocessing: resize short edge to 256 + center crop 224x224 + BGR2RGB
-// Normalization (mean/std) is fused into the MXQ model.
+// ResNet-50 spatial preprocessing: resize short edge to 256 + center crop 224x224 + BGR2RGB.
+// Returns a uint8 HWC image; the uint8-input MXQ has normalization fused in.
 cv::Mat preprocess(const cv::Mat& input) {
     cv::Mat img = input.clone();
 
@@ -56,15 +56,47 @@ cv::Mat preprocess(const cv::Mat& input) {
     return img;
 }
 
+// Float preprocessing for the !uint8 MXQ: spatial preprocess + /255 + torch mean/std normalization.
+// mean/std must match compilation/image_classification/convert_img_to_tensor.py. Returns HWC float.
+std::vector<float> preprocess_float(const cv::Mat& input) {
+    cv::Mat img = preprocess(input);  // resize + crop + BGR2RGB -> HWC uint8 RGB
+    const int hw = img.rows * img.cols, c = img.channels();
+    const float mean[3] = {0.485f, 0.456f, 0.406f};  // RGB
+    const float stdv[3] = {0.229f, 0.224f, 0.225f};
+    std::vector<float> out(static_cast<size_t>(hw) * c);
+    const uint8_t* src = img.data;
+    for (int i = 0; i < hw; ++i) {
+        for (int ch = 0; ch < c; ++ch) {
+            float v = static_cast<float>(src[i * c + ch]) / 255.0f;
+            out[i * c + ch] = (v - mean[ch]) / stdv[ch];
+        }
+    }
+    return out;
+}
+
 int main(int argc, char** argv) {
-    if (argc != 4) {
-        std::cerr << "Usage: " << argv[0] << " <model.mxq> <image_path> <labels_file>\n";
+    // Positional: <model.mxq> <image_path> <labels_file>. Optional: --input uint8|float
+    // uint8 : normalization fused into the MXQ.  float : preprocess_float normalizes for the !uint8 MXQ.
+    std::vector<std::string> pos;
+    std::string input_type = "uint8";
+    for (int i = 1; i < argc; ++i) {
+        std::string a = argv[i];
+        if (a == "--input" && i + 1 < argc) {
+            input_type = argv[++i];
+        } else {
+            pos.push_back(a);
+        }
+    }
+    if (pos.size() != 3 || (input_type != "uint8" && input_type != "float")) {
+        std::cerr << "Usage: " << argv[0]
+                  << " <model.mxq> <image_path> <labels_file> [--input uint8|float]\n";
         return 1;
     }
 
-    const std::string mxq_path = argv[1];
-    const std::string image_path = argv[2];
-    const std::string labels_path = argv[3];
+    const std::string mxq_path = pos[0];
+    const std::string image_path = pos[1];
+    const std::string labels_path = pos[2];
+    std::cout << "Input mode: " << input_type << "\n";
 
     // 1) Load labels
     auto labels = load_labels(labels_path);
@@ -84,21 +116,33 @@ int main(int argc, char** argv) {
     auto model = mobilint::Model::create(mxq_path, mc, sc);
     sc = model->launch(*acc);
 
-    auto info = model->getInputBufferInfo()[0];
-    std::cout << "Model input: " << info.original_height << "x"
-              << info.original_width << "x" << info.original_channel << "\n";
+    // Model input shape as declared in the MXQ (HWC order, matches mxqtool "Shape").
+    const auto& in_shapes = model->getModelInputShape();
+    for (size_t i = 0; i < in_shapes.size(); ++i) {
+        std::cout << "Model input shape[" << i << "]: [";
+        for (size_t j = 0; j < in_shapes[i].size(); ++j)
+            std::cout << in_shapes[i][j] << (j + 1 < in_shapes[i].size() ? ", " : "");
+        std::cout << "]\n";
+    }
 
-    // 3) Load and preprocess image
+    // 3) Load image, preprocess (HWC, NPU-native layout), and run inference.
+    //    uint8 : feed the cropped uint8 image directly (normalization fused in the MXQ).
+    //    float : preprocess_float applies /255 + torch mean/std for the !uint8 MXQ.
     cv::Mat img = cv::imread(image_path);
     if (img.empty()) {
         std::cerr << "Failed to load image: " << image_path << "\n";
         return 1;
     }
-    cv::Mat input = preprocess(img);
 
-    // 4) Run NPU inference (uint8 input, normalization fused in MXQ)
+    std::vector<std::vector<float>> output;
     auto t0 = std::chrono::high_resolution_clock::now();
-    auto output = model->infer({input.data}, sc);
+    if (input_type == "float") {
+        std::vector<float> finput = preprocess_float(img);
+        output = model->infer({finput.data()}, sc);
+    } else {
+        cv::Mat input = preprocess(img);
+        output = model->infer({input.data}, sc);
+    }
     auto t1 = std::chrono::high_resolution_clock::now();
     double infer_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
     std::cout << "Inference time: " << infer_ms << " ms\n";

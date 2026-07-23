@@ -1,19 +1,14 @@
 // End-to-end pose estimation inference on Mobilint NPU with skeleton visualization.
-// Preprocessing (letterbox + BGR->RGB + HWC->CHW) is handled by Transformer.
-// Normalization is fused into the MXQ model (uint8 input), so no float scaling is needed here.
-// Pipeline: load MXQ -> transform uint8 -> NPU infer -> DFL decode -> keypoint decode -> NMS -> draw boxes + skeleton.
+// Preprocessing (letterbox + BGR->RGB + HWC->CHW) is handled by Preprocessor.
+// Input mode via --input: uint8 feeds the fused-normalization MXQ; float applies /255 here for the !uint8 MXQ.
+// Pipeline: load MXQ -> transform (CHW) -> NPU inferCHW -> DFL decode -> keypoint decode -> NMS -> draw boxes + skeleton.
 //
 // Usage:
-//   ./infer-pose <model.mxq> <image_path> <output_path>
+//   ./infer-pose <model.mxq> <image_path> <output_path> [--input uint8|float]
 //
 // Examples:
-//   ./infer-pose yolo11m-pose.mxq cr7.jpg result.jpg   # ARIES
-//   ./infer-pose yolov8m-pose.mxq cr7.jpg result.jpg   # REGULUS
-//
-// (KR) Mobilint NPU 에서 포즈 추정 추론을 실행하고 스켈레톤을 이미지에 그린다.
-// 전처리(letterbox + BGR->RGB + HWC->CHW)는 Transformer 가 담당한다.
-// 정규화는 MXQ 모델에 퓨즈되어 있어(uint8 입력) 별도 float 변환이 필요 없다.
-// 파이프라인: MXQ 로드 -> uint8 변환 -> NPU 추론 -> DFL 디코드 -> 키포인트 디코드 -> NMS -> 박스 + 스켈레톤 시각화.
+//   ./infer-pose yolo11m-pose.mxq cr7.jpg result.jpg   # ARIES / REGULUS regulus-rb
+//   ./infer-pose yolov8m-pose.mxq cr7.jpg result.jpg   # REGULUS regulus-ra (older)
 
 #include <chrono>
 #include <cmath>
@@ -24,14 +19,13 @@
 #include <vector>
 
 #include <opencv2/opencv.hpp>
+#include <qbruntime/qbruntime.h>
 
 #include "decode.h"
-#include "runner.h"
-#include "transform.h"
+#include "preprocessor.h"
 #include "yolo_pose_config.h"
 
 // COCO 17-keypoint skeleton as 1-indexed keypoint pairs (mirrors coco.py POSE_SKELETON).
-// (KR) COCO 17 키포인트 스켈레톤, 1-기반 키포인트 쌍 (coco.py POSE_SKELETON 동일).
 static const int POSE_SKELETON[19][2] = {
     {16, 14}, {14, 12}, {17, 15}, {15, 13}, {12, 13}, {6, 12}, {7, 13},
     {6, 7},   {6, 8},   {7, 9},   {8, 10},  {9, 11},  {2, 3},  {1, 2},
@@ -39,7 +33,6 @@ static const int POSE_SKELETON[19][2] = {
 };
 
 // Base 20-color pose palette in RGB (mirrors coco.py POSE_PALETTE).
-// (KR) RGB 기준 20색 pose 팔레트 (coco.py POSE_PALETTE 동일).
 static const cv::Scalar POSE_PALETTE[20] = {
     {255, 128, 0},   {255, 153, 51},  {255, 178, 102}, {230, 230, 0},
     {255, 153, 255}, {153, 204, 255}, {255, 102, 255}, {255, 51, 255},
@@ -48,23 +41,22 @@ static const cv::Scalar POSE_PALETTE[20] = {
     {0, 255, 0},     {0, 0, 255},     {255, 0, 0},     {255, 255, 255},
 };
 
-// Palette index per skeleton limb (mirrors coco.py LIMB_PALLETE). (KR) 스켈레톤 limb 별 팔레트 인덱스.
+// Palette index per skeleton limb (mirrors coco.py LIMB_PALLETE).
 static const int LIMB_PALETTE_IDX[19] = {
     9, 9, 9, 9, 7, 7, 7, 0, 0, 0, 0, 0, 16, 16, 16, 16, 16, 16, 16};
 
-// Palette index per keypoint (mirrors coco.py KEYPOINT_PALLETE). (KR) 키포인트 별 팔레트 인덱스.
+// Palette index per keypoint (mirrors coco.py KEYPOINT_PALLETE).
 static const int KEYPOINT_PALETTE_IDX[17] = {
     16, 16, 16, 16, 16, 0, 0, 0, 0, 0, 0, 9, 9, 9, 9, 9, 9};
 
 // Keypoint visibility threshold for drawing (mirrors draw_kpts default conf=0.5 in visualize.py).
-// (KR) 그리기용 키포인트 가시성 임계값 (visualize.py draw_kpts 기본 conf=0.5 동일).
 static const float KPT_DRAW_THRES = 0.5f;
 
 void draw_poses(cv::Mat& img,
                 const std::vector<YoloPoseDecoder::Detection>& dets) {
     int h = img.rows;
     int w = img.cols;
-    // Line/font thickness scales with image size (mirrors visualize.py draw_boxes). (KR: 선/폰트 두께는 이미지 크기에 비례.)
+    // Line/font thickness scales with image size (mirrors visualize.py draw_boxes).
     int tl = static_cast<int>(std::round(0.002 * (h + w) / 2.0)) + 1;
     int tf = std::max(tl - 1, 1);
     int radius = 5;
@@ -86,7 +78,7 @@ void draw_poses(cv::Mat& img,
                     cv::FONT_HERSHEY_SIMPLEX, tl / 2.0, cv::Scalar(255, 255, 255),
                     tf, cv::LINE_AA);
 
-        // Draw visible keypoints as filled circles. (KR: 가시 키포인트를 채워진 원으로 그린다.)
+        // Draw visible keypoints as filled circles.
         for (int k = 0; k < static_cast<int>(d.kpts.size()); ++k) {
             const auto& kp = d.kpts[k];
             if (kp.score < KPT_DRAW_THRES) continue;
@@ -94,9 +86,9 @@ void draw_poses(cv::Mat& img,
                        radius, POSE_PALETTE[KEYPOINT_PALETTE_IDX[k]], -1, cv::LINE_AA);
         }
 
-        // Draw skeleton limbs between visible keypoint pairs. (KR: 가시 키포인트 쌍 사이에 스켈레톤 limb 를 그린다.)
+        // Draw skeleton limbs between visible keypoint pairs.
         for (int i = 0; i < 19; ++i) {
-            int a = POSE_SKELETON[i][0] - 1;  // skeleton is 1-indexed (KR: 스켈레톤은 1-기반)
+            int a = POSE_SKELETON[i][0] - 1;  // skeleton is 1-indexed
             int b = POSE_SKELETON[i][1] - 1;
             if (a < 0 || b < 0 || a >= static_cast<int>(d.kpts.size()) ||
                 b >= static_cast<int>(d.kpts.size())) {
@@ -116,15 +108,29 @@ void draw_poses(cv::Mat& img,
 }
 
 int main(int argc, char** argv) {
-    if (argc != 4) {
+    // Positional: <model.mxq> <image_path> <output_path>. Optional: --input uint8|float
+    // uint8 : normalization fused into the MXQ (uint8-input model).
+    // float : preprocessing NOT fused (!uint8 model); this program normalizes (/255) and feeds float.
+    std::vector<std::string> pos;
+    std::string input_type = "uint8";
+    for (int i = 1; i < argc; ++i) {
+        std::string a = argv[i];
+        if (a == "--input" && i + 1 < argc) {
+            input_type = argv[++i];
+        } else {
+            pos.push_back(a);
+        }
+    }
+    if (pos.size() != 3 || (input_type != "uint8" && input_type != "float")) {
         std::cerr << "Usage: " << argv[0]
-                  << " <model.mxq> <image_path> <output_path>\n";
+                  << " <model.mxq> <image_path> <output_path> [--input uint8|float]\n";
         return 1;
     }
 
-    const std::string mxq_path = argv[1];
-    const std::string image_path = argv[2];
-    const std::string output_path = argv[3];
+    const std::string mxq_path = pos[0];
+    const std::string image_path = pos[1];
+    const std::string output_path = pos[2];
+    std::cout << "Input mode: " << input_type << "\n";
 
     ModelInfo cfg = make_yolo_pose_config();
     int nc = cfg.m_postprocess.num_classes;
@@ -134,10 +140,25 @@ int main(int argc, char** argv) {
     float conf_thres = cfg.m_postprocess.conf_thres;
     float iou_thres = cfg.m_postprocess.iou_thres;
 
-    NPURunner model(mxq_path);
-    auto shape = model.get_input_shape();
-    std::cout << "Model input: " << shape[0] << "x" << shape[1] << "x"
-              << shape[2] << "\n";
+    mobilint::StatusCode sc;
+    auto acc = mobilint::Accelerator::create(sc);
+    if (!sc) { std::cerr << "Failed to create accelerator\n"; return 1; }
+    mobilint::ModelConfig mc;
+    mc.setSingleCoreMode({mobilint::CoreId{mobilint::Cluster::Cluster0,
+                                           mobilint::Core::Core0}});
+    auto model = mobilint::Model::create(mxq_path, mc, sc);
+    if (!sc) { std::cerr << "Failed to load model: " << mxq_path << "\n"; return 1; }
+    sc = model->launch(*acc);
+    if (!sc) { std::cerr << "Failed to launch model\n"; return 1; }
+
+    // Model input shape as declared in the MXQ (HWC order, matches mxqtool "Shape").
+    const auto& in_shapes = model->getModelInputShape();
+    for (size_t i = 0; i < in_shapes.size(); ++i) {
+        std::cout << "Model input shape[" << i << "]: [";
+        for (size_t j = 0; j < in_shapes[i].size(); ++j)
+            std::cout << in_shapes[i][j] << (j + 1 < in_shapes[i].size() ? ", " : "");
+        std::cout << "]\n";
+    }
 
     cv::Mat img = cv::imread(image_path);
     if (img.empty()) {
@@ -148,17 +169,23 @@ int main(int argc, char** argv) {
     int img_w = img.cols;
     std::cout << "Image size: " << img_w << "x" << img_h << "\n";
 
-    Transformer transformer;
-    auto input = transformer.transform_uint8(img, cfg);
-
+    Preprocessor preprocessor;
+    std::vector<std::vector<float>> outputs;
     auto t0 = std::chrono::high_resolution_clock::now();
-    auto outputs = model.infer_uint8(std::move(input));
+    if (input_type == "float") {
+        // !uint8 MXQ: /255 normalization is not fused. transform_float_chw emits a CHW /255 float
+        // buffer (same layout as the working uint8 path), fed via inferCHW.
+        auto input = preprocessor.transform_float_chw(img, cfg);
+        outputs = model->inferCHW({input.get()}, sc);
+    } else {
+        auto input = preprocessor.transform_uint8(img, cfg);
+        outputs = model->inferCHW({input.get()}, sc);
+    }
     auto t1 = std::chrono::high_resolution_clock::now();
     double infer_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
     std::cout << "Inference time: " << infer_ms << " ms\n";
 
-    // DFL decode + keypoint decode + NMS, then rescale boxes and keypoints from letterbox space to original image coordinates
-    // (KR: DFL 디코드 + 키포인트 디코드 + NMS 후 letterbox 좌표를 원본 이미지 좌표로 변환)
+    // DFL decode + keypoint decode + NMS, then rescale boxes/keypoints from letterbox space to original image coordinates.
     YoloPoseDecoder decoder(nc, nl, IMG_SIZE, reg_max, num_keypoints, conf_thres,
                             iou_thres);
     auto dets = decoder.decode(outputs);
@@ -169,5 +196,6 @@ int main(int argc, char** argv) {
     cv::imwrite(output_path, img);
     std::cout << "Result saved to: " << output_path << "\n";
 
+    model->dispose();
     return 0;
 }
