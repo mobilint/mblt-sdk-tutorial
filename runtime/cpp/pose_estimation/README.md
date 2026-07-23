@@ -4,8 +4,9 @@ This tutorial explains how to run a compiled YOLO pose-estimation MXQ model with
 
 Before starting, complete the compilation flow in [../../../compilation/pose_estimation/README.md](../../../compilation/pose_estimation/README.md). The runtime example expects one of these compiled models:
 
-- ARIES: `yolo11m-pose.mxq`
-- REGULUS: `yolov8m-pose.mxq`
+- REGULUS `regulus-rb` (default): `yolo11m-pose.mxq`
+- REGULUS `regulus-ra`: `yolov8m-pose.mxq`
+- ARIES `aries-rb`: `yolo11m-pose.mxq`
 
 ## Prerequisites
 
@@ -32,19 +33,24 @@ The runtime flow in `infer_pose.cc` follows these steps:
 
 1. Load the compiled MXQ model.
 2. Read the input image.
-3. Apply YOLO-style letterbox preprocessing through `Transformer`.
+3. Apply YOLO-style letterbox preprocessing through `Preprocessor`.
 4. Run inference on the Mobilint NPU.
 5. Decode boxes and keypoints with DFL and NMS.
 6. Rescale detections back to the original image.
 7. Draw person boxes, keypoints, and skeleton limbs.
 
-The program uses `uint8` input and assumes normalization is fused into the compiled model.
+`--input-dtype` must match how the MXQ was compiled (see the [compilation tutorial](../../../compilation/pose_estimation/README.md)):
+
+- `uint8`: MXQ compiled with fused normalization (`Uint8InputConfig`). Feeds raw letterboxed pixels.
+- `float`: MXQ compiled without fusion. Applies `/255` at runtime.
+
+If the flag does not match the compiled MXQ, the output is incorrect.
 
 ## Files in This Tutorial
 
 - `infer_pose.cc`: Runs the full pose-estimation pipeline and saves the rendered image.
 - `yolo_pose_config.h`: Defines the pose-head configuration, thresholds, keypoint count, and image size.
-- `utils/inference/`: Shared runtime helpers for model execution and preprocessing.
+- `utils/preprocess/`: Preprocessing helpers (`Preprocessor`).
 - `utils/postprocess/`: Shared decode and NMS helpers.
 - `CMakeLists.txt`: Builds the `infer-pose` executable and supporting utility library.
 
@@ -53,14 +59,14 @@ The program uses `uint8` input and assumes normalization is fused into the compi
 The program uses this command-line interface:
 
 ```bash
-./infer-pose <model.mxq> <image_path> <output_path>
+./infer-pose <model.mxq> <image_path> <output_path> [--input-dtype uint8|float]
 ```
 
-`Transformer` handles:
+`Preprocessor` handles:
 
 - Letterbox resize
 - BGR-to-RGB conversion
-- HWC-to-CHW conversion
+- Packing into an HWC buffer for `Model::infer`
 
 After inference, `YoloPoseDecoder`:
 
@@ -102,13 +108,14 @@ Sample image:
 ./build/infer-pose ../../../compilation/pose_estimation/yolo11m-pose.mxq ../rc/cr7.jpg result.jpg
 ```
 
-### REGULUS
+### REGULUS (`regulus-rb`)
 
-Copy `build/infer-pose`, `yolov8m-pose.mxq`, and `cr7.jpg` to the target board, then run:
+Copy `build/infer-pose`, `yolo11m-pose.mxq`, and `cr7.jpg` to the target board, then run:
 
 ```bash
 chmod +x infer-pose
-./infer-pose yolov8m-pose.mxq cr7.jpg result.jpg
+./infer-pose yolo11m-pose.mxq cr7.jpg result.jpg --input-dtype uint8   # MXQ compiled with fused normalization
+./infer-pose yolo11m-pose.mxq cr7.jpg result.jpg --input-dtype float   # MXQ compiled without fusion
 ```
 
 ## Expected Output

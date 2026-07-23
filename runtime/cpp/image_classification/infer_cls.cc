@@ -2,10 +2,10 @@
 //
 // Preprocessing lives in preprocess() / preprocess_float(): resize 256 + centerCrop 224 + BGR2RGB,
 // and for float also /255 + torch mean/std.
-// Input mode via --input: uint8 feeds the fused-normalization MXQ; float feeds a normalized float tensor to the !uint8 MXQ.
+// Input mode via --input-dtype: uint8 feeds the fused-normalization MXQ; float feeds a normalized float tensor to the !uint8 MXQ.
 //
 // Usage:
-//   ./infer-cls <model.mxq> <image_path> <labels_file> [--input uint8|float]
+//   ./infer-cls <model.mxq> <image_path> <labels_file> [--input-dtype uint8|float]
 //
 // Example:
 //   ./infer-cls resnet50.mxq example.jpg imagenet_labels.txt   # ARIES / REGULUS regulus-rb
@@ -75,13 +75,13 @@ std::vector<float> preprocess_float(const cv::Mat& input) {
 }
 
 int main(int argc, char** argv) {
-    // Positional: <model.mxq> <image_path> <labels_file>. Optional: --input uint8|float
+    // Positional: <model.mxq> <image_path> <labels_file>. Optional: --input-dtype uint8|float
     // uint8 : normalization fused into the MXQ.  float : preprocess_float normalizes for the !uint8 MXQ.
     std::vector<std::string> pos;
     std::string input_type = "uint8";
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
-        if (a == "--input" && i + 1 < argc) {
+        if (a == "--input-dtype" && i + 1 < argc) {
             input_type = argv[++i];
         } else {
             pos.push_back(a);
@@ -89,7 +89,7 @@ int main(int argc, char** argv) {
     }
     if (pos.size() != 3 || (input_type != "uint8" && input_type != "float")) {
         std::cerr << "Usage: " << argv[0]
-                  << " <model.mxq> <image_path> <labels_file> [--input uint8|float]\n";
+                  << " <model.mxq> <image_path> <labels_file> [--input-dtype uint8|float]\n";
         return 1;
     }
 

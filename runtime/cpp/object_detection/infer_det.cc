@@ -1,12 +1,12 @@
 // End-to-end object detection inference on Mobilint NPU with bounding-box visualization.
 // Preprocessing (letterbox + BGR->RGB) is handled by Preprocessor.
-// --input : uint8 feeds the fused-normalization MXQ; float applies /255 here for the !uint8 MXQ.
+// --input-dtype : uint8 feeds the fused-normalization MXQ; float applies /255 here for the !uint8 MXQ.
 // Input buffers and NPU outputs are HWC (channel-last, as the MXQ declares): inference uses
 // Model::infer and the decoder reads the outputs in HWC accordingly.
 // Pipeline: load MXQ -> transform (HWC) -> NPU infer -> DFL decode -> NMS -> draw boxes.
 //
 // Usage:
-//   ./infer-det <model.mxq> <image_path> <output_path> [--input uint8|float]
+//   ./infer-det <model.mxq> <image_path> <output_path> [--input-dtype uint8|float]
 //
 // Examples:
 //   ./infer-det yolo11m.mxq cr7.jpg result.jpg   # ARIES / REGULUS regulus-rb
@@ -80,12 +80,12 @@ void draw_detections(cv::Mat& img,
 }
 
 int main(int argc, char** argv) {
-    // Positional: <model.mxq> <image_path> <output_path>. Optional: --input uint8|float
+    // Positional: <model.mxq> <image_path> <output_path>. Optional: --input-dtype uint8|float
     std::vector<std::string> pos;
     std::string input_type = "uint8";
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
-        if (a == "--input" && i + 1 < argc) {
+        if (a == "--input-dtype" && i + 1 < argc) {
             input_type = argv[++i];
         } else {
             pos.push_back(a);
@@ -93,7 +93,7 @@ int main(int argc, char** argv) {
     }
     if (pos.size() != 3 || (input_type != "uint8" && input_type != "float")) {
         std::cerr << "Usage: " << argv[0]
-                  << " <model.mxq> <image_path> <output_path> [--input uint8|float]\n";
+                  << " <model.mxq> <image_path> <output_path> [--input-dtype uint8|float]\n";
         return 1;
     }
     const std::string mxq_path = pos[0];

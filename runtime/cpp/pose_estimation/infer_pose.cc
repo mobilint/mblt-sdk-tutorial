@@ -1,10 +1,10 @@
 // End-to-end pose estimation inference on Mobilint NPU with skeleton visualization.
 // Preprocessing (letterbox + BGR->RGB + HWC->CHW) is handled by Preprocessor.
-// Input mode via --input: uint8 feeds the fused-normalization MXQ; float applies /255 here for the !uint8 MXQ.
+// Input mode via --input-dtype: uint8 feeds the fused-normalization MXQ; float applies /255 here for the !uint8 MXQ.
 // Pipeline: load MXQ -> transform (HWC) -> NPU infer -> DFL decode -> keypoint decode -> NMS -> draw boxes + skeleton.
 //
 // Usage:
-//   ./infer-pose <model.mxq> <image_path> <output_path> [--input uint8|float]
+//   ./infer-pose <model.mxq> <image_path> <output_path> [--input-dtype uint8|float]
 //
 // Examples:
 //   ./infer-pose yolo11m-pose.mxq cr7.jpg result.jpg   # ARIES / REGULUS regulus-rb
@@ -108,14 +108,14 @@ void draw_poses(cv::Mat& img,
 }
 
 int main(int argc, char** argv) {
-    // Positional: <model.mxq> <image_path> <output_path>. Optional: --input uint8|float
+    // Positional: <model.mxq> <image_path> <output_path>. Optional: --input-dtype uint8|float
     // uint8 : normalization fused into the MXQ (uint8-input model).
     // float : preprocessing NOT fused (!uint8 model); this program normalizes (/255) and feeds float.
     std::vector<std::string> pos;
     std::string input_type = "uint8";
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
-        if (a == "--input" && i + 1 < argc) {
+        if (a == "--input-dtype" && i + 1 < argc) {
             input_type = argv[++i];
         } else {
             pos.push_back(a);
@@ -123,7 +123,7 @@ int main(int argc, char** argv) {
     }
     if (pos.size() != 3 || (input_type != "uint8" && input_type != "float")) {
         std::cerr << "Usage: " << argv[0]
-                  << " <model.mxq> <image_path> <output_path> [--input uint8|float]\n";
+                  << " <model.mxq> <image_path> <output_path> [--input-dtype uint8|float]\n";
         return 1;
     }
 
