@@ -134,14 +134,19 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    std::vector<std::vector<float>> output;
+    // Wrap the preprocessed buffer in a non-owning NDArray view and receive NDArray output,
+    // letting the qbruntime skip input/output copies and the output zero-fill.
+    const std::vector<int64_t> in_shape(in_shapes[0].begin(), in_shapes[0].end());
+    std::vector<mobilint::NDArray<float>> output;
     auto t0 = std::chrono::high_resolution_clock::now();
     if (input_type == "float") {
         std::vector<float> finput = preprocess_float(img);
-        output = model->infer({finput.data()}, sc);
+        std::vector<mobilint::NDArray<float>> in{mobilint::NDArray<float>(finput.data(), in_shape)};
+        output = model->infer(in, sc);
     } else {
         cv::Mat input = preprocess(img);
-        output = model->infer({input.data}, sc);
+        std::vector<mobilint::NDArray<uint8_t>> in{mobilint::NDArray<uint8_t>(input.data, in_shape)};
+        output = model->infer(in, sc);
     }
     auto t1 = std::chrono::high_resolution_clock::now();
     double infer_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();

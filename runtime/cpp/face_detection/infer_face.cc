@@ -1,7 +1,7 @@
 // Face detection inference on Mobilint NPU with bounding-box visualization.
 // Preprocessing (letterbox + BGR->RGB + HWC->CHW) is handled by Preprocessor.
 // Input mode via --input: uint8 feeds the fused-normalization MXQ; float applies /255 here for the !uint8 MXQ.
-// Pipeline: load MXQ -> transform (CHW) -> NPU inferCHW -> DFL decode -> NMS -> draw boxes.
+// Pipeline: load MXQ -> transform (HWC) -> NPU infer -> DFL decode -> NMS -> draw boxes.
 //
 // Usage:
 //   ./infer-face <model.mxq> <image_path> <output_path> [--input uint8|float]
@@ -110,17 +110,21 @@ int main(int argc, char** argv) {
     std::cout << "Image size: " << img_w << "x" << img_h << "\n";
 
     Preprocessor preprocessor;
-    std::vector<std::vector<float>> outputs;
+    const std::vector<int64_t> in_shape(in_shapes[0].begin(), in_shapes[0].end());
+    std::vector<mobilint::NDArray<float>> outputs;
     auto t0 = std::chrono::high_resolution_clock::now();
     if (input_type == "float") {
-        // !uint8 MXQ: /255 normalization not fused. transform_float_chw emits a CHW /255
-        // float buffer (same layout as the uint8 path), fed via inferCHW.
-        auto input = preprocessor.transform_float_chw(img, cfg);
-        outputs = model->inferCHW({input.get()}, sc);
+        // !uint8 MXQ: /255 normalization not fused. transform_float emits an HWC /255
+        // float buffer (same layout as the uint8 path), wrapped in a non-owning NDArray view.
+        auto input = preprocessor.transform_float(img, cfg);
+        std::vector<mobilint::NDArray<float>> in{mobilint::NDArray<float>(input.get(), in_shape)};
+        outputs = model->infer(in, sc);
     } else {
         auto input = preprocessor.transform_uint8(img, cfg);
-        outputs = model->inferCHW({input.get()}, sc);
+        std::vector<mobilint::NDArray<uint8_t>> in{mobilint::NDArray<uint8_t>(input.get(), in_shape)};
+        outputs = model->infer(in, sc);
     }
+    if (!sc) { std::cerr << "Inference failed (status " << static_cast<int>(sc) << ")\n"; return 1; }
     auto t1 = std::chrono::high_resolution_clock::now();
     double infer_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
     std::cout << "Inference time: " << infer_ms << " ms\n";

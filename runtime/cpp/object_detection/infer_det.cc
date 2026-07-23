@@ -1,18 +1,16 @@
 // End-to-end object detection inference on Mobilint NPU with bounding-box visualization.
 // Preprocessing (letterbox + BGR->RGB) is handled by Preprocessor.
-// --input   : uint8 feeds the fused-normalization MXQ; float applies /255 here for the !uint8 MXQ.
-// --inf-func : chw -> CHW buffer + Model::inferCHW (default) | hwc -> HWC buffer + Model::infer.
-//              Diagnostic switch; the selected path runs as-is with no fallback so its
-//              status/result is visible. These YOLO MXQ only decode correctly with chw.
-// Pipeline: load MXQ -> transform -> NPU infer(CHW) -> DFL decode -> NMS -> draw boxes.
+// --input : uint8 feeds the fused-normalization MXQ; float applies /255 here for the !uint8 MXQ.
+// Input buffers and NPU outputs are HWC (channel-last, as the MXQ declares): inference uses
+// Model::infer and the decoder reads the outputs in HWC accordingly.
+// Pipeline: load MXQ -> transform (HWC) -> NPU infer -> DFL decode -> NMS -> draw boxes.
 //
 // Usage:
-//   ./infer-det <model.mxq> <image_path> <output_path> [--input uint8|float] [--inf-func chw|hwc]
+//   ./infer-det <model.mxq> <image_path> <output_path> [--input uint8|float]
 //
 // Examples:
-//   ./infer-det yolo11m.mxq cr7.jpg result.jpg                 # ARIES / REGULUS regulus-rb
-//   ./infer-det yolo11m.mxq cr7.jpg result.jpg --inf-func hwc  # try the HWC+infer path
-//   ./infer-det yolov9m.mxq cr7.jpg result.jpg                 # REGULUS regulus-ra (older)
+//   ./infer-det yolo11m.mxq cr7.jpg result.jpg   # ARIES / REGULUS regulus-rb
+//   ./infer-det yolov9m.mxq cr7.jpg result.jpg   # REGULUS regulus-ra (older)
 
 #include <chrono>
 #include <iostream>
@@ -82,35 +80,26 @@ void draw_detections(cv::Mat& img,
 }
 
 int main(int argc, char** argv) {
-    // Positional: <model.mxq> <image_path> <output_path>.
-    // Optional: --input uint8|float  (input element type)
-    //           --inf-func chw|hwc   (chw -> Model::inferCHW, hwc -> Model::infer)
+    // Positional: <model.mxq> <image_path> <output_path>. Optional: --input uint8|float
     std::vector<std::string> pos;
     std::string input_type = "uint8";
-    std::string inf_func = "chw";
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
         if (a == "--input" && i + 1 < argc) {
             input_type = argv[++i];
-        } else if (a == "--inf-func" && i + 1 < argc) {
-            inf_func = argv[++i];
         } else {
             pos.push_back(a);
         }
     }
-    if (pos.size() != 3 || (input_type != "uint8" && input_type != "float") ||
-        (inf_func != "chw" && inf_func != "hwc")) {
+    if (pos.size() != 3 || (input_type != "uint8" && input_type != "float")) {
         std::cerr << "Usage: " << argv[0]
-                  << " <model.mxq> <image_path> <output_path>"
-                     " [--input uint8|float] [--inf-func chw|hwc]\n";
+                  << " <model.mxq> <image_path> <output_path> [--input uint8|float]\n";
         return 1;
     }
     const std::string mxq_path = pos[0];
     const std::string image_path = pos[1];
     const std::string output_path = pos[2];
     std::cout << "Input mode: " << input_type << "\n";
-    std::cout << "Inference func: "
-              << (inf_func == "chw" ? "inferCHW (CHW buffer)" : "infer (HWC buffer)") << "\n";
 
     ModelInfo cfg = make_yolo_detect_config();
 
@@ -144,35 +133,26 @@ int main(int argc, char** argv) {
     int img_h = img.rows, img_w = img.cols;
     std::cout << "Image size: " << img_w << "x" << img_h << "\n";
 
-    // Build the input buffer and run the selected path (no fallback).
+    // Build the HWC input buffer and run inference (NPU-native HWC layout). The buffer is
+    // wrapped in a non-owning NDArray view and results come back as NDArray, which lets the
+    // qbruntime skip the input/output copies and output zero-fill of the float*/vector overloads.
     //   uint8 : raw letterboxed pixels (normalization fused in the MXQ).
     //   float : letterboxed pixels /255 (the !uint8 MXQ has no fused normalization).
-    //   chw   : CHW buffer -> Model::inferCHW.   hwc : HWC buffer -> Model::infer.
     Preprocessor preprocessor;
-    std::vector<std::vector<float>> outputs;
+    const std::vector<int64_t> in_shape(in_shapes[0].begin(), in_shapes[0].end());
+    std::vector<mobilint::NDArray<float>> outputs;
     auto t0 = std::chrono::high_resolution_clock::now();
-    if (inf_func == "chw") {
-        if (input_type == "float") {
-            auto input = preprocessor.transform_float_chw(img, cfg);
-            outputs = model->inferCHW({input.get()}, sc);
-        } else {
-            auto input = preprocessor.transform_uint8(img, cfg);
-            outputs = model->inferCHW({input.get()}, sc);
-        }
-    } else {  // hwc
-        if (input_type == "float") {
-            auto input = preprocessor.transform_float_hwc(img, cfg);
-            outputs = model->infer({input.get()}, sc);
-        } else {
-            auto input = preprocessor.transform_uint8_hwc(img, cfg);
-            outputs = model->infer({input.get()}, sc);
-        }
+    if (input_type == "float") {
+        auto input = preprocessor.transform_float(img, cfg);
+        std::vector<mobilint::NDArray<float>> in{mobilint::NDArray<float>(input.get(), in_shape)};
+        outputs = model->infer(in, sc);
+    } else {
+        auto input = preprocessor.transform_uint8(img, cfg);
+        std::vector<mobilint::NDArray<uint8_t>> in{mobilint::NDArray<uint8_t>(input.get(), in_shape)};
+        outputs = model->infer(in, sc);
     }
+    if (!sc) { std::cerr << "Inference failed (status " << static_cast<int>(sc) << ")\n"; return 1; }
     auto t1 = std::chrono::high_resolution_clock::now();
-    // Report the raw inference status; do not fall back to another path.
-    // Prints the StatusCode enum value (0 = OK); cross-reference qbruntime/status_code.h.
-    std::cout << "Inference status: " << (!sc ? "ERROR" : "OK") << " (code "
-              << static_cast<int>(sc) << ")\n";
     std::cout << "Inference time: "
               << std::chrono::duration<double, std::milli>(t1 - t0).count() << " ms\n";
 

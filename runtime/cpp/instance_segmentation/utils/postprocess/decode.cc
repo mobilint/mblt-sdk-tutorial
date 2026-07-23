@@ -55,7 +55,7 @@ struct StagedTensor {
 };
 
 std::vector<YoloSegDecoder::Detection> YoloSegDecoder::decode(
-    const std::vector<std::vector<float>>& raw_outputs,
+    const std::vector<mobilint::NDArray<float>>& raw_outputs,
     std::vector<float>& proto_out,
     int& proto_c, int& proto_h, int& proto_w) const {
     const int total_anchors = static_cast<int>(anchors_.size());
@@ -70,7 +70,7 @@ std::vector<YoloSegDecoder::Detection> YoloSegDecoder::decode(
     std::vector<StagedTensor> det_tensors;
     std::vector<StagedTensor> cls_tensors;
     std::vector<StagedTensor> ext_tensors;
-    const std::vector<float>* proto_src = nullptr;
+    const mobilint::NDArray<float>* proto_src = nullptr;
     int proto_numel = -1;
 
     for (const auto& t : raw_outputs) {
@@ -125,8 +125,9 @@ std::vector<YoloSegDecoder::Detection> YoloSegDecoder::decode(
         throw std::runtime_error("decode: prototype tensor not found");
     }
 
-    // Export the prototype tensor. The seg prototype is [num_mask_coeffs, proto_h, proto_w] in CHW,
-    // and proto_h == proto_w == img_size / 4 for the P5 head (e.g. 160x160 at img_size 640).
+    // Export the prototype tensor. Under Model::infer the prototype is HWC:
+    // [proto_h, proto_w, num_mask_coeffs], with proto_h == proto_w == img_size / 4 for the P5
+    // head (e.g. 160x160 at img_size 640).
     proto_c = num_mask_coeffs_;
     int proto_hw = proto_numel / num_mask_coeffs_;
     int proto_side = static_cast<int>(std::lround(std::sqrt(static_cast<double>(proto_hw))));
@@ -135,15 +136,17 @@ std::vector<YoloSegDecoder::Detection> YoloSegDecoder::decode(
     if (proto_h * proto_w != proto_hw) {
         throw std::runtime_error("decode: non-square prototype map is not supported");
     }
-    proto_out = *proto_src;
+    proto_out.assign(proto_src->begin(), proto_src->end());
 
     // Build per-anchor access structs aligned with the constructor's stride order.
+    // Outputs are HWC (channel-last): value(spatial, channel) lives at
+    // base[spatial * num_channels + channel]; the channel stride is each tensor's channel
+    // count (reg_max*4, nc, or num_mask_coeffs). Each anchor keeps its bases + spatial index.
     struct AnchorAccess {
-        const float* box_base;   // start of (reg_max*4, hw)
-        const float* cls_base;   // start of (nc, hw)
-        const float* ext_base;   // start of (num_mask_coeffs, hw)
-        int hw;
-        int local;               // index within this stride's grid (0..hw-1)
+        const float* box_base;   // start of the box tensor, HWC (hw x reg_max*4)
+        const float* cls_base;   // start of the cls tensor, HWC (hw x nc)
+        const float* ext_base;   // start of the mask-coeff tensor, HWC (hw x num_mask_coeffs)
+        int local;               // spatial index within this stride's grid (0..hw-1)
     };
     std::vector<AnchorAccess> access(total_anchors);
 
@@ -153,7 +156,7 @@ std::vector<YoloSegDecoder::Detection> YoloSegDecoder::decode(
         const auto& cls = cls_tensors[st];
         const auto& ext = ext_tensors[st];
         for (int i = 0; i < det.hw; ++i) {
-            access[anchor_idx] = {det.data, cls.data, ext.data, det.hw, i};
+            access[anchor_idx] = {det.data, cls.data, ext.data, i};
             ++anchor_idx;
         }
     }
@@ -172,13 +175,11 @@ std::vector<YoloSegDecoder::Detection> YoloSegDecoder::decode(
     std::vector<int> active;
     active.reserve(total_anchors);
     for (int a = 0; a < total_anchors; ++a) {
-        const float* cls_base = access[a].cls_base;
-        int hw = access[a].hw;
-        int local = access[a].local;
-        float max_logit = cls_base[local];
+        // HWC: this anchor's nc class logits are contiguous at cls_base + local*nc.
+        const float* cls = access[a].cls_base + static_cast<size_t>(access[a].local) * nc_;
+        float max_logit = cls[0];
         for (int c = 1; c < nc_; ++c) {
-            float v = cls_base[c * hw + local];
-            if (v > max_logit) max_logit = v;
+            if (cls[c] > max_logit) max_logit = cls[c];
         }
         if (max_logit > invconf_) active.push_back(a);
     }
@@ -188,20 +189,23 @@ std::vector<YoloSegDecoder::Detection> YoloSegDecoder::decode(
     std::vector<Detection> dets;
     dets.reserve(active.size() * 2);
 
+    // box_ch (= reg_max_ * 4) is already computed above for tensor staging.
     std::vector<float> dfl_logits(reg_max_);
     std::vector<float> dfl_softmax(reg_max_);
 
     for (int a : active) {
         const auto& acc = access[a];
-        int hw = acc.hw;
-        int local = acc.local;
+        // HWC: box / cls / mask-coeff channels are contiguous rows at base + local*channels.
+        const float* box = acc.box_base + static_cast<size_t>(acc.local) * box_ch;
+        const float* cls = acc.cls_base + static_cast<size_t>(acc.local) * nc_;
+        const float* ext = acc.ext_base + static_cast<size_t>(acc.local) * num_mask_coeffs_;
 
         // DFL softmax over reg_max bins for each of 4 sides (left, top, right, bottom).
         float dist[4];
         for (int side = 0; side < 4; ++side) {
             float maxv = -std::numeric_limits<float>::infinity();
             for (int r = 0; r < reg_max_; ++r) {
-                float v = acc.box_base[(side * reg_max_ + r) * hw + local];
+                float v = box[side * reg_max_ + r];
                 dfl_logits[r] = v;
                 if (v > maxv) maxv = v;
             }
@@ -229,7 +233,7 @@ std::vector<YoloSegDecoder::Detection> YoloSegDecoder::decode(
 
         // Emit one Detection per class whose sigmoid score exceeds conf_thres.
         for (int c = 0; c < nc_; ++c) {
-            float logit = acc.cls_base[c * hw + local];
+            float logit = cls[c];
             if (logit <= invconf_) continue;
             float conf = sigmoid(logit);
             if (conf <= conf_thres_) continue;
@@ -242,7 +246,7 @@ std::vector<YoloSegDecoder::Detection> YoloSegDecoder::decode(
             d.cls = c;
             d.mask_coeffs.resize(num_mask_coeffs_);
             for (int k = 0; k < num_mask_coeffs_; ++k) {
-                d.mask_coeffs[k] = acc.ext_base[k * hw + local];
+                d.mask_coeffs[k] = ext[k];
             }
             dets.push_back(std::move(d));
         }
@@ -324,16 +328,16 @@ std::vector<cv::Mat> YoloSegDecoder::assemble_masks(
     int pad_top = static_cast<int>(dh);
     int pad_left = static_cast<int>(dw);
 
-    // Wrap the prototype as a (proto_c, proto_h*proto_w) matrix so a coefficient row-vector
-    // times the matrix yields one mask map per detection.
-    cv::Mat proto_mat(proto_c, proto_hw, CV_32F,
+    // HWC prototype: memory is [proto_h, proto_w, proto_c], i.e. a (proto_hw, proto_c) matrix.
+    // Post-multiplying by a coefficient column vector yields one mask map per detection.
+    cv::Mat proto_mat(proto_hw, proto_c, CV_32F,
                       const_cast<float*>(proto.data()));
 
     for (const auto& d : dets) {
-        // mask_lin = coeff (1 x proto_c) * proto (proto_c x proto_hw) -> (1 x proto_hw).
-        cv::Mat coeff(1, proto_c, CV_32F,
+        // mask_lin = proto (proto_hw x proto_c) * coeff (proto_c x 1) -> (proto_hw x 1).
+        cv::Mat coeff(proto_c, 1, CV_32F,
                       const_cast<float*>(d.mask_coeffs.data()));
-        cv::Mat mask_lin = coeff * proto_mat;          // (1, proto_hw)
+        cv::Mat mask_lin = proto_mat * coeff;          // (proto_hw, 1)
         cv::Mat mask = mask_lin.reshape(1, proto_h);   // (proto_h, proto_w)
 
         // sigmoid(mask) > 0.5 is equivalent to raw mask logit > 0.0 (matches process_mask_upsample.gt_(0.0)).

@@ -3,6 +3,10 @@
 // box decode, anchor-based keypoint decode, and class-offset NMS.
 // Targets YOLOv8/v11 anchor-free Pose heads only (single "person" class, nc=1).
 //
+// LAYOUT: assumes NPU output tensors are HWC (channel-last), i.e. value(spatial, channel)
+// lives at base[spatial * num_channels + channel]. This matches Model::infer (HWC).
+// Feeding Model::inferCHW output (CHW) here would mis-index channels and yield garbage.
+//
 // Algorithm:
 //   1) Split raw outputs by stride into box (reg_max*4 channels), cls (nc channels),
 //      and kpt (num_keypoints*3 channels) tensors.
@@ -14,6 +18,8 @@
 //   7) Apply per-class coordinate offset then run NMS (keypoints follow the surviving box).
 #pragma once
 #include <vector>
+
+#include <qbruntime/ndarray.h>
 
 class YoloPoseDecoder {
 public:
@@ -35,7 +41,7 @@ public:
     // Decodes raw NPU output tensors (N flat float32 vectors) into detections with
     // keypoints, all in letterbox coordinates.
     std::vector<Detection> decode(
-        const std::vector<std::vector<float>>& raw_outputs) const;
+        const std::vector<mobilint::NDArray<float>>& raw_outputs) const;
 
     // Rescales detections (boxes and keypoints) from letterbox (img_size x img_size)
     // space to original image coordinates.

@@ -138,17 +138,12 @@ std::unique_ptr<uint8_t[]> Preprocessor::transform_uint8(const cv::Mat& input,
     CV_Assert(img.isContinuous());
 
     auto out = std::make_unique<uint8_t[]>(h * w * c);
-    const uint8_t* src = img.data;
-    for (int ch = 0; ch < c; ++ch) {
-        for (int i = 0; i < h * w; ++i) {
-            out[ch * h * w + i] = src[i * c + ch];
-        }
-    }
+    std::memcpy(out.get(), img.data, static_cast<size_t>(h) * w * c);  // HWC interleaved, as-is
     return out;
 }
 
-std::unique_ptr<float[]> Preprocessor::transform_float_chw(const cv::Mat& input,
-                                                           const ModelInfo& cfg) {
+std::unique_ptr<float[]> Preprocessor::transform_float(const cv::Mat& input,
+                                                       const ModelInfo& cfg) {
     cv::Mat img = input.clone();
     for (const auto& p : cfg.m_preprocess_list) {
         if (p.op == PreProcessOps::YOLO) {
@@ -162,12 +157,9 @@ std::unique_ptr<float[]> Preprocessor::transform_float_chw(const cv::Mat& input,
     int h = img.rows, w = img.cols, c = img.channels();
     CV_Assert(img.isContinuous());
 
-    auto out = std::make_unique<float[]>(h * w * c);
+    int n = h * w * c;
+    auto out = std::make_unique<float[]>(n);
     const uint8_t* src = img.data;
-    for (int ch = 0; ch < c; ++ch) {
-        for (int i = 0; i < h * w; ++i) {
-            out[ch * h * w + i] = static_cast<float>(src[i * c + ch]) / 255.0f;
-        }
-    }
+    for (int i = 0; i < n; ++i) out[i] = static_cast<float>(src[i]) / 255.0f;  // HWC interleaved /255
     return out;
 }

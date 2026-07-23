@@ -2,6 +2,10 @@
 // (x1, y1, x2, y2, conf, cls) detections using DFL decode and class-offset NMS.
 // Targets YOLOv8/v9/v11 anchor-free Detect heads only (not anchor-based variants).
 //
+// LAYOUT: assumes NPU output tensors are HWC (channel-last), i.e. value(spatial, channel)
+// lives at base[spatial * num_channels + channel]. This matches Model::infer (HWC).
+// Feeding Model::inferCHW output (CHW) here would mis-index channels and yield garbage.
+//
 // Algorithm:
 //   1) Split raw outputs by stride into box (reg_max*4 channels) and cls (nc channels) tensors.
 //   2) Flatten anchors across all strides -> total_anchors grid points.
@@ -11,6 +15,8 @@
 //   6) Apply per-class coordinate offset then run NMS.
 #pragma once
 #include <vector>
+
+#include <qbruntime/ndarray.h>
 
 class YoloDecoder {
 public:
@@ -23,9 +29,9 @@ public:
                 float conf_thres = 0.25f, float iou_thres = 0.7f,
                 int max_det = 300);
 
-    // Decodes raw NPU output tensors (N flat float32 vectors) into detections in letterbox coordinates.
+    // Decodes raw NPU output tensors (NDArray, HWC float32) into detections in letterbox coordinates.
     std::vector<Detection> decode(
-        const std::vector<std::vector<float>>& raw_outputs) const;
+        const std::vector<mobilint::NDArray<float>>& raw_outputs) const;
 
     // Rescales detections from letterbox (img_size x img_size) space to original image coordinates.
     static void scale_to_original(std::vector<Detection>& dets,

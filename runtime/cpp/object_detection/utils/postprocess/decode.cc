@@ -51,7 +51,7 @@ struct StagedTensor {
 };
 
 static std::vector<StagedTensor> stage_outputs(
-    const std::vector<std::vector<float>>& raw,
+    const std::vector<mobilint::NDArray<float>>& raw,
     int nc, int reg_max, int img_size,
     const std::vector<int>& strides) {
     std::vector<StagedTensor> det_tensors;
@@ -112,7 +112,7 @@ static inline float iou_xyxy(float ax1, float ay1, float ax2, float ay2,
 }
 
 std::vector<YoloDecoder::Detection> YoloDecoder::decode(
-    const std::vector<std::vector<float>>& raw_outputs) const {
+    const std::vector<mobilint::NDArray<float>>& raw_outputs) const {
     const int total_anchors = static_cast<int>(anchors_.size());
     if (total_anchors == 0) return {};
 
@@ -120,11 +120,13 @@ std::vector<YoloDecoder::Detection> YoloDecoder::decode(
     if (staged.empty()) return {};
 
     // Build per-anchor access structs; staged is ordered [det0, cls0, det1, cls1, ...].
+    // Outputs are HWC (channel-last, as the MXQ declares): value(spatial, channel) lives at
+    // base[spatial * num_channels + channel]. So each anchor only needs its base pointers and
+    // its spatial index; the channel stride is the tensor's channel count (reg_max*4 or nc).
     struct AnchorAccess {
-        const float* box_base;   // start of (reg_max*4, hw)
-        const float* cls_base;   // start of (nc, hw)
-        int hw;
-        int local;               // index within this stride's grid (0..hw-1)
+        const float* box_base;   // start of the box tensor, HWC layout (hw x reg_max*4)
+        const float* cls_base;   // start of the cls tensor, HWC layout (hw x nc)
+        int local;               // spatial index within this stride's grid (0..hw-1)
     };
     std::vector<AnchorAccess> access(total_anchors);
 
@@ -133,7 +135,7 @@ std::vector<YoloDecoder::Detection> YoloDecoder::decode(
         const auto& det = staged[st];
         const auto& cls = staged[st + 1];
         for (int i = 0; i < det.hw; ++i) {
-            access[anchor_idx] = {det.data, cls.data, det.hw, i};
+            access[anchor_idx] = {det.data, cls.data, i};
             ++anchor_idx;
         }
     }
@@ -152,13 +154,11 @@ std::vector<YoloDecoder::Detection> YoloDecoder::decode(
     std::vector<int> active;
     active.reserve(total_anchors);
     for (int a = 0; a < total_anchors; ++a) {
-        const float* cls_base = access[a].cls_base;
-        int hw = access[a].hw;
-        int local = access[a].local;
-        float max_logit = cls_base[local];
+        // HWC: this anchor's nc class logits are contiguous at cls_base + local*nc.
+        const float* cls = access[a].cls_base + static_cast<size_t>(access[a].local) * nc_;
+        float max_logit = cls[0];
         for (int c = 1; c < nc_; ++c) {
-            float v = cls_base[c * hw + local];
-            if (v > max_logit) max_logit = v;
+            if (cls[c] > max_logit) max_logit = cls[c];
         }
         if (max_logit > invconf_) active.push_back(a);
     }
@@ -168,20 +168,23 @@ std::vector<YoloDecoder::Detection> YoloDecoder::decode(
     std::vector<Detection> dets;
     dets.reserve(active.size() * 2);
 
+    const int box_ch = reg_max_ * 4;  // box tensor channel count (HWC last dim)
+
     std::vector<float> dfl_logits(reg_max_);
     std::vector<float> dfl_softmax(reg_max_);
 
     for (int a : active) {
         const auto& acc = access[a];
-        int hw = acc.hw;
-        int local = acc.local;
+        // HWC: this anchor's box and cls channels are contiguous rows at base + local*channels.
+        const float* box = acc.box_base + static_cast<size_t>(acc.local) * box_ch;
+        const float* cls = acc.cls_base + static_cast<size_t>(acc.local) * nc_;
 
         // DFL softmax over reg_max bins for each of 4 sides (left, top, right, bottom).
         float dist[4];
         for (int side = 0; side < 4; ++side) {
             float maxv = -std::numeric_limits<float>::infinity();
             for (int r = 0; r < reg_max_; ++r) {
-                float v = acc.box_base[(side * reg_max_ + r) * hw + local];
+                float v = box[side * reg_max_ + r];
                 dfl_logits[r] = v;
                 if (v > maxv) maxv = v;
             }
@@ -209,7 +212,7 @@ std::vector<YoloDecoder::Detection> YoloDecoder::decode(
 
         // Emit one Detection per class whose sigmoid score exceeds conf_thres.
         for (int c = 0; c < nc_; ++c) {
-            float logit = acc.cls_base[c * hw + local];
+            float logit = cls[c];
             if (logit <= invconf_) continue;
             float conf = sigmoid(logit);
             if (conf <= conf_thres_) continue;

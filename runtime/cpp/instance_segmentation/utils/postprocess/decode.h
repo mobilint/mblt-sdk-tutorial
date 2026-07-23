@@ -3,6 +3,10 @@
 // instance masks from the prototype tensor.
 // Targets YOLOv8/v11 anchor-free Segment heads only (not anchor-based variants).
 //
+// LAYOUT: assumes all NPU output tensors are HWC (channel-last), including the prototype
+// ([proto_h, proto_w, num_mask_coeffs]): value(spatial, channel) is at base[spatial*channels + channel].
+// This matches Model::infer (HWC). Feeding Model::inferCHW output (CHW) would mis-index channels.
+//
 // Algorithm:
 //   1) Split raw outputs by stride into box (reg_max*4 ch), cls (nc ch), and mask-coeff (num_mask_coeffs ch)
 //      tensors, plus one prototype tensor [num_mask_coeffs, proto_h, proto_w] (the largest num_mask_coeffs map).
@@ -17,6 +21,7 @@
 #include <vector>
 
 #include <opencv2/opencv.hpp>
+#include <qbruntime/ndarray.h>
 
 class YoloSegDecoder {
 public:
@@ -30,10 +35,10 @@ public:
                    int num_mask_coeffs = 32, float conf_thres = 0.25f,
                    float iou_thres = 0.45f, int max_det = 300);
 
-    // Decodes raw NPU output tensors (N flat float32 vectors) into detections in letterbox coordinates.
+    // Decodes raw NPU output tensors (NDArray, HWC float32) into detections in letterbox coordinates.
     // Fills proto_out with the prototype tensor data and sets proto_c/proto_h/proto_w to its dimensions.
     std::vector<Detection> decode(
-        const std::vector<std::vector<float>>& raw_outputs,
+        const std::vector<mobilint::NDArray<float>>& raw_outputs,
         std::vector<float>& proto_out,
         int& proto_c, int& proto_h, int& proto_w) const;
 
