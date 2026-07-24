@@ -17,6 +17,11 @@ public:
     // same layout as transform_uint8. Feed via Model::infer.
     std::unique_ptr<float[]> transform_float(const cv::Mat& input, const ModelInfo& cfg);
 
+    // Channel-first (CHW) counterparts, used only when getModelInputShape() is channel-first.
+    // Same pixels as the HWC versions, reordered to CHW; feed via Model::inferCHW.
+    std::unique_ptr<uint8_t[]> transform_uint8_chw(const cv::Mat& input, const ModelInfo& cfg);
+    std::unique_ptr<float[]> transform_float_chw(const cv::Mat& input, const ModelInfo& cfg);
+
 private:
     void resize(cv::Mat& img, cv::Size size, const std::string& interpolation);
     void resize_short_edge(cv::Mat& img, int short_edge, const std::string& interpolation);

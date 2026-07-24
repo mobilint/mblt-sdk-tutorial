@@ -163,3 +163,49 @@ std::unique_ptr<float[]> Preprocessor::transform_float(const cv::Mat& input,
     for (int i = 0; i < n; ++i) out[i] = static_cast<float>(src[i]) / 255.0f;  // HWC interleaved /255
     return out;
 }
+
+std::unique_ptr<uint8_t[]> Preprocessor::transform_uint8_chw(const cv::Mat& input,
+                                                             const ModelInfo& cfg) {
+    cv::Mat img = input.clone();
+    for (const auto& p : cfg.m_preprocess_list) {
+        if (p.op == PreProcessOps::YOLO) {
+            if (std::holds_alternative<std::pair<int, int>>(p.img_size)) {
+                auto [h, w] = std::get<std::pair<int, int>>(p.img_size);
+                letter_box(img, cv::Size(w, h));
+            }
+        }
+    }
+    cv::cvtColor(img, img, cv::COLOR_BGR2RGB);
+    int h = img.rows, w = img.cols, c = img.channels();
+    CV_Assert(img.isContinuous());
+
+    auto out = std::make_unique<uint8_t[]>(h * w * c);
+    const uint8_t* src = img.data;
+    for (int ch = 0; ch < c; ++ch)
+        for (int i = 0; i < h * w; ++i)
+            out[ch * h * w + i] = src[i * c + ch];  // HWC -> CHW (channel-planar)
+    return out;
+}
+
+std::unique_ptr<float[]> Preprocessor::transform_float_chw(const cv::Mat& input,
+                                                           const ModelInfo& cfg) {
+    cv::Mat img = input.clone();
+    for (const auto& p : cfg.m_preprocess_list) {
+        if (p.op == PreProcessOps::YOLO) {
+            if (std::holds_alternative<std::pair<int, int>>(p.img_size)) {
+                auto [h, w] = std::get<std::pair<int, int>>(p.img_size);
+                letter_box(img, cv::Size(w, h));
+            }
+        }
+    }
+    cv::cvtColor(img, img, cv::COLOR_BGR2RGB);
+    int h = img.rows, w = img.cols, c = img.channels();
+    CV_Assert(img.isContinuous());
+
+    auto out = std::make_unique<float[]>(h * w * c);
+    const uint8_t* src = img.data;
+    for (int ch = 0; ch < c; ++ch)
+        for (int i = 0; i < h * w; ++i)
+            out[ch * h * w + i] = static_cast<float>(src[i * c + ch]) / 255.0f;  // HWC -> CHW /255
+    return out;
+}

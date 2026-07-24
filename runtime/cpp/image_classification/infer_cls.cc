@@ -134,19 +134,44 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    // Wrap the preprocessed buffer in a non-owning NDArray view and receive NDArray output,
-    // letting the qbruntime skip input/output copies and the output zero-fill.
+    // Wrap the preprocessed buffer in a non-owning NDArray view (input/output copies + output
+    // zero-fill are skipped). Layout is chosen automatically from getModelInputShape():
+    // channel-last (HWC) -> Model::infer; channel-first (CHW) -> reorder to CHW + Model::inferCHW.
+    // The class-logit output has no spatial layout, so no output transpose is needed.
     const std::vector<int64_t> in_shape(in_shapes[0].begin(), in_shapes[0].end());
+    const bool channel_last = !in_shape.empty() && in_shape.back() == 3;
     std::vector<mobilint::NDArray<float>> output;
     auto t0 = std::chrono::high_resolution_clock::now();
-    if (input_type == "float") {
-        std::vector<float> finput = preprocess_float(img);
-        std::vector<mobilint::NDArray<float>> in{mobilint::NDArray<float>(finput.data(), in_shape)};
-        output = model->infer(in, sc);
+    if (channel_last) {
+        if (input_type == "float") {
+            std::vector<float> finput = preprocess_float(img);
+            std::vector<mobilint::NDArray<float>> in{mobilint::NDArray<float>(finput.data(), in_shape)};
+            output = model->infer(in, sc);
+        } else {
+            cv::Mat input = preprocess(img);
+            std::vector<mobilint::NDArray<uint8_t>> in{mobilint::NDArray<uint8_t>(input.data, in_shape)};
+            output = model->infer(in, sc);
+        }
     } else {
-        cv::Mat input = preprocess(img);
-        std::vector<mobilint::NDArray<uint8_t>> in{mobilint::NDArray<uint8_t>(input.data, in_shape)};
-        output = model->infer(in, sc);
+        // channel-first MXQ: reorder the HWC buffer to CHW, then use inferCHW.
+        const int C = static_cast<int>(in_shape[0]);
+        const int hw = static_cast<int>(in_shape[1] * in_shape[2]);
+        if (input_type == "float") {
+            std::vector<float> hwc = preprocess_float(img);
+            std::vector<float> chw(hwc.size());
+            for (int c = 0; c < C; ++c)
+                for (int i = 0; i < hw; ++i) chw[c * hw + i] = hwc[i * C + c];
+            std::vector<mobilint::NDArray<float>> in{mobilint::NDArray<float>(chw.data(), in_shape)};
+            output = model->inferCHW(in, sc);
+        } else {
+            cv::Mat hwc = preprocess(img);
+            std::vector<uint8_t> chw(static_cast<size_t>(hw) * C);
+            const uint8_t* p = hwc.data;
+            for (int c = 0; c < C; ++c)
+                for (int i = 0; i < hw; ++i) chw[c * hw + i] = p[i * C + c];
+            std::vector<mobilint::NDArray<uint8_t>> in{mobilint::NDArray<uint8_t>(chw.data(), in_shape)};
+            output = model->inferCHW(in, sc);
+        }
     }
     auto t1 = std::chrono::high_resolution_clock::now();
     double infer_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();

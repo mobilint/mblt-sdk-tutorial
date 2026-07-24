@@ -46,6 +46,22 @@ void draw_detections(cv::Mat& img,
     }
 }
 
+// Transpose a channel-first output tensor [C,H,W] to channel-last [H,W,C] so the HWC decoder
+// can read it uniformly. Used only for channel-first MXQ (see the layout note at the top).
+static mobilint::NDArray<float> chw_to_hwc(const mobilint::NDArray<float>& src,
+                                           mobilint::StatusCode& sc) {
+    const auto& s = src.shape();
+    if (s.size() != 3) return src;  // only 3D feature maps need reordering
+    const int64_t C = s[0], H = s[1], W = s[2];
+    mobilint::NDArray<float> dst({H, W, C}, sc);
+    const float* p = src.data();
+    float* q = dst.data();
+    for (int64_t c = 0; c < C; ++c)
+        for (int64_t hw = 0; hw < H * W; ++hw)
+            q[hw * C + c] = p[c * H * W + hw];  // [C,H*W] -> [H*W,C]
+    return dst;
+}
+
 int main(int argc, char** argv) {
     // Positional: <model.mxq> <image_path> <output_path>. Optional: --input-dtype uint8|float
     // uint8 : normalization fused into the MXQ (uint8-input model).
@@ -109,20 +125,36 @@ int main(int argc, char** argv) {
     int img_w = img.cols;
     std::cout << "Image size: " << img_w << "x" << img_h << "\n";
 
+    // Pick the layout automatically from the MXQ's declared input shape (no flag):
+    //   channel-last (HWC)  -> Model::infer.  All tutorial MXQ are here.
+    //   channel-first (CHW) -> Model::inferCHW, then transpose outputs to HWC for the decoder.
+    //   uint8 : normalization fused in the MXQ.  float : /255 applied here for the !uint8 MXQ.
     Preprocessor preprocessor;
     const std::vector<int64_t> in_shape(in_shapes[0].begin(), in_shapes[0].end());
+    const bool channel_last = !in_shape.empty() && in_shape.back() == 3;
     std::vector<mobilint::NDArray<float>> outputs;
     auto t0 = std::chrono::high_resolution_clock::now();
-    if (input_type == "float") {
-        // !uint8 MXQ: /255 normalization not fused. transform_float emits an HWC /255
-        // float buffer (same layout as the uint8 path), wrapped in a non-owning NDArray view.
-        auto input = preprocessor.transform_float(img, cfg);
-        std::vector<mobilint::NDArray<float>> in{mobilint::NDArray<float>(input.get(), in_shape)};
-        outputs = model->infer(in, sc);
+    if (channel_last) {
+        if (input_type == "float") {
+            auto input = preprocessor.transform_float(img, cfg);
+            std::vector<mobilint::NDArray<float>> in{mobilint::NDArray<float>(input.get(), in_shape)};
+            outputs = model->infer(in, sc);
+        } else {
+            auto input = preprocessor.transform_uint8(img, cfg);
+            std::vector<mobilint::NDArray<uint8_t>> in{mobilint::NDArray<uint8_t>(input.get(), in_shape)};
+            outputs = model->infer(in, sc);
+        }
     } else {
-        auto input = preprocessor.transform_uint8(img, cfg);
-        std::vector<mobilint::NDArray<uint8_t>> in{mobilint::NDArray<uint8_t>(input.get(), in_shape)};
-        outputs = model->infer(in, sc);
+        if (input_type == "float") {
+            auto input = preprocessor.transform_float_chw(img, cfg);
+            std::vector<mobilint::NDArray<float>> in{mobilint::NDArray<float>(input.get(), in_shape)};
+            outputs = model->inferCHW(in, sc);
+        } else {
+            auto input = preprocessor.transform_uint8_chw(img, cfg);
+            std::vector<mobilint::NDArray<uint8_t>> in{mobilint::NDArray<uint8_t>(input.get(), in_shape)};
+            outputs = model->inferCHW(in, sc);
+        }
+        for (auto& o : outputs) o = chw_to_hwc(o, sc);  // normalize CHW outputs to HWC
     }
     if (!sc) { std::cerr << "Inference failed (status " << static_cast<int>(sc) << ")\n"; return 1; }
     auto t1 = std::chrono::high_resolution_clock::now();
