@@ -34,7 +34,12 @@ REGULUS 크로스 컴파일에서는 먼저 [../README.KR.md](../README.KR.md)�
 4. Mobilint NPU에서 추론을 실행합니다.
 5. 상위 5개 클래스 예측 결과를 출력합니다.
 
-모델 입력은 `uint8`이며, 정규화는 컴파일된 MXQ 모델에 이미 융합되어 있다고 가정합니다.
+`--input-dtype`는 MXQ를 어떻게 컴파일했는지와 일치해야 합니다 ([컴파일 튜토리얼](../../../compilation/image_classification/README.KR.md) 참고).
+
+- `uint8`: 정규화를 융합(`Uint8InputConfig`)해 컴파일한 MXQ. crop된 uint8 이미지를 그대로 입력합니다.
+- `float`: 융합 없이 컴파일한 MXQ. 런타임에서 `/255`와 ResNet mean/std를 적용합니다.
+
+플래그가 컴파일한 MXQ와 다르면 결과가 잘못됩니다.
 
 ## 이 튜토리얼의 파일
 
@@ -47,7 +52,7 @@ REGULUS 크로스 컴파일에서는 먼저 [../README.KR.md](../README.KR.md)�
 프로그램은 다음 명령줄 형식을 사용합니다.
 
 ```bash
-./infer-cls <model.mxq> <image_path> <labels_file>
+./infer-cls <model.mxq> <image_path> <labels_file> [--input-dtype uint8|float]
 ```
 
 입력 이미지는 다음 방식으로 전처리됩니다.
@@ -89,13 +94,14 @@ file build/infer-cls
 ./build/infer-cls ../../../compilation/image_classification/resnet50.mxq ../rc/volcano.jpg imagenet_labels.txt
 ```
 
-### REGULUS
+### REGULUS (`regulus-rb`)
 
 `build/infer-cls`, `resnet50.mxq`, `imagenet_labels.txt`, `volcano.jpg`를 타겟 보드로 복사한 뒤 다음 명령을 실행하세요.
 
 ```bash
 chmod +x infer-cls
-./infer-cls resnet50.mxq volcano.jpg imagenet_labels.txt
+./infer-cls resnet50.mxq volcano.jpg imagenet_labels.txt --input-dtype uint8   # 정규화 융합으로 컴파일한 MXQ
+./infer-cls resnet50.mxq volcano.jpg imagenet_labels.txt --input-dtype float   # 융합 없이 컴파일한 MXQ
 ```
 
 ## 예상 출력

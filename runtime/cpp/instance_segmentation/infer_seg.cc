@@ -1,19 +1,14 @@
 // End-to-end instance segmentation inference on Mobilint NPU with mask + bounding-box visualization.
-// Preprocessing (letterbox + BGR->RGB + HWC->CHW) is handled by Transformer.
-// Normalization is fused into the MXQ model (uint8 input), so no float scaling is needed here.
-// Pipeline: load MXQ -> transform uint8 -> NPU infer -> DFL decode + NMS -> mask assembly -> draw masks + boxes.
+// Preprocessing (letterbox + BGR->RGB + HWC->CHW) is handled by Preprocessor.
+// Input mode via --input-dtype: uint8 feeds the fused-normalization MXQ; float applies /255 here for the !uint8 MXQ.
+// Pipeline: load MXQ -> transform (HWC) -> NPU infer -> DFL decode + NMS -> mask assembly -> draw masks + boxes.
 //
 // Usage:
-//   ./infer-seg <model.mxq> <image_path> <output_path>
+//   ./infer-seg <model.mxq> <image_path> <output_path> [--input-dtype uint8|float]
 //
 // Examples:
-//   ./infer-seg yolo11m-seg.mxq cr7.jpg result.jpg   # ARIES
-//   ./infer-seg yolov8m-seg.mxq cr7.jpg result.jpg   # REGULUS
-//
-// (KR) Mobilint NPU 에서 인스턴스 분할 추론을 실행하고 마스크와 바운딩 박스를 이미지에 그린다.
-// 전처리(letterbox + BGR->RGB + HWC->CHW)는 Transformer 가 담당한다.
-// 정규화는 MXQ 모델에 퓨즈되어 있어(uint8 입력) 별도 float 변환이 필요 없다.
-// 파이프라인: MXQ 로드 -> uint8 변환 -> NPU 추론 -> DFL 디코드 + NMS -> 마스크 조립 -> 마스크 + 박스 시각화.
+//   ./infer-seg yolo11m-seg.mxq cr7.jpg result.jpg   # ARIES / REGULUS regulus-rb
+//   ./infer-seg yolov8m-seg.mxq cr7.jpg result.jpg   # REGULUS regulus-ra (older)
 
 #include <chrono>
 #include <iostream>
@@ -21,10 +16,10 @@
 #include <vector>
 
 #include <opencv2/opencv.hpp>
+#include <qbruntime/qbruntime.h>
 
 #include "decode.h"
-#include "runner.h"
-#include "transform.h"
+#include "preprocessor.h"
 #include "yolo_seg_config.h"
 
 static const std::vector<std::string> COCO_LABELS = {
@@ -59,8 +54,6 @@ static const std::vector<std::string> COCO_LABELS = {
 
 // COCO detection palette as BGR triples, mirroring coco.py DET_PALETTE (which is in RGB).
 // Index by class id; entries are stored BGR so cv:: draws the same color the Python tutorial uses.
-// (KR) COCO 탐지 팔레트 BGR 삼중값, coco.py 의 DET_PALETTE(RGB) 를 그대로 옮김.
-// 클래스 id 로 색인하며 cv:: 가 Python 튜토리얼과 같은 색을 그리도록 BGR 로 저장한다.
 static const std::vector<cv::Scalar> COCO_PALETTE = {
     {60, 20, 220},   {32, 11, 119},   {142, 0, 0},     {230, 0, 0},
     {228, 0, 106},   {100, 60, 0},    {100, 80, 0},    {70, 0, 0},
@@ -90,7 +83,6 @@ static cv::Scalar class_color(int cls) {
 }
 
 // Alpha-blends one colored mask per detection onto the image, mirroring visualize.py draw_masks (alpha=0.3).
-// (KR) 탐지별 색상 마스크를 alpha 블렌딩으로 이미지에 합성, visualize.py 의 draw_masks (alpha=0.3) 를 따른다.
 static void draw_masks(cv::Mat& img,
                        const std::vector<cv::Mat>& masks,
                        const std::vector<YoloSegDecoder::Detection>& dets,
@@ -114,7 +106,6 @@ static void draw_masks(cv::Mat& img,
 }
 
 // Draws bounding boxes and class labels, mirroring visualize.py draw_boxes.
-// (KR) 바운딩 박스와 클래스 라벨을 그린다, visualize.py 의 draw_boxes 를 따른다.
 static void draw_boxes(cv::Mat& img,
                        const std::vector<YoloSegDecoder::Detection>& dets) {
     for (const auto& d : dets) {
@@ -140,16 +131,46 @@ static void draw_boxes(cv::Mat& img,
     }
 }
 
+// Transpose a channel-first output tensor [C,H,W] to channel-last [H,W,C] so the HWC decoder
+// can read it uniformly. Used only for channel-first MXQ (see the layout note at the top).
+static mobilint::NDArray<float> chw_to_hwc(const mobilint::NDArray<float>& src,
+                                           mobilint::StatusCode& sc) {
+    const auto& s = src.shape();
+    if (s.size() != 3) return src;  // only 3D feature maps need reordering
+    const int64_t C = s[0], H = s[1], W = s[2];
+    mobilint::NDArray<float> dst({H, W, C}, sc);
+    const float* p = src.data();
+    float* q = dst.data();
+    for (int64_t c = 0; c < C; ++c)
+        for (int64_t hw = 0; hw < H * W; ++hw)
+            q[hw * C + c] = p[c * H * W + hw];  // [C,H*W] -> [H*W,C]
+    return dst;
+}
+
 int main(int argc, char** argv) {
-    if (argc != 4) {
+    // Positional: <model.mxq> <image_path> <output_path>. Optional: --input-dtype uint8|float
+    // uint8 : normalization fused into the MXQ (uint8-input model).
+    // float : preprocessing NOT fused (!uint8 model); this program normalizes (/255) and feeds float.
+    std::vector<std::string> pos;
+    std::string input_type = "uint8";
+    for (int i = 1; i < argc; ++i) {
+        std::string a = argv[i];
+        if (a == "--input-dtype" && i + 1 < argc) {
+            input_type = argv[++i];
+        } else {
+            pos.push_back(a);
+        }
+    }
+    if (pos.size() != 3 || (input_type != "uint8" && input_type != "float")) {
         std::cerr << "Usage: " << argv[0]
-                  << " <model.mxq> <image_path> <output_path>\n";
+                  << " <model.mxq> <image_path> <output_path> [--input-dtype uint8|float]\n";
         return 1;
     }
 
-    const std::string mxq_path = argv[1];
-    const std::string image_path = argv[2];
-    const std::string output_path = argv[3];
+    const std::string mxq_path = pos[0];
+    const std::string image_path = pos[1];
+    const std::string output_path = pos[2];
+    std::cout << "Input mode: " << input_type << "\n";
 
     ModelInfo cfg = make_yolo_seg_config();
     int nc = cfg.m_postprocess.num_classes;
@@ -159,10 +180,25 @@ int main(int argc, char** argv) {
     float conf_thres = cfg.m_postprocess.conf_thres;
     float iou_thres = cfg.m_postprocess.iou_thres;
 
-    NPURunner model(mxq_path);
-    auto shape = model.get_input_shape();
-    std::cout << "Model input: " << shape[0] << "x" << shape[1] << "x"
-              << shape[2] << "\n";
+    mobilint::StatusCode sc;
+    auto acc = mobilint::Accelerator::create(sc);
+    if (!sc) { std::cerr << "Failed to create accelerator\n"; return 1; }
+    mobilint::ModelConfig mc;
+    mc.setSingleCoreMode({mobilint::CoreId{mobilint::Cluster::Cluster0,
+                                           mobilint::Core::Core0}});
+    auto model = mobilint::Model::create(mxq_path, mc, sc);
+    if (!sc) { std::cerr << "Failed to load model: " << mxq_path << "\n"; return 1; }
+    sc = model->launch(*acc);
+    if (!sc) { std::cerr << "Failed to launch model\n"; return 1; }
+
+    // Model input shape as declared in the MXQ (HWC order, matches mxqtool "Shape").
+    const auto& in_shapes = model->getModelInputShape();
+    for (size_t i = 0; i < in_shapes.size(); ++i) {
+        std::cout << "Model input shape[" << i << "]: [";
+        for (size_t j = 0; j < in_shapes[i].size(); ++j)
+            std::cout << in_shapes[i][j] << (j + 1 < in_shapes[i].size() ? ", " : "");
+        std::cout << "]\n";
+    }
 
     cv::Mat img = cv::imread(image_path);
     if (img.empty()) {
@@ -173,19 +209,44 @@ int main(int argc, char** argv) {
     int img_w = img.cols;
     std::cout << "Image size: " << img_w << "x" << img_h << "\n";
 
-    Transformer transformer;
-    auto input = transformer.transform_uint8(img, cfg);
-
+    // Pick the layout automatically from the MXQ's declared input shape (no flag):
+    //   channel-last (HWC)  -> Model::infer.  All tutorial MXQ are here.
+    //   channel-first (CHW) -> Model::inferCHW, then transpose outputs to HWC for the decoder.
+    //   uint8 : normalization fused in the MXQ.  float : /255 applied here for the !uint8 MXQ.
+    Preprocessor preprocessor;
+    const std::vector<int64_t> in_shape(in_shapes[0].begin(), in_shapes[0].end());
+    const bool channel_last = !in_shape.empty() && in_shape.back() == 3;
+    std::vector<mobilint::NDArray<float>> outputs;
     auto t0 = std::chrono::high_resolution_clock::now();
-    auto outputs = model.infer_uint8(std::move(input));
+    if (channel_last) {
+        if (input_type == "float") {
+            auto input = preprocessor.transform_float(img, cfg);
+            std::vector<mobilint::NDArray<float>> in{mobilint::NDArray<float>(input.get(), in_shape)};
+            outputs = model->infer(in, sc);
+        } else {
+            auto input = preprocessor.transform_uint8(img, cfg);
+            std::vector<mobilint::NDArray<uint8_t>> in{mobilint::NDArray<uint8_t>(input.get(), in_shape)};
+            outputs = model->infer(in, sc);
+        }
+    } else {
+        if (input_type == "float") {
+            auto input = preprocessor.transform_float_chw(img, cfg);
+            std::vector<mobilint::NDArray<float>> in{mobilint::NDArray<float>(input.get(), in_shape)};
+            outputs = model->inferCHW(in, sc);
+        } else {
+            auto input = preprocessor.transform_uint8_chw(img, cfg);
+            std::vector<mobilint::NDArray<uint8_t>> in{mobilint::NDArray<uint8_t>(input.get(), in_shape)};
+            outputs = model->inferCHW(in, sc);
+        }
+        for (auto& o : outputs) o = chw_to_hwc(o, sc);  // normalize CHW outputs to HWC
+    }
+    if (!sc) { std::cerr << "Inference failed (status " << static_cast<int>(sc) << ")\n"; return 1; }
     auto t1 = std::chrono::high_resolution_clock::now();
     double infer_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
     std::cout << "Inference time: " << infer_ms << " ms\n";
 
     // DFL decode + NMS + prototype extraction, then assemble masks before rescaling boxes.
     // Masks need boxes in letterbox space for cropping, so assemble first, then scale boxes for drawing.
-    // (KR: DFL 디코드 + NMS + prototype 추출 후 박스 rescale 전에 마스크를 조립한다.
-    // 마스크 crop 은 letterbox 좌표 박스가 필요하므로 마스크를 먼저 조립하고, 이후 박스를 그리기 좌표로 변환한다.)
     YoloSegDecoder decoder(nc, nl, IMG_SIZE, reg_max, num_mask_coeffs,
                            conf_thres, iou_thres);
     std::vector<float> proto;
@@ -202,5 +263,6 @@ int main(int argc, char** argv) {
     cv::imwrite(output_path, img);
     std::cout << "Result saved to: " << output_path << "\n";
 
+    model->dispose();
     return 0;
 }

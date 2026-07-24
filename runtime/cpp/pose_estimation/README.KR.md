@@ -4,8 +4,9 @@
 
 시작하기 전에 [../../../compilation/pose_estimation/README.KR.md](../../../compilation/pose_estimation/README.KR.md)의 컴파일 과정을 먼저 완료하세요. 이 런타임 예제는 다음 모델 중 하나를 사용합니다.
 
-- ARIES: `yolo11m-pose.mxq`
-- REGULUS: `yolov8m-pose.mxq`
+- REGULUS `regulus-rb` (기본): `yolo11m-pose.mxq`
+- REGULUS `regulus-ra`: `yolov8m-pose.mxq`
+- ARIES `aries-rb`: `yolo11m-pose.mxq`
 
 ## 사전 준비
 
@@ -32,19 +33,24 @@ REGULUS 크로스 컴파일에서는 먼저 [../README.KR.md](../README.KR.md)�
 
 1. 컴파일된 MXQ 모델을 로드합니다.
 2. 입력 이미지를 읽습니다.
-3. `Transformer`를 통해 YOLO 스타일 letterbox 전처리를 적용합니다.
+3. `Preprocessor`를 통해 YOLO 스타일 letterbox 전처리를 적용합니다.
 4. Mobilint NPU에서 추론을 실행합니다.
 5. 박스와 keypoint를 DFL과 NMS로 디코드합니다.
 6. 탐지 결과를 원본 이미지 좌표로 되돌립니다.
 7. 사람 박스, keypoint, skeleton limb를 그립니다.
 
-프로그램은 `uint8` 입력을 사용하며, 정규화는 컴파일된 모델에 이미 융합되어 있다고 가정합니다.
+`--input-dtype`는 MXQ를 어떻게 컴파일했는지와 일치해야 합니다 ([컴파일 튜토리얼](../../../compilation/pose_estimation/README.KR.md) 참고).
+
+- `uint8`: 정규화를 융합(`Uint8InputConfig`)해 컴파일한 MXQ. letterbox된 원본 픽셀을 그대로 입력합니다.
+- `float`: 융합 없이 컴파일한 MXQ. 런타임에서 `/255`를 적용합니다.
+
+플래그가 컴파일한 MXQ와 다르면 결과가 잘못됩니다.
 
 ## 이 튜토리얼의 파일
 
 - `infer_pose.cc`: 전체 포즈 추정 파이프라인을 실행하고 결과 이미지를 저장합니다.
 - `yolo_pose_config.h`: pose head 설정, 임계값, keypoint 개수, 입력 이미지 크기를 정의합니다.
-- `utils/inference/`: 모델 실행과 전처리에 사용하는 공용 런타임 유틸리티입니다.
+- `utils/preprocess/`: 전처리 유틸리티(`Preprocessor`)입니다.
 - `utils/postprocess/`: 디코드와 NMS에 사용하는 공용 유틸리티입니다.
 - `CMakeLists.txt`: `infer-pose` 실행 파일과 보조 유틸리티 라이브러리를 빌드합니다.
 
@@ -53,14 +59,14 @@ REGULUS 크로스 컴파일에서는 먼저 [../README.KR.md](../README.KR.md)�
 프로그램은 다음 명령줄 형식을 사용합니다.
 
 ```bash
-./infer-pose <model.mxq> <image_path> <output_path>
+./infer-pose <model.mxq> <image_path> <output_path> [--input-dtype uint8|float]
 ```
 
-`Transformer`는 다음 작업을 처리합니다.
+`Preprocessor`는 다음 작업을 처리합니다.
 
 - Letterbox 리사이즈
 - BGR에서 RGB로 변환
-- HWC에서 CHW로 변환
+- `Model::infer`용 HWC 버퍼로 패킹
 
 추론 후에는 `YoloPoseDecoder`가 다음 작업을 수행합니다.
 
@@ -102,13 +108,14 @@ file build/infer-pose
 ./build/infer-pose ../../../compilation/pose_estimation/yolo11m-pose.mxq ../rc/cr7.jpg result.jpg
 ```
 
-### REGULUS
+### REGULUS (`regulus-rb`)
 
-`build/infer-pose`, `yolov8m-pose.mxq`, `cr7.jpg`를 타겟 보드로 복사한 뒤 다음 명령을 실행하세요.
+`build/infer-pose`, `yolo11m-pose.mxq`, `cr7.jpg`를 타겟 보드로 복사한 뒤 다음 명령을 실행하세요.
 
 ```bash
 chmod +x infer-pose
-./infer-pose yolov8m-pose.mxq cr7.jpg result.jpg
+./infer-pose yolo11m-pose.mxq cr7.jpg result.jpg --input-dtype uint8   # 정규화 융합으로 컴파일한 MXQ
+./infer-pose yolo11m-pose.mxq cr7.jpg result.jpg --input-dtype float   # 융합 없이 컴파일한 MXQ
 ```
 
 ## 예상 출력

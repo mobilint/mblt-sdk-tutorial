@@ -4,8 +4,9 @@
 
 시작하기 전에 [../../../compilation/object_detection/README.KR.md](../../../compilation/object_detection/README.KR.md)의 컴파일 과정을 먼저 완료하세요. 이 런타임 예제는 다음 모델 중 하나를 사용합니다.
 
-- ARIES: `yolo11m.mxq`
-- REGULUS: `yolov9m.mxq`
+- REGULUS `regulus-rb` (기본): `yolo11m.mxq`
+- REGULUS `regulus-ra`: `yolov9m.mxq`
+- ARIES `aries-rb`: `yolo11m.mxq`
 
 ## 사전 준비
 
@@ -32,18 +33,23 @@ REGULUS 크로스 컴파일에서는 먼저 [../README.KR.md](../README.KR.md)�
 
 1. 컴파일된 MXQ 모델을 로드합니다.
 2. 입력 이미지를 읽습니다.
-3. `Transformer`를 통해 YOLO 스타일 letterbox 전처리를 적용합니다.
+3. `Preprocessor`를 통해 YOLO 스타일 letterbox 전처리를 적용합니다.
 4. Mobilint NPU에서 추론을 실행합니다.
 5. anchor-free YOLO 출력을 DFL과 NMS로 디코드합니다.
 6. 탐지 결과를 원본 이미지 좌표로 되돌린 뒤 시각화합니다.
 
-프로그램은 `uint8` 입력을 사용하며, 정규화는 컴파일된 모델에 이미 융합되어 있다고 가정합니다.
+`--input-dtype`는 MXQ를 어떻게 컴파일했는지와 일치해야 합니다 ([컴파일 튜토리얼](../../../compilation/object_detection/README.KR.md) 참고).
+
+- `uint8`: 정규화를 융합(`Uint8InputConfig`)해 컴파일한 MXQ. letterbox된 원본 픽셀을 그대로 입력합니다.
+- `float`: 융합 없이 컴파일한 MXQ. 런타임에서 `/255`를 적용합니다.
+
+플래그가 컴파일한 MXQ와 다르면 결과가 잘못됩니다.
 
 ## 이 튜토리얼의 파일
 
 - `infer_det.cc`: 전체 객체 탐지 파이프라인을 실행하고 결과 이미지를 저장합니다.
 - `yolo_detect_config.h`: detect head 설정, 임계값, 입력 이미지 크기를 정의합니다.
-- `utils/inference/`: 모델 실행과 전처리에 사용하는 공용 런타임 유틸리티입니다.
+- `utils/preprocess/`: 전처리 유틸리티(`Preprocessor`)입니다.
 - `utils/postprocess/`: 디코드와 NMS에 사용하는 공용 유틸리티입니다.
 - `CMakeLists.txt`: `infer-det` 실행 파일과 보조 유틸리티 라이브러리를 빌드합니다.
 
@@ -52,14 +58,14 @@ REGULUS 크로스 컴파일에서는 먼저 [../README.KR.md](../README.KR.md)�
 프로그램은 다음 명령줄 형식을 사용합니다.
 
 ```bash
-./infer-det <model.mxq> <image_path> <output_path>
+./infer-det <model.mxq> <image_path> <output_path> [--input-dtype uint8|float]
 ```
 
-`Transformer`는 다음 작업을 처리합니다.
+`Preprocessor`는 다음 작업을 처리합니다.
 
 - Letterbox 리사이즈
 - BGR에서 RGB로 변환
-- HWC에서 CHW로 변환
+- `Model::infer`용 HWC 버퍼로 패킹
 
 추론 후에는 `YoloDecoder`가 DFL 디코드, confidence filtering, NMS, 좌표 복원을 수행하고, 최종 결과를 COCO 클래스 라벨과 함께 그립니다.
 
@@ -94,13 +100,14 @@ file build/infer-det
 ./build/infer-det ../../../compilation/object_detection/yolo11m.mxq ../rc/cr7.jpg result.jpg
 ```
 
-### REGULUS
+### REGULUS (`regulus-rb`)
 
-`build/infer-det`, `yolov9m.mxq`, `cr7.jpg`를 타겟 보드로 복사한 뒤 다음 명령을 실행하세요.
+`build/infer-det`, `yolo11m.mxq`, `cr7.jpg`를 타겟 보드로 복사한 뒤 다음 명령을 실행하세요.
 
 ```bash
 chmod +x infer-det
-./infer-det yolov9m.mxq cr7.jpg result.jpg
+./infer-det yolo11m.mxq cr7.jpg result.jpg --input-dtype uint8   # 정규화 융합으로 컴파일한 MXQ
+./infer-det yolo11m.mxq cr7.jpg result.jpg --input-dtype float   # 융합 없이 컴파일한 MXQ
 ```
 
 ## 예상 출력

@@ -17,21 +17,20 @@ find_package(OpenCV REQUIRED)
 find_package(Threads REQUIRED)
 
 add_library(pose_utils STATIC
-    utils/inference/runner.cc
-    utils/inference/transform.cc
+    utils/preprocess/preprocessor.cc
     utils/postprocess/decode.cc
 )
 target_include_directories(pose_utils PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/utils/inference
+    ${CMAKE_CURRENT_SOURCE_DIR}/utils/preprocess
     ${CMAKE_CURRENT_SOURCE_DIR}/utils/postprocess
     ${OpenCV_INCLUDE_DIRS}
 )
 target_link_libraries(pose_utils
     PUBLIC ${OpenCV_LIBS}
     PUBLIC Threads::Threads
-    PRIVATE qbruntime
 )
 
+# infer_pose.cc calls the qbruntime API directly, so link qbruntime here.
 add_executable(infer-pose infer_pose.cc)
 target_include_directories(infer-pose PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(infer-pose PRIVATE pose_utils)
+target_link_libraries(infer-pose PRIVATE pose_utils qbruntime)
