@@ -34,7 +34,12 @@ The runtime flow in `infer_cls.cc` follows these steps:
 4. Run inference on the Mobilint NPU.
 5. Print the top-5 class predictions.
 
-The model input is `uint8`, and normalization is assumed to be fused into the compiled MXQ model.
+`--input-dtype` must match how the MXQ was compiled (see the [compilation tutorial](../../../compilation/image_classification/README.md)):
+
+- `uint8`: MXQ compiled with fused normalization (`Uint8InputConfig`). Feeds the cropped uint8 image directly.
+- `float`: MXQ compiled without fusion. Applies `/255` and ResNet mean/std at runtime.
+
+If the flag does not match the compiled MXQ, the output is incorrect.
 
 ## Files in This Tutorial
 
@@ -47,7 +52,7 @@ The model input is `uint8`, and normalization is assumed to be fused into the co
 The program uses this command-line interface:
 
 ```bash
-./infer-cls <model.mxq> <image_path> <labels_file>
+./infer-cls <model.mxq> <image_path> <labels_file> [--input-dtype uint8|float]
 ```
 
 It preprocesses the input image by:
@@ -89,13 +94,14 @@ Sample image:
 ./build/infer-cls ../../../compilation/image_classification/resnet50.mxq ../rc/volcano.jpg imagenet_labels.txt
 ```
 
-### REGULUS
+### REGULUS (`regulus-rb`)
 
 Copy `build/infer-cls`, `resnet50.mxq`, `imagenet_labels.txt`, and `volcano.jpg` to the target board, then run:
 
 ```bash
 chmod +x infer-cls
-./infer-cls resnet50.mxq volcano.jpg imagenet_labels.txt
+./infer-cls resnet50.mxq volcano.jpg imagenet_labels.txt --input-dtype uint8   # MXQ compiled with fused normalization
+./infer-cls resnet50.mxq volcano.jpg imagenet_labels.txt --input-dtype float   # MXQ compiled without fusion
 ```
 
 ## Expected Output

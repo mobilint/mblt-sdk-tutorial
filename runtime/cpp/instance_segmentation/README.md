@@ -4,8 +4,9 @@ This tutorial explains how to run a compiled YOLO instance segmentation MXQ mode
 
 Before starting, complete the compilation flow in [../../../compilation/instance_segmentation/README.md](../../../compilation/instance_segmentation/README.md). The runtime example expects one of these compiled models:
 
-- ARIES: `yolo11m-seg.mxq`
-- REGULUS: `yolov8m-seg.mxq`
+- REGULUS `regulus-rb` (default): `yolo11m-seg.mxq`
+- REGULUS `regulus-ra`: `yolov8m-seg.mxq`
+- ARIES `aries-rb`: `yolo11m-seg.mxq`
 
 ## Prerequisites
 
@@ -32,19 +33,24 @@ The runtime flow in `infer_seg.cc` follows these steps:
 
 1. Load the compiled MXQ model.
 2. Read the input image.
-3. Apply YOLO-style letterbox preprocessing through `Transformer`.
+3. Apply YOLO-style letterbox preprocessing through `Preprocessor`.
 4. Run inference on the Mobilint NPU.
 5. Decode detections with DFL and NMS.
 6. Assemble instance masks from the prototype tensor and mask coefficients.
 7. Rescale detections back to the original image and draw masks, boxes, and labels.
 
-The program uses `uint8` input and assumes normalization is fused into the compiled model.
+`--input-dtype` must match how the MXQ was compiled (see the [compilation tutorial](../../../compilation/instance_segmentation/README.md)):
+
+- `uint8`: MXQ compiled with fused normalization (`Uint8InputConfig`). Feeds raw letterboxed pixels.
+- `float`: MXQ compiled without fusion. Applies `/255` at runtime.
+
+If the flag does not match the compiled MXQ, the output is incorrect.
 
 ## Files in This Tutorial
 
 - `infer_seg.cc`: Runs the full instance segmentation pipeline and saves the rendered image.
 - `yolo_seg_config.h`: Defines the segmentation-head configuration, thresholds, mask settings, and image size.
-- `utils/inference/`: Shared runtime helpers for model execution and preprocessing.
+- `utils/preprocess/`: Preprocessing helpers (`Preprocessor`).
 - `utils/postprocess/`: Shared decode, mask assembly, and NMS helpers.
 - `CMakeLists.txt`: Builds the `infer-seg` executable and supporting utility library.
 
@@ -53,14 +59,14 @@ The program uses `uint8` input and assumes normalization is fused into the compi
 The program uses this command-line interface:
 
 ```bash
-./infer-seg <model.mxq> <image_path> <output_path>
+./infer-seg <model.mxq> <image_path> <output_path> [--input-dtype uint8|float]
 ```
 
-`Transformer` handles:
+`Preprocessor` handles:
 
 - Letterbox resize
 - BGR-to-RGB conversion
-- HWC-to-CHW conversion
+- Packing into an HWC buffer for `Model::infer`
 
 After inference, `YoloSegDecoder`:
 
@@ -101,13 +107,14 @@ Sample image:
 ./build/infer-seg ../../../compilation/instance_segmentation/yolo11m-seg.mxq ../rc/cr7.jpg result.jpg
 ```
 
-### REGULUS
+### REGULUS (`regulus-rb`)
 
-Copy `build/infer-seg`, `yolov8m-seg.mxq`, and `cr7.jpg` to the target board, then run:
+Copy `build/infer-seg`, `yolo11m-seg.mxq`, and `cr7.jpg` to the target board, then run:
 
 ```bash
 chmod +x infer-seg
-./infer-seg yolov8m-seg.mxq cr7.jpg result.jpg
+./infer-seg yolo11m-seg.mxq cr7.jpg result.jpg --input-dtype uint8   # MXQ compiled with fused normalization
+./infer-seg yolo11m-seg.mxq cr7.jpg result.jpg --input-dtype float   # MXQ compiled without fusion
 ```
 
 ## Expected Output

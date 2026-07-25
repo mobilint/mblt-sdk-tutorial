@@ -1,26 +1,23 @@
-// Implementation of Transformer declared in transform.h.
+// Implementation of Preprocessor declared in preprocessor.h.
 // Applies the preprocessing ops in ModelInfo.m_preprocess_list and converts the result to an NPU input tensor.
-//
-// (KR) transform.h 에 선언된 Transformer 구현.
-// ModelInfo.m_preprocess_list 의 전처리 연산을 순서대로 적용하고 NPU 입력 텐서로 변환한다.
-#include "transform.h"
+#include "preprocessor.h"
 
 #include <cstring>
 #include <stdexcept>
 
-int Transformer::parse_interpolation(const std::string& s) {
+int Preprocessor::parse_interpolation(const std::string& s) {
     if (s == "nearest") return cv::INTER_NEAREST;
     if (s == "bicubic") return cv::INTER_CUBIC;
     if (s == "area") return cv::INTER_AREA;
     return cv::INTER_LINEAR;
 }
 
-void Transformer::resize(cv::Mat& img, cv::Size size, const std::string& interpolation) {
+void Preprocessor::resize(cv::Mat& img, cv::Size size, const std::string& interpolation) {
     cv::resize(img, img, size, 0, 0, parse_interpolation(interpolation));
 }
 
-void Transformer::resize_short_edge(cv::Mat& img, int short_edge,
-                                    const std::string& interpolation) {
+void Preprocessor::resize_short_edge(cv::Mat& img, int short_edge,
+                                     const std::string& interpolation) {
     int h = img.rows;
     int w = img.cols;
     int min_hw = std::min(h, w);
@@ -31,7 +28,7 @@ void Transformer::resize_short_edge(cv::Mat& img, int short_edge,
     cv::resize(img, img, cv::Size(new_w, new_h), 0, 0, parse_interpolation(interpolation));
 }
 
-void Transformer::center_crop(cv::Mat& img, cv::Size size) {
+void Preprocessor::center_crop(cv::Mat& img, cv::Size size) {
     int crop_w = std::min(size.width, img.cols);
     int crop_h = std::min(size.height, img.rows);
     int x = std::max(0, (img.cols - crop_w) / 2);
@@ -39,7 +36,7 @@ void Transformer::center_crop(cv::Mat& img, cv::Size size) {
     img = img(cv::Rect(x, y, crop_w, crop_h)).clone();
 }
 
-void Transformer::letter_box(cv::Mat& img, cv::Size size) {
+void Preprocessor::letter_box(cv::Mat& img, cv::Size size) {
     int h = img.rows, w = img.cols;
     float ratio = std::min(static_cast<float>(size.height) / h,
                            static_cast<float>(size.width) / w);
@@ -58,7 +55,7 @@ void Transformer::letter_box(cv::Mat& img, cv::Size size) {
                        cv::BORDER_CONSTANT, cv::Scalar(114, 114, 114));
 }
 
-void Transformer::normalize(cv::Mat& img, const std::string& style) {
+void Preprocessor::normalize(cv::Mat& img, const std::string& style) {
     if (img.depth() != CV_32F) img.convertTo(img, CV_32F);
     if (style == "torch") {
         const cv::Scalar mean_bgr(0.406, 0.456, 0.485);
@@ -75,8 +72,8 @@ void Transformer::normalize(cv::Mat& img, const std::string& style) {
     }
 }
 
-std::unique_ptr<float[]> Transformer::operator()(const cv::Mat& input,
-                                                 const ModelInfo& cfg) {
+std::unique_ptr<float[]> Preprocessor::operator()(const cv::Mat& input,
+                                                  const ModelInfo& cfg) {
     cv::Mat img = input.clone();
     for (const auto& p : cfg.m_preprocess_list) {
         switch (p.op) {
@@ -119,14 +116,56 @@ std::unique_ptr<float[]> Transformer::operator()(const cv::Mat& input,
     float* dst = out.get();
     for (int i = 0; i < h * w; ++i) {
         for (int j = 0; j < c; ++j) {
-            dst[c * i + j] = src[c * i + (2 - j)];  // reverses channel order BGR->RGB while transposing HWC->CHW (KR: 채널 순서 BGR->RGB 반전과 동시에 HWC->CHW 전치)
+            dst[c * i + j] = src[c * i + (2 - j)];  // reverse channel order BGR->RGB (HWC interleaved)
         }
     }
     return out;
 }
 
-std::unique_ptr<uint8_t[]> Transformer::transform_uint8(const cv::Mat& input,
-                                                        const ModelInfo& cfg) {
+std::unique_ptr<uint8_t[]> Preprocessor::transform_uint8(const cv::Mat& input,
+                                                         const ModelInfo& cfg) {
+    cv::Mat img = input.clone();
+    for (const auto& p : cfg.m_preprocess_list) {
+        if (p.op == PreProcessOps::YOLO) {
+            if (std::holds_alternative<std::pair<int, int>>(p.img_size)) {
+                auto [h, w] = std::get<std::pair<int, int>>(p.img_size);
+                letter_box(img, cv::Size(w, h));
+            }
+        }
+    }
+    cv::cvtColor(img, img, cv::COLOR_BGR2RGB);
+    int h = img.rows, w = img.cols, c = img.channels();
+    CV_Assert(img.isContinuous());
+
+    auto out = std::make_unique<uint8_t[]>(h * w * c);
+    std::memcpy(out.get(), img.data, static_cast<size_t>(h) * w * c);  // HWC interleaved, as-is
+    return out;
+}
+
+std::unique_ptr<float[]> Preprocessor::transform_float(const cv::Mat& input,
+                                                       const ModelInfo& cfg) {
+    cv::Mat img = input.clone();
+    for (const auto& p : cfg.m_preprocess_list) {
+        if (p.op == PreProcessOps::YOLO) {
+            if (std::holds_alternative<std::pair<int, int>>(p.img_size)) {
+                auto [h, w] = std::get<std::pair<int, int>>(p.img_size);
+                letter_box(img, cv::Size(w, h));
+            }
+        }
+    }
+    cv::cvtColor(img, img, cv::COLOR_BGR2RGB);
+    int h = img.rows, w = img.cols, c = img.channels();
+    CV_Assert(img.isContinuous());
+
+    int n = h * w * c;
+    auto out = std::make_unique<float[]>(n);
+    const uint8_t* src = img.data;
+    for (int i = 0; i < n; ++i) out[i] = static_cast<float>(src[i]) / 255.0f;  // HWC interleaved /255
+    return out;
+}
+
+std::unique_ptr<uint8_t[]> Preprocessor::transform_uint8_chw(const cv::Mat& input,
+                                                             const ModelInfo& cfg) {
     cv::Mat img = input.clone();
     for (const auto& p : cfg.m_preprocess_list) {
         if (p.op == PreProcessOps::YOLO) {
@@ -142,10 +181,31 @@ std::unique_ptr<uint8_t[]> Transformer::transform_uint8(const cv::Mat& input,
 
     auto out = std::make_unique<uint8_t[]>(h * w * c);
     const uint8_t* src = img.data;
-    for (int ch = 0; ch < c; ++ch) {
-        for (int i = 0; i < h * w; ++i) {
-            out[ch * h * w + i] = src[i * c + ch];
+    for (int ch = 0; ch < c; ++ch)
+        for (int i = 0; i < h * w; ++i)
+            out[ch * h * w + i] = src[i * c + ch];  // HWC -> CHW (channel-planar)
+    return out;
+}
+
+std::unique_ptr<float[]> Preprocessor::transform_float_chw(const cv::Mat& input,
+                                                           const ModelInfo& cfg) {
+    cv::Mat img = input.clone();
+    for (const auto& p : cfg.m_preprocess_list) {
+        if (p.op == PreProcessOps::YOLO) {
+            if (std::holds_alternative<std::pair<int, int>>(p.img_size)) {
+                auto [h, w] = std::get<std::pair<int, int>>(p.img_size);
+                letter_box(img, cv::Size(w, h));
+            }
         }
     }
+    cv::cvtColor(img, img, cv::COLOR_BGR2RGB);
+    int h = img.rows, w = img.cols, c = img.channels();
+    CV_Assert(img.isContinuous());
+
+    auto out = std::make_unique<float[]>(h * w * c);
+    const uint8_t* src = img.data;
+    for (int ch = 0; ch < c; ++ch)
+        for (int i = 0; i < h * w; ++i)
+            out[ch * h * w + i] = static_cast<float>(src[i * c + ch]) / 255.0f;  // HWC -> CHW /255
     return out;
 }

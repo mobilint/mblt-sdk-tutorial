@@ -17,21 +17,20 @@ find_package(OpenCV REQUIRED)
 find_package(Threads REQUIRED)
 
 add_library(det_utils STATIC
-    utils/inference/runner.cc
-    utils/inference/transform.cc
+    utils/preprocess/preprocessor.cc
     utils/postprocess/decode.cc
 )
 target_include_directories(det_utils PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/utils/inference
+    ${CMAKE_CURRENT_SOURCE_DIR}/utils/preprocess
     ${CMAKE_CURRENT_SOURCE_DIR}/utils/postprocess
     ${OpenCV_INCLUDE_DIRS}
 )
 target_link_libraries(det_utils
     PUBLIC ${OpenCV_LIBS}
     PUBLIC Threads::Threads
-    PRIVATE qbruntime
 )
 
+# infer_det.cc calls the qbruntime API directly, so link qbruntime here.
 add_executable(infer-det infer_det.cc)
 target_include_directories(infer-det PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(infer-det PRIVATE det_utils)
+target_link_libraries(infer-det PRIVATE det_utils qbruntime)
