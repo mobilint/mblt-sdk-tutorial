@@ -196,6 +196,8 @@ calibration_config = CalibrationConfig(
 )
 ```
 
+For MXQ compilation, `model_compile.py` automatically uses CUDA when `torch.cuda.is_available()` is true and otherwise falls back to CPU. This supports both GPU-enabled and CPU-only `qbcompiler` images, and the selected host device is printed before compilation starts.
+
 **Parameters:**
 
 - `--onnx-path`: Path to the ONNX model file

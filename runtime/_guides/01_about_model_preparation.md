@@ -21,6 +21,7 @@ Tasks performed:
 4. **Download tokenizer** — Download tokenizer files from HuggingFace (for text models)
 
 **Usage examples**:
+
 - `llm/prepare_model.py`
 - `vlm/prepare_model.py`
 - `stt/prepare_model.py`
@@ -90,7 +91,7 @@ When there are multiple sub-models, each sub-model's `mxq_path` and `target_core
 ### Core Modes
 
 | Mode | Setting | Description |
-|------|---------|-------------|
+| ------ | --------- | ------------- |
 | single | `"target_cores": ["0:0"]` | Run on a single core |
 | multi | `"core_mode": "multi", "target_clusters": [0]` | Multiple cores collaborate within one cluster |
 | global4 | `"core_mode": "global4", "target_clusters": [0]` | Use 4 cores in one cluster |

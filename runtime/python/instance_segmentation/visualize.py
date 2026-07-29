@@ -40,24 +40,30 @@ def scale_boxes(img1_shape, coords, img0_shape, ratio_pad=None):
 
 
 def scale_masks(img1_shape, masks, img0_shape, ratio_pad=None):
-    # https://github.com/ultralytics/ultralytics/blob/main/ultralytics/utils/ops.py#L377
-    gain = min(img1_shape[0] / img0_shape[0], img1_shape[1] / img0_shape[1])
-    pad = (
-        (img1_shape[1] - img0_shape[1] * gain) / 2,
-        (img1_shape[0] - img0_shape[0] * gain) / 2,
-    )
-
-    top, left = int(pad[1]), int(pad[0])
-    bottom, right = int(masks.shape[1] - pad[1]), int(masks.shape[2] - pad[0])
-
-    masks = masks[:, top:bottom, left:right]
-    masks = F.interpolate(masks.unsqueeze(0), scale_factor=1 / gain, mode="bilinear", align_corners=False).squeeze(0)
+    """Remove the exact letterbox border and resize masks to the source image."""
     if masks.shape[0] == 0:
         return masks.cpu().numpy()
 
-    resized_masks = [torch.from_numpy(cv2.resize(m.cpu().numpy(), img0_shape[:2][::-1])[None]) for m in masks]
-    masks = torch.cat(resized_masks, dim=0)
+    if ratio_pad is None:
+        gain = min(img1_shape[0] / img0_shape[0], img1_shape[1] / img0_shape[1])
+        resized_width = round(img0_shape[1] * gain)
+        resized_height = round(img0_shape[0] * gain)
+        pad_x = (img1_shape[1] - resized_width) / 2
+        pad_y = (img1_shape[0] - resized_height) / 2
+    else:
+        pad_x, pad_y = ratio_pad[1]
 
+    # Match the -0.1/+0.1 rounding used by forward YOLO letterboxing. Keeping
+    # both sides is important when the total padding is odd.
+    top = int(round(pad_y - 0.1))
+    left = int(round(pad_x - 0.1))
+    bottom = masks.shape[1] - int(round(pad_y + 0.1))
+    right = masks.shape[2] - int(round(pad_x + 0.1))
+    if bottom <= top or right <= left:
+        raise ValueError("Removing letterbox padding produced an empty mask")
+
+    masks = masks[:, top:bottom, left:right]
+    masks = F.interpolate(masks.unsqueeze(0), size=img0_shape[:2], mode="bilinear", align_corners=False).squeeze(0)
     return masks.gt_(0.5).cpu().numpy()
 
 

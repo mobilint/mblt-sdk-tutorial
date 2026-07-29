@@ -10,7 +10,7 @@ This document introduces the two APIs for running inference on Mobilint NPU.
 ## API Types
 
 | API | Level | Features | Suitable Models |
-|-----|-------|----------|----------------|
+| --- | --- | --- | --- |
 | `qbruntime` | low-level | Direct NPU control, numpy I/O | Simple models (Image Classification, Object Detection, BERT, etc.) |
 | `mblt-model-zoo` | high-level | HuggingFace-compatible API, automatic NPU management | Complex models (LLM, VLM, STT, etc.) |
 
@@ -66,6 +66,7 @@ output = model.infer(image)
 Separate normalization is not needed.
 
 **Usage examples**:
+
 - `image_classification/inference_mxq.py`
 - `object_detection/inference_mxq.py`
 - `pose_estimation/inference_mxq.py`
@@ -127,6 +128,7 @@ import mblt_model_zoo.hf_transformers.models.whisper.modeling_whisper
 ```
 
 **Usage examples**:
+
 - `llm/inference_mblt_model_zoo.py`
 - `vlm/inference_mblt_model_zoo.py`
 - `stt/inference_mblt_model_zoo.py`

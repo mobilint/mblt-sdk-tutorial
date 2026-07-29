@@ -1,32 +1,29 @@
 ---
-description: Reusable repository skill for making aligned documentation and
-  example-script changes in the Mobilint SDK tutorial repo.
+description: Canonical workflow for aligned documentation and example-script
+  changes in the Mobilint SDK tutorial repository.
 paths:
   - "**"
 ---
 
-# Mobilint SDK Tutorial Skill
+# Mobilint SDK Tutorial Skill Guide
 
-## When to Use This Skill
+Use this repository as a documentation-first tutorial workspace. Keep example
+scripts, README commands, and expected artifacts synchronized within each
+tutorial directory.
 
-Use this skill for changes anywhere in this repository, especially when the
-task involves:
+## Synchronization Policy
 
-- Tutorial docs under `README.md`, `README.KR.md`, `compilation/`, or
-  `runtime/`
-- Shared runtime explanation docs under `runtime/_guides/`
-- Standalone example scripts that accompany a specific tutorial
-- Local wrapper modules and helper files that a tutorial imports directly
-- Keeping script arguments, filenames, and README commands synchronized
-- Updating bilingual documentation where English and Korean versions coexist
-- Validation planning for workflows that depend on `qbcompiler`, `qbruntime`,
-  Docker, NPU devices, gated datasets, or large model downloads
+Keep the Codex and Claude agent guides aligned, and keep shared skill guidance
+and its tool-specific entrypoints aligned. A major workflow change requires
+reviewing and updating all applicable shared guidance and entrypoints in the
+same change. Major workflow changes include changes to the repository map,
+tutorial architecture, SDK or tooling setup, validation process, dependency
+expectations, or documentation policy; ordinary tutorial-content edits are not
+major workflow changes.
 
-## Purpose
-
-Use this repo as a documentation-first tutorial workspace. Changes should keep
-example scripts, README commands, and expected artifacts synchronized within
-each tutorial directory.
+The shared guides in `.agents/` are canonical. Keep `AGENTS.md`, `CLAUDE.md`,
+and `.claude/skills/mobilint-sdk-tutorial/SKILL.md` as tool-specific entrypoints
+that point to the applicable canonical guide.
 
 ## First Reads
 
@@ -49,8 +46,10 @@ structure changes can stay aligned.
 
 - The repo contains paired compilation and runtime tutorials under
   `compilation/` and `runtime/`.
-- Many tutorials have both `README.md` and `README.KR.md`; when both exist,
-  keep them aligned.
+- Many tutorials have both `README.md` and `README.KR.md`; where both exist,
+  update their structure, commands, paths, defaults, and user-visible behavior
+  together. Do not create a missing Korean mirror unless the task explicitly
+  requests it.
 - Runtime Python tutorials commonly use small local helper modules such as
   `utils.py`, `postprocess.py`, `visualize.py`, and dataset label files like
   `coco.py` or `dota.py`.
@@ -93,11 +92,12 @@ structure changes can stay aligned.
 
 - Treat each tutorial as self-contained unless there is already a local shared
   helper in that area.
-- When you change script defaults or CLI flags, update the README in the same
-  directory immediately.
+- When you change a script interface, update the matching README in the same
+  directory.
 - Prefer concrete filenames and copy-pasteable commands.
-- Keep bilingual tutorial structure synchronized even when the prose is not a
-  literal translation.
+- Where `README.md` and `README.KR.md` both exist, keep their structure,
+  commands, paths, defaults, and user-visible behavior synchronized. Do not
+  create a missing translation unless the task explicitly requests it.
 - Prefer direct, readable scripts that mirror the tutorial text instead of
   introducing shared library-style abstractions.
 - Preserve the tutorial's existing execution style. Do not collapse
@@ -129,4 +129,5 @@ python -m compileall path/to/tutorial_dir
 
 For touched docs, verify that links, paths, commands, and default filenames
 match the local scripts. When useful, run `npx markdownlint path/to/file.md`
-because this repo ships with `markdownlint` in `package.json`.
+because this repo includes Markdown lint tooling when `package.json` is
+present.

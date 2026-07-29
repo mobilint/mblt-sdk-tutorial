@@ -264,7 +264,7 @@ python mxq_compile_vision.py --target-device regulus-rb
 언어 모델과 비전 모델의 MXQ 컴파일 스크립트는 모두 `--target-device`로 대상 NPU를 지정합니다. REGULUS는 `inference_scheme="single"`만 지원하므로 `regulus` 디바이스를 지정하면 자동으로 적용됩니다. ARIES 흐름과 마찬가지로, 비전 인코더를 컴파일하기 전에 언어 모델을 먼저 실행해 회전 행렬을 생성해야 합니다.
 
 | 사용자 | `--target-device` |
-|---|---|
+| --- | --- |
 | ARIES | `aries-rb` |
 | REGULUS (2026-06 이후 고객) | `regulus-rb` |
 

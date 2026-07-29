@@ -11,6 +11,8 @@ This directory focuses on the vision tutorials where inference is a straightforw
 
 - `image_classification/`
 - `object_detection/`
+- `depth_estimation/`
+- `semantic_segmentation/`
 - `face_detection/`
 - `instance_segmentation/`
 - `pose_estimation/`

@@ -30,6 +30,8 @@ pip install mobilint-qb-runtime
 
 - `image_classification/`
 - `object_detection/`
+- `depth_estimation/`
+- `semantic_segmentation/`
 - `bert/`
 - `llm/`
 - `stt/`

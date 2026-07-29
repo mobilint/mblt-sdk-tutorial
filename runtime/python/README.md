@@ -30,6 +30,8 @@ Install the dependencies listed in the README for the tutorial you want to run, 
 
 - `image_classification/`
 - `object_detection/`
+- `depth_estimation/`
+- `semantic_segmentation/`
 - `bert/`
 - `llm/`
 - `stt/`
