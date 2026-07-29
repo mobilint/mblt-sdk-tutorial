@@ -92,6 +92,8 @@ python model_compile.py --target-device aries-rb
 python model_compile.py --target-device regulus-rb
 ```
 
+> **Note:** The YOLO26 depth model is not available for older REGULUS devices that use `regulus-ra`. Use `aries-rb` or `regulus-rb`.
+
 The command generates:
 
 - `yolo26m-depth.mxq`: quantized NPU model

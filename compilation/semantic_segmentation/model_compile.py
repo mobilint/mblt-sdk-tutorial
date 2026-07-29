@@ -38,9 +38,9 @@ def parse_args() -> ArgumentParser:
     parser.add_argument("--mblt-path", default="./yolo26m-sem.mblt", help="Path for the MBLT graph")
     parser.add_argument(
         "--target-device",
-        choices=["regulus-ra", "regulus-rb", "aries-rb"],
+        choices=["regulus-rb", "aries-rb"],
         default="aries-rb",
-        help="Target NPU",
+        help="Target NPU (regulus-rb or aries-rb)",
     )
     return parser
 

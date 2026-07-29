@@ -107,6 +107,8 @@ python model_compile.py --target-device aries-rb
 python model_compile.py --target-device regulus-rb
 ```
 
+> **참고:** YOLO26 semantic-segmentation 모델은 `regulus-ra`를 사용하는 구형 REGULUS 디바이스에서 지원되지 않습니다. `aries-rb` 또는 `regulus-rb`를 사용하세요.
+
 명령을 실행하면 다음 파일이 생성됩니다.
 
 - `yolo26m-sem.mxq`: NPU에서 실행할 양자화 모델
