@@ -6,6 +6,8 @@
 *.h5
 *.jpg
 *.png
+!assets/
+!assets/**
 !runtime/python/rc/
 !runtime/python/rc/**
 !runtime/cpp/rc/
