@@ -82,6 +82,8 @@ preprocessing_config = PreprocessingConfig(
 
 `/255` 정규화는 `Uint8InputConfig`를 통해 MXQ 모델에 융합되므로, 컴파일된 모델은 `uint8` 입력을 받습니다. Letterbox는 공간 변환이므로 추론 전에 계속 적용해야 합니다.
 
+`model_compile.py`는 `torch.cuda.is_available()`이 참이면 CUDA를 사용해 MXQ를 컴파일합니다. CPU 전용 `qbcompiler` 이미지에서는 자동으로 CPU 컴파일을 선택합니다. 선택한 host device는 컴파일을 시작하기 전에 출력됩니다.
+
 대상 NPU에 맞춰 모델을 컴파일하세요.
 
 ```bash

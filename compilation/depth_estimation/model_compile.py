@@ -2,6 +2,7 @@
 
 from argparse import ArgumentParser
 
+import torch
 from qbcompiler import (
     CalibrationConfig,
     PreprocessingConfig,
@@ -9,6 +10,11 @@ from qbcompiler import (
     mblt_compile,
     mxq_compile,
 )
+
+
+def get_compile_device() -> str:
+    """Use CUDA when available and otherwise compile on the CPU."""
+    return "gpu" if torch.cuda.is_available() else "cpu"
 
 
 def get_device_inference_scheme(target_device: str) -> str:
@@ -41,6 +47,8 @@ def parse_args() -> ArgumentParser:
 
 def main() -> None:
     args = parse_args().parse_args()
+    compile_device = get_compile_device()
+    print(f"Using {compile_device.upper()} for MXQ compilation")
 
     preprocessing_config = PreprocessingConfig(
         apply=True,
@@ -68,7 +76,7 @@ def main() -> None:
         save_path=args.save_path,
         image_channels=3,
         backend="onnx",
-        device="gpu",
+        device=compile_device,
         target_device=args.target_device,
         inference_scheme=get_device_inference_scheme(args.target_device),
         preprocessing_config=preprocessing_config,

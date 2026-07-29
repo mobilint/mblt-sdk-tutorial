@@ -80,6 +80,8 @@ preprocessing_config = PreprocessingConfig(
 
 The `/255` normalization is fused into the MXQ model with `Uint8InputConfig`, so the compiled model accepts `uint8` input. Letterboxing is a spatial operation and must still be applied before inference.
 
+`model_compile.py` automatically uses CUDA for MXQ compilation when `torch.cuda.is_available()` is true. In a CPU-only `qbcompiler` image, it selects CPU compilation instead. The selected host device is printed before compilation starts.
+
 Compile for your target NPU:
 
 ```bash

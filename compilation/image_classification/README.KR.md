@@ -200,6 +200,8 @@ calibration_config = CalibrationConfig(
 
 설정이 끝나면 `--target-device`를 지정해 `model_compile.py`를 실행합니다. 같은 스크립트로 ARIES와 REGULUS를 모두 지원합니다.
 
+MXQ 컴파일 시 `model_compile.py`는 `torch.cuda.is_available()`이 참이면 CUDA를 사용하고, 그렇지 않으면 CPU로 자동 전환합니다. 따라서 GPU 지원 이미지와 CPU 전용 `qbcompiler` 이미지에서 모두 실행할 수 있으며, 선택된 호스트 디바이스는 컴파일 시작 전에 출력됩니다.
+
 ## 단계 3-1 (선택): 준비된 텐서 파일로 컴파일
 
 이미 전처리된 `.npy` 텐서 파일이 준비되어 있다면, 원본 이미지와 전처리 파이프라인 대신 해당 디렉토리를 `calib_data_path`로 지정해 사용할 수 있습니다.
