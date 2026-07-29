@@ -12,7 +12,7 @@ qbcompiler supports model conversion from various frameworks.
 The format of the original model is specified via the `backend` parameter:
 
 | backend | Input Format | Example Model |
-|---------|-------------|---------------|
+| --------- | ------------- | --------------- |
 | `"onnx"` | ONNX file | image_classification (`resnet50.onnx`) |
 | `"torch"` | PyTorch model or HuggingFace model ID | llm (`meta-llama/Llama-3.2-1B-Instruct`) |
 | `"hf"` | HuggingFace model (sub-model selectable) | stt (`openai/whisper-small` encoder/decoder) |
@@ -136,7 +136,6 @@ refer to the high-level functions provided in each tutorial.
 
 > Example: `compile_language_model()` in `vlm/mblt_compile_language.py`,
 > `compile_vision_encoder()` in `vlm/mblt_compile_vision.py`
-
 > For split compilation of multi-component models, see
 > [Multi-Component Model Guide](./03_about_multi_component.md).
 
@@ -145,7 +144,7 @@ refer to the high-level functions provided in each tutorial.
 ## Per-Model Compilation Path Summary
 
 | Model Type | backend | MBLT Generation | Notes |
-|-----------|---------|----------------|-------|
+| ----------- | --------- | ---------------- | ------- |
 | Image Classification | `onnx` | Automatic (inside mxq_compile) | |
 | LLM | `torch` | Automatic (inside mxq_compile) | SpinQuant added for 4bit |
 | BERT | `torch` | Automatic (inside mxq_compile) | |

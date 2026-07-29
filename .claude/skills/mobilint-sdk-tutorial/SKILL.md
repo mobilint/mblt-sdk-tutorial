@@ -1,13 +1,12 @@
 ---
-description: Codex entrypoint for agents working in the Mobilint SDK tutorial repository.
-paths:
-  - "**"
+name: mobilint-sdk-tutorial
+description: Apply the Mobilint SDK tutorial repository workflow when editing its documentation, example scripts, local helpers, bilingual README pairs, or hardware-dependent validation guidance.
 ---
 
-# Codex Agent Instructions
+# Mobilint SDK Tutorial Skill
 
-Before starting work, read and follow the canonical shared guide at
-[`.agents/agent-guide.md`](.agents/agent-guide.md).
+Before starting work, read and follow the canonical shared skill guide at
+[`.agents/skill-guide.md`](../../../.agents/skill-guide.md).
 
 ## Synchronization Policy
 

@@ -222,7 +222,7 @@ The required model depends on the target device:
 - ARIES (`aries-rb`) and newer REGULUS hardware (`regulus-rb`, customers from 2026-06) use the YOLO11 segmentation model.
 
 | User | `--target-device` | Model |
-|---|---|---|
+| --- | --- | --- |
 | ARIES | `aries-rb` | `yolo11m-seg` |
 | REGULUS (customers before 2026-06) | `regulus-ra` | `yolov8m-seg` |
 | REGULUS (customers from 2026-06) | `regulus-rb` | `yolo11m-seg` |
