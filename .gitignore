@@ -5,6 +5,7 @@
 *.egg-info
 *.h5
 *.jpg
+*.png
 !runtime/python/rc/
 !runtime/python/rc/**
 !runtime/cpp/rc/

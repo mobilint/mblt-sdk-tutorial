@@ -90,7 +90,10 @@ def non_max_suppression(boxes, scores, iou_threshold, max_output, eps=1e-9):
     # Compute areas of bounding boxes
     areas = (end_x - start_x) * (end_y - start_y)
 
-    order = torch.arange(len(scores)).to(scores.device)
+    # NMS must process the highest-confidence candidate first. Callers usually
+    # sort beforehand, but keeping this invariant here prevents incorrect
+    # suppression when the helper is reused directly.
+    order = scores.argsort(descending=True)
 
     # Iterate bounding boxes
     while order.numel() > 0 and len(picked_indices) < max_output:
