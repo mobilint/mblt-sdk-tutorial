@@ -21,6 +21,7 @@
 4. **tokenizer 다운로드** — HuggingFace에서 tokenizer 파일 다운로드 (텍스트 모델의 경우)
 
 **실제 사용 예시**:
+
 - `llm/prepare_model.py`
 - `vlm/prepare_model.py`
 - `stt/prepare_model.py`
@@ -90,7 +91,7 @@
 ### 코어 모드
 
 | 모드 | 설정 | 설명 |
-|------|------|------|
+| ------ | ------ | ------ |
 | single | `"target_cores": ["0:0"]` | 단일 코어에서 실행 |
 | multi | `"core_mode": "multi", "target_clusters": [0]` | 한 클러스터 내 여러 코어 협업 |
 | global4 | `"core_mode": "global4", "target_clusters": [0]` | 한 클러스터의 4개 코어 사용 |

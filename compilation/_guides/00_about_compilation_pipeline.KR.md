@@ -12,7 +12,7 @@ qbcompiler는 다양한 프레임워크의 모델 변환을 지원합니다.
 원본 모델의 형식은 `backend` 파라미터로 지정합니다:
 
 | backend | 입력 형식 | 예시 모델 |
-|---------|----------|----------|
+| --------- | ---------- | ---------- |
 | `"onnx"` | ONNX 파일 | image_classification (`resnet50.onnx`) |
 | `"torch"` | PyTorch 모델 또는 HuggingFace 모델 ID | llm (`meta-llama/Llama-3.2-1B-Instruct`) |
 | `"hf"` | HuggingFace 모델 (서브모델 지정 가능) | stt (`openai/whisper-small`의 encoder/decoder) |
@@ -134,7 +134,6 @@ mxq_compile(
 
 > 예: `vlm/mblt_compile_language.py`의 `compile_language_model()`,
 > `vlm/mblt_compile_vision.py`의 `compile_vision_encoder()`
-
 > 멀티 컴포넌트 모델의 분리 컴파일에 대해서는
 > [멀티 컴포넌트 모델 가이드](./03_about_multi_component.KR.md)를 참조하세요.
 
@@ -143,7 +142,7 @@ mxq_compile(
 ## 모델별 컴파일 경로 요약
 
 | 모델 유형 | backend | MBLT 생성 | 비고 |
-|-----------|---------|-----------|------|
+| ----------- | --------- | ----------- | ------ |
 | Image Classification | `onnx` | 자동 (mxq_compile 내부) | |
 | LLM | `torch` | 자동 (mxq_compile 내부) | 4bit 시 SpinQuant 추가 |
 | BERT | `torch` | 자동 (mxq_compile 내부) | |

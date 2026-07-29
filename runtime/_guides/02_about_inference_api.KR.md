@@ -10,7 +10,7 @@ Mobilint NPU에서 모델을 추론하는 두 가지 API를 소개합니다.
 ## API 종류
 
 | API | 수준 | 특징 | 적합한 모델 |
-|-----|------|------|------------|
+| ----- | ------ | ------ | ------------ |
 | `qbruntime` | low-level | NPU 직접 제어, numpy 입출력 | 단순 모델 (Image Classification, Object Detection, BERT 등) |
 | `mblt-model-zoo` | high-level | HuggingFace 호환 API, 자동 NPU 관리 | 복합 모델 (LLM, VLM, STT 등) |
 
@@ -66,6 +66,7 @@ output = model.infer(image)
 별도의 정규화(normalize)가 불필요합니다.
 
 **실제 사용 예시**:
+
 - `image_classification/inference_mxq.py`
 - `object_detection/inference_mxq.py`
 - `pose_estimation/inference_mxq.py`
@@ -127,6 +128,7 @@ import mblt_model_zoo.hf_transformers.models.whisper.modeling_whisper
 ```
 
 **실제 사용 예시**:
+
 - `llm/inference_mblt_model_zoo.py`
 - `vlm/inference_mblt_model_zoo.py`
 - `stt/inference_mblt_model_zoo.py`

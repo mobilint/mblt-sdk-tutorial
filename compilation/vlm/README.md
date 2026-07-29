@@ -264,7 +264,7 @@ The vision encoder's output must be properly aligned with the language model's i
 Both MXQ compile scripts use `--target-device` to select the target NPU. REGULUS supports only `inference_scheme="single"`, which is selected automatically when a `regulus` device is specified. As in the ARIES flow, compile the language model first so the rotation matrix is available before compiling the vision encoder.
 
 | User | `--target-device` |
-|---|---|
+| --- | --- |
 | ARIES | `aries-rb` |
 | REGULUS (customers from 2026-06) | `regulus-rb` |
 

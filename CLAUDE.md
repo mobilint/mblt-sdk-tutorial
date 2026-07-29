@@ -1,10 +1,10 @@
 ---
-description: Codex entrypoint for agents working in the Mobilint SDK tutorial repository.
+description: Claude entrypoint for agents working in the Mobilint SDK tutorial repository.
 paths:
   - "**"
 ---
 
-# Codex Agent Instructions
+# Claude Agent Instructions
 
 Before starting work, read and follow the canonical shared guide at
 [`.agents/agent-guide.md`](.agents/agent-guide.md).

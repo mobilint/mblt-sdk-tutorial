@@ -222,7 +222,7 @@ mxq_compile(
 - ARIES(`aries-rb`)와 신형 REGULUS 하드웨어(`regulus-rb`, 2026-06 이후 고객)는 YOLO11 segmentation 모델을 사용합니다.
 
 | 사용자 | `--target-device` | 모델 |
-|---|---|---|
+| --- | --- | --- |
 | ARIES | `aries-rb` | `yolo11m-seg` |
 | REGULUS (2026-06 이전 고객) | `regulus-ra` | `yolov8m-seg` |
 | REGULUS (2026-06 이후 고객) | `regulus-rb` | `yolo11m-seg` |

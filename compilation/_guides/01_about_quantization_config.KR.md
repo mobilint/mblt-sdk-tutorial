@@ -12,7 +12,7 @@
 ## Config 종류 overview
 
 | Config | 역할 | 사용 대상 |
-|--------|------|----------|
+| -------- | ------ | ---------- |
 | `CalibrationConfig` | quantization range 결정 방식 (per-channel, percentile 등) | quantization이 필요한 모든 모델 |
 | `BitConfig` | transformer component별 quantization bit 수 (8bit/4bit) | transformer 기반 모델 (LLM 등) |
 | `LlmConfig` | sequence length, KV cache, NPU core 할당 | transformer decoder 구조 (autoregressive + KV cache) |
@@ -76,6 +76,7 @@ calibration_config = CalibrationConfig(
 ```
 
 **실제 사용 예시**:
+
 - `image_classification/model_compile.py`
 - `llm/generate_mxq.py`
 - `bert/compile_mxq.py`
@@ -109,6 +110,7 @@ bit_config = BitConfig(
 ```
 
 **실제 사용 예시**:
+
 - `llm/generate_mxq.py` - 8bit
 - `llm/generate_mxq_4bit.py` - 4bit (w4, w4v8)
 
@@ -155,6 +157,7 @@ llm_config = LlmConfig(
 ```
 
 **실제 사용 예시**:
+
 - `llm/generate_mxq.py` - LLM 컴파일 시 시퀀스/캐시 길이 설정
 - `stt/compile_decoder.py` - Whisper decoder (autoregressive 구조이므로 LlmConfig 필요)
 
@@ -215,6 +218,7 @@ et_config = EquivalentTransformationConfig(
 ```
 
 **실제 사용 예시**:
+
 - `llm/generate_mxq_4bit.py` - LLM 4bit SpinQuant 적용
 - `vlm/mxq_compile_language.py` - VLM language 모델의 등가 변환
 - `vlm/mxq_compile_vision.py` - VLM vision encoder에서 R1 회전 행렬 참조 (`HeadOutChRotation`)
@@ -288,6 +292,7 @@ VLM의 경우 language 모델 컴파일 시 생성된 R1이 두 곳에서 사용
 비전 임베딩 자체에는 별도 회전을 적용하지 않습니다.
 
 **실제 사용 예시**:
+
 - `llm/generate_mxq_4bit.py` - LLM 4bit SpinQuant 적용
 - `llm/get_rotation_emb.py` - LLM 임베딩 R1 회전
 - `vlm/mxq_compile_language.py` - VLM language 모델의 등가 변환
@@ -325,6 +330,7 @@ sws_config = SearchWeightScaleConfig(
 ```
 
 **실제 사용 예시**:
+
 - `llm/generate_mxq_4bit.py`
 
 ---
@@ -377,6 +383,7 @@ preprocessing_config = PreprocessingConfig(
 ```
 
 **실제 사용 예시**:
+
 - `image_classification/model_compile.py`
 
 ---
