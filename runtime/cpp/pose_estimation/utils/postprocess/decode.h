@@ -17,49 +17,46 @@
 //   6) Decode keypoints: (raw_xy * 2 + anchor - 0.5) * stride for coords, sigmoid for score.
 //   7) Apply per-class coordinate offset then run NMS (keypoints follow the surviving box).
 #pragma once
-#include <vector>
-
 #include <qbruntime/ndarray.h>
 
+#include <vector>
+
 class YoloPoseDecoder {
-public:
-    // One keypoint in letterbox (decode) or original (after scale) coordinates.
-    struct Keypoint {
-        float x, y, score;
-    };
+ public:
+  // One keypoint in letterbox (decode) or original (after scale) coordinates.
+  struct Keypoint {
+    float x, y, score;
+  };
 
-    struct Detection {
-        float x1, y1, x2, y2, conf;
-        int cls;
-        std::vector<Keypoint> kpts;  // num_keypoints entries
-    };
+  struct Detection {
+    float x1, y1, x2, y2, conf;
+    int cls;
+    std::vector<Keypoint> kpts;  // num_keypoints entries
+  };
 
-    YoloPoseDecoder(int nc, int nl, int img_size, int reg_max, int num_keypoints,
-                    float conf_thres = 0.25f, float iou_thres = 0.7f,
-                    int max_det = 300);
+  YoloPoseDecoder(int nc, int nl, int img_size, int reg_max, int num_keypoints, float conf_thres = 0.25f,
+                  float iou_thres = 0.7f, int max_det = 300);
 
-    // Decodes raw NPU output tensors (N flat float32 vectors) into detections with
-    // keypoints, all in letterbox coordinates.
-    std::vector<Detection> decode(
-        const std::vector<mobilint::NDArray<float>>& raw_outputs) const;
+  // Decodes raw NPU output tensors (N flat float32 vectors) into detections with
+  // keypoints, all in letterbox coordinates.
+  std::vector<Detection> decode(const std::vector<mobilint::NDArray<float>>& raw_outputs) const;
 
-    // Rescales detections (boxes and keypoints) from letterbox (img_size x img_size)
-    // space to original image coordinates.
-    static void scale_to_original(std::vector<Detection>& dets,
-                                  int img_size, int orig_h, int orig_w);
+  // Rescales detections (boxes and keypoints) from letterbox (img_size x img_size)
+  // space to original image coordinates.
+  static void scale_to_original(std::vector<Detection>& dets, int img_size, int orig_h, int orig_w);
 
-private:
-    int nc_;
-    int nl_;
-    int img_size_;
-    int reg_max_;
-    int num_keypoints_;
-    float conf_thres_;
-    float iou_thres_;
-    int max_det_;
-    float invconf_;                            // invsigmoid(conf_thres) for logit-space pre-filter
-    std::vector<int> strides_;                 // per-stride values [8, 16, 32, ...]
-    std::vector<int> grid_sizes_;              // per-stride H*W grid cell counts
-    std::vector<std::pair<float, float>> anchors_;  // flattened anchor centers (cx, cy) across all strides
-    std::vector<float> stride_per_anchor_;     // stride value for each anchor entry
+ private:
+  int nc_;
+  int nl_;
+  int img_size_;
+  int reg_max_;
+  int num_keypoints_;
+  float conf_thres_;
+  float iou_thres_;
+  int max_det_;
+  float invconf_;                                 // invsigmoid(conf_thres) for logit-space pre-filter
+  std::vector<int> strides_;                      // per-stride values [8, 16, 32, ...]
+  std::vector<int> grid_sizes_;                   // per-stride H*W grid cell counts
+  std::vector<std::pair<float, float>> anchors_;  // flattened anchor centers (cx, cy) across all strides
+  std::vector<float> stride_per_anchor_;          // stride value for each anchor entry
 };

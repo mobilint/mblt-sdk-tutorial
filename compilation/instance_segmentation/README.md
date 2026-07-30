@@ -183,6 +183,8 @@ calibration_config = CalibrationConfig(
 
 After configuring the options, run `model_compile.py` with `--target-device` set for your hardware. The script generates both outputs in one run: the quantized MXQ file (`--save-path`) and the intermediate MBLT graph (`--mblt-path`).
 
+For MXQ compilation, `model_compile.py` automatically uses CUDA when `torch.cuda.is_available()` is true and otherwise falls back to CPU. This supports both GPU-enabled and CPU-only `qbcompiler` images, and the selected host device is printed before compilation starts.
+
 ## Step 3-1 (Optional): Compile with Prepared Tensor Files
 
 If you already generated `.npy` tensor files, you can use that directory as `calib_data_path` instead of providing raw image files and a preprocessing pipeline.
@@ -222,7 +224,7 @@ The required model depends on the target device:
 - ARIES (`aries-rb`) and newer REGULUS hardware (`regulus-rb`, customers from 2026-06) use the YOLO11 segmentation model.
 
 | User | `--target-device` | Model |
-|---|---|---|
+| --- | --- | --- |
 | ARIES | `aries-rb` | `yolo11m-seg` |
 | REGULUS (customers before 2026-06) | `regulus-ra` | `yolov8m-seg` |
 | REGULUS (customers from 2026-06) | `regulus-rb` | `yolo11m-seg` |

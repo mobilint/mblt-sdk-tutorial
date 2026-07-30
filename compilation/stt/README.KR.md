@@ -109,7 +109,7 @@ python compile_decoder.py
 인코더와 디코더 스크립트는 모두 `--target-device`로 대상 NPU를 지정합니다(기본값: `aries-rb`). REGULUS는 `inference_scheme="single"`만 지원하므로 `regulus` 디바이스를 지정하면 자동으로 적용됩니다.
 
 | 사용자 | `--target-device` |
-|---|---|
+| --- | --- |
 | ARIES | `aries-rb` (기본값) |
 | REGULUS (2026-06 이후 고객) | `regulus-rb` |
 

@@ -183,6 +183,8 @@ calibration_config = CalibrationConfig(
 
 설정을 마친 뒤 하드웨어에 맞는 `--target-device`를 지정해 `model_compile.py`를 실행합니다. 스크립트 한 번으로 양자화된 MXQ 파일(`--save-path`)과 중간 MBLT 그래프(`--mblt-path`)를 모두 생성합니다.
 
+MXQ 컴파일 시 `model_compile.py`는 `torch.cuda.is_available()`이 참이면 CUDA를 사용하고, 그렇지 않으면 CPU로 자동 전환합니다. 따라서 GPU 지원 이미지와 CPU 전용 `qbcompiler` 이미지에서 모두 실행할 수 있으며, 선택된 호스트 디바이스는 컴파일 시작 전에 출력됩니다.
+
 ## 단계 3-1 (선택): 준비된 텐서 파일로 컴파일
 
 이미 `.npy` 텐서를 만들어 두었다면, 원본 이미지와 전처리 파이프라인 대신 해당 디렉토리를 `calib_data_path`로 사용할 수 있습니다.
@@ -222,7 +224,7 @@ mxq_compile(
 - ARIES(`aries-rb`)와 신형 REGULUS 하드웨어(`regulus-rb`, 2026-06 이후 고객)는 YOLO11 segmentation 모델을 사용합니다.
 
 | 사용자 | `--target-device` | 모델 |
-|---|---|---|
+| --- | --- | --- |
 | ARIES | `aries-rb` | `yolo11m-seg` |
 | REGULUS (2026-06 이전 고객) | `regulus-ra` | `yolov8m-seg` |
 | REGULUS (2026-06 이후 고객) | `regulus-rb` | `yolo11m-seg` |

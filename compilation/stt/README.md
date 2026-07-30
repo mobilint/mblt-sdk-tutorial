@@ -109,7 +109,7 @@ python compile_decoder.py
 Both the encoder and decoder scripts use `--target-device` to select the target NPU (default: `aries-rb`). REGULUS supports only `inference_scheme="single"`, which is selected automatically when a `regulus` device is specified.
 
 | User | `--target-device` |
-|---|---|
+| --- | --- |
 | ARIES | `aries-rb` (default) |
 | REGULUS (customers from 2026-06) | `regulus-rb` |
 

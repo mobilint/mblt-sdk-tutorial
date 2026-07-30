@@ -11,6 +11,8 @@ C++ `qbruntime` 라이브러리는 ARIES와 REGULUS를 모두 지원합니다. �
 
 - `image_classification/`
 - `object_detection/`
+- `depth_estimation/`
+- `semantic_segmentation/`
 - `face_detection/`
 - `instance_segmentation/`
 - `pose_estimation/`

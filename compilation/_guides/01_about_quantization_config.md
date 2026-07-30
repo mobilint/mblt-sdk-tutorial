@@ -12,7 +12,7 @@ in the tutorial directories (`image_classification/`, `llm/`, `vlm/`, etc.) as b
 ## Config Types Overview
 
 | Config | Role | Target |
-|--------|------|--------|
+| -------- | ------ | -------- |
 | `CalibrationConfig` | Quantization range determination (per-channel, percentile, etc.) | All models requiring quantization |
 | `BitConfig` | Quantization bit count per transformer component (8bit/4bit) | Transformer-based models (LLM, etc.) |
 | `LlmConfig` | Sequence length, KV cache, NPU core allocation | Transformer decoder architecture (autoregressive + KV cache) |
@@ -76,6 +76,7 @@ calibration_config = CalibrationConfig(
 ```
 
 **Usage examples**:
+
 - `image_classification/model_compile.py`
 - `llm/generate_mxq.py`
 - `bert/compile_mxq.py`
@@ -109,6 +110,7 @@ bit_config = BitConfig(
 ```
 
 **Usage examples**:
+
 - `llm/generate_mxq.py` - 8bit
 - `llm/generate_mxq_4bit.py` - 4bit (w4, w4v8)
 
@@ -155,6 +157,7 @@ llm_config = LlmConfig(
 ```
 
 **Usage examples**:
+
 - `llm/generate_mxq.py` - Sequence/cache length settings for LLM compilation
 - `stt/compile_decoder.py` - Whisper decoder (requires LlmConfig due to autoregressive structure)
 
@@ -215,6 +218,7 @@ et_config = EquivalentTransformationConfig(
 ```
 
 **Usage examples**:
+
 - `llm/generate_mxq_4bit.py` - LLM 4bit SpinQuant application
 - `vlm/mxq_compile_language.py` - VLM language model equivalent transformation
 - `vlm/mxq_compile_vision.py` - VLM vision encoder R1 rotation matrix reference (`HeadOutChRotation`)
@@ -288,6 +292,7 @@ For VLM, the R1 generated during language model compilation is used in two place
 No separate rotation is applied to vision embeddings.
 
 **Usage examples**:
+
 - `llm/generate_mxq_4bit.py` - LLM 4bit SpinQuant application
 - `llm/get_rotation_emb.py` - LLM embedding R1 rotation
 - `vlm/mxq_compile_language.py` - VLM language model equivalent transformation
@@ -325,6 +330,7 @@ sws_config = SearchWeightScaleConfig(
 ```
 
 **Usage examples**:
+
 - `llm/generate_mxq_4bit.py`
 
 ---
@@ -377,6 +383,7 @@ preprocessing_config = PreprocessingConfig(
 ```
 
 **Usage examples**:
+
 - `image_classification/model_compile.py`
 
 ---

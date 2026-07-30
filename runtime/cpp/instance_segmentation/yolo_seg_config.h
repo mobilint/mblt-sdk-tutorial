@@ -9,17 +9,16 @@
 static const int IMG_SIZE = 640;
 
 inline ModelInfo make_yolo_seg_config() {
-    ModelInfo cfg;
-    cfg.m_preprocess_list.push_back(
-        {PreProcessOps::YOLO, "", std::pair<int, int>{IMG_SIZE, IMG_SIZE}});
-    cfg.m_postprocess.task = Task::SEG;
-    cfg.m_postprocess.type = "yolo";
-    cfg.m_postprocess.num_classes = 80;
-    cfg.m_postprocess.num_layers = 3;
-    cfg.m_postprocess.reg_max = 16;
-    cfg.m_postprocess.num_mask_coeffs = 32;
-    // 0.25 avoids flooding the visualization with low-confidence masks
-    cfg.m_postprocess.conf_thres = 0.25f;
-    cfg.m_postprocess.iou_thres = 0.45f;
-    return cfg;
+  ModelInfo cfg;
+  cfg.m_preprocess_list.push_back({PreProcessOps::YOLO, "", std::pair<int, int>{IMG_SIZE, IMG_SIZE}});
+  cfg.m_postprocess.task = Task::SEG;
+  cfg.m_postprocess.type = "yolo";
+  cfg.m_postprocess.num_classes = 80;
+  cfg.m_postprocess.num_layers = 3;
+  cfg.m_postprocess.reg_max = 16;
+  cfg.m_postprocess.num_mask_coeffs = 32;
+  // 0.25 avoids flooding the visualization with low-confidence masks
+  cfg.m_postprocess.conf_thres = 0.25f;
+  cfg.m_postprocess.iou_thres = 0.45f;
+  return cfg;
 }

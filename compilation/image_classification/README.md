@@ -200,6 +200,8 @@ calibration_config = CalibrationConfig(
 
 After the settings are configured, run `model_compile.py` with `--target-device`. The same script supports both ARIES and REGULUS devices.
 
+For MXQ compilation, `model_compile.py` automatically uses CUDA when `torch.cuda.is_available()` is true and otherwise falls back to CPU. This supports both GPU-enabled and CPU-only `qbcompiler` images, and the selected host device is printed before compilation starts.
+
 ## Step 3-1 (Optional): Compile with Prepared Tensor Files
 
 If you already prepared `.npy` tensor files, you can use that directory as `calib_data_path` instead of providing raw image files and a preprocessing pipeline.

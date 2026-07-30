@@ -177,6 +177,8 @@ calibration_config = CalibrationConfig(
 
 설정을 마친 뒤, 하드웨어에 맞는 `--target-device`를 지정해 `model_compile.py`를 실행합니다. 한 번 실행하면 양자화된 MXQ 파일(`--save-path`)과 중간 MBLT 그래프(`--mblt-path`)가 함께 생성됩니다.
 
+MXQ 컴파일 시 `model_compile.py`는 `torch.cuda.is_available()`이 참이면 CUDA를 사용하고, 그렇지 않으면 CPU로 자동 전환합니다. 따라서 GPU 지원 이미지와 CPU 전용 `qbcompiler` 이미지에서 모두 실행할 수 있으며, 선택된 호스트 디바이스는 컴파일 시작 전에 출력됩니다.
+
 ## 3-1단계 (선택): 준비된 텐서 파일로 컴파일
 
 이미 `.npy` 텐서 파일을 준비했다면, 원본 이미지와 전처리 파이프라인 대신 해당 디렉터리를 `calib_data_path`로 사용할 수 있습니다.

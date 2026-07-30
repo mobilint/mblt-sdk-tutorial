@@ -76,7 +76,6 @@ np.save("inputs_embeds_0.npy", embedded_text.numpy())
 > **Why embeddings are extracted separately**: The NPU does not support embedding lookup table operations,
 > so the embedding layer runs on CPU and its output is fed into the NPU model.
 > Therefore, calibration data must also be post-embedding values.
-
 > **Tutorial reference**: `llm/`, `bert/`
 
 ---
@@ -149,7 +148,7 @@ mxq_compile(
 ## Calibration Data Quality Tips
 
 | Item | Recommendation |
-|------|---------------|
+| ------ | --------------- |
 | **Sample count** | Typically 100-128. Too few leads to biased distributions; too many increases compile time |
 | **Diversity** | Use diverse samples with distributions similar to actual inference data |
 | **Sequence length** | For LLMs, a minimum sequence length of 512 or more is recommended |
