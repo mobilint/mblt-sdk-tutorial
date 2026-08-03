@@ -1,1 +1,2 @@
 mblt-model-zoo[transformers]
+soundfile

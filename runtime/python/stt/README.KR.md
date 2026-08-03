@@ -48,7 +48,6 @@ python prepare_model.py \
 - `config.json`의 `encoder_mxq_path` / `decoder_mxq_path`를 복사한 파일명으로 패치(repo의 코어 할당은 유지)
 
 > `git-lfs`가 필요 없습니다 — `snapshot_download`가 실제 파일을 받습니다(`huggingface_hub`는 `mblt-model-zoo[transformers]`와 함께 설치됨).
-> VLM 흐름과 달리 `model.safetensors`는 repo의 것을 그대로 유지합니다. Whisper에서는 이 파일이 디코더 임베딩 가중치(CPU에서 실행)로, 컴파일 산출물이 아닙니다.
 
 ## Step 2: 추론 실행
 
@@ -57,18 +56,17 @@ python prepare_model.py \
 ```bash
 python inference_mblt_model_zoo.py \
     --audio ../../../compilation/stt/audio_files/en_us_0000.wav \
-    --model-folder ./whisper-small-mxq \
-    --model-id mobilint/whisper-small
+    --model-folder ./whisper-small-mxq
 ```
 
 자주 쓰는 옵션:
 
 ```bash
-python inference_mblt_model_zoo.py --audio audio.wav --model-folder ./whisper-small-mxq --model-id mobilint/whisper-small --language en
-python inference_mblt_model_zoo.py --audio audio.wav --model-folder ./whisper-small-mxq --model-id mobilint/whisper-small --task translate
+python inference_mblt_model_zoo.py --audio audio.wav --model-folder ./whisper-small-mxq --language en
+python inference_mblt_model_zoo.py --audio audio.wav --model-folder ./whisper-small-mxq --task translate
 ```
 
-이 스크립트는 `librosa`로 오디오를 읽고 `16 kHz`로 리샘플링한 뒤, `AutoModelForSpeechSeq2Seq`로 생성을 수행하고 최종 텍스트를 출력합니다.
+이 스크립트는 `soundfile`로 `16 kHz` 모노 오디오를 읽고, `AutoModelForSpeechSeq2Seq`로 생성을 수행하고 최종 텍스트를 출력합니다.
 
 ## NPU 코어 모드
 
@@ -96,7 +94,6 @@ python inference_mblt_model_zoo.py --audio audio.wav --model-folder ./whisper-sm
 
 - `--audio`: 입력 오디오 파일 경로
 - `--model-folder`: 준비된 모델 폴더 경로
-- `--model-id`: 프로세서 다운로드에 사용할 Hugging Face 모델 ID
 - `--language`: `en`, `ko`, `ja` 같은 선택적 소스 언어 코드
 - `--task`: `transcribe` 또는 `translate`
 

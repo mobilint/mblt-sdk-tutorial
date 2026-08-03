@@ -48,7 +48,6 @@ This script:
 - Patches `config.json`'s `encoder_mxq_path` / `decoder_mxq_path` to the copied filenames (the repo's core allocation is kept)
 
 > No `git-lfs` needed — `snapshot_download` fetches real files (`huggingface_hub` is installed with `mblt-model-zoo[transformers]`).
-> Unlike the VLM flow, `model.safetensors` is kept from the repo: for Whisper it holds the decoder embedding weights (run on CPU), not a compilation output.
 
 ## Step 2: Run Inference
 
@@ -57,18 +56,17 @@ Run the default transcription example:
 ```bash
 python inference_mblt_model_zoo.py \
     --audio ../../../compilation/stt/audio_files/en_us_0000.wav \
-    --model-folder ./whisper-small-mxq \
-    --model-id mobilint/whisper-small
+    --model-folder ./whisper-small-mxq
 ```
 
 Useful options:
 
 ```bash
-python inference_mblt_model_zoo.py --audio audio.wav --model-folder ./whisper-small-mxq --model-id mobilint/whisper-small --language en
-python inference_mblt_model_zoo.py --audio audio.wav --model-folder ./whisper-small-mxq --model-id mobilint/whisper-small --task translate
+python inference_mblt_model_zoo.py --audio audio.wav --model-folder ./whisper-small-mxq --language en
+python inference_mblt_model_zoo.py --audio audio.wav --model-folder ./whisper-small-mxq --task translate
 ```
 
-The script loads audio with `librosa`, resamples it to `16 kHz`, runs generation through `AutoModelForSpeechSeq2Seq`, and prints the decoded text.
+The script loads the `16 kHz` mono audio with `soundfile`, runs generation through `AutoModelForSpeechSeq2Seq`, and prints the decoded text.
 
 ## NPU Core Modes
 
@@ -96,7 +94,6 @@ Use the same pattern for the decoder with the `decoder_` prefix.
 
 - `--audio`: Path to the input audio file.
 - `--model-folder`: Path to the prepared model folder.
-- `--model-id`: Hugging Face model ID used for processor download.
 - `--language`: Optional source language code such as `en`, `ko`, or `ja`.
 - `--task`: `transcribe` or `translate`.
 

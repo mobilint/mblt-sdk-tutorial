@@ -1,6 +1,6 @@
 import argparse
 
-import librosa
+import soundfile as sf
 
 # Register mblt-model-zoo's Whisper model with HuggingFace AutoModel.
 # This single import enables AutoModelForSpeechSeq2Seq.from_pretrained()
@@ -49,9 +49,17 @@ def main():
     # Load processor from the same self-contained folder (trust_remote_code for the bundled config).
     processor = AutoProcessor.from_pretrained(args.model_folder, trust_remote_code=True)
 
-    # Load and preprocess audio (resample to 16kHz)
+    # Load audio with soundfile (the mblt-model-zoo audio path). Whisper's feature extractor
+    # only accepts 16 kHz mono; fail clearly if the input is a different rate.
     print(f"Loading audio: {args.audio}")
-    audio_array, _ = librosa.load(args.audio, sr=16000)
+    audio_array, sampling_rate = sf.read(args.audio, dtype="float32")
+    if sampling_rate != 16000:
+        raise ValueError(
+            f"Audio sample rate is {sampling_rate} Hz, but Whisper requires 16000 Hz. "
+            f"Resample it to 16 kHz first, e.g. `ffmpeg -i {args.audio} -ar 16000 out.wav`."
+        )
+    if audio_array.ndim > 1:
+        audio_array = audio_array.mean(axis=1)
     input_features = processor(audio_array, sampling_rate=16000, return_tensors="pt").input_features
 
     # Prepare generation kwargs (length is bounded by generation_config: max_length=448)
