@@ -1,4 +1,18 @@
-"""Generate calibration data for Whisper encoder and decoder."""
+"""Generate calibration data for the Whisper encoder and decoder.
+
+Two calibration sets are built from the FLEURS audio in ./audio_files:
+
+  Encoder: each clip's log-mel spectrogram ([1, 3000, 80]) is saved as one .npy.
+  Decoder: each clip is transcribed/translated on-the-fly and its decoder input
+           embeddings (token + positional) are saved. Every clip is cut to several
+           length prefixes (FRACTIONS_TO_USE) so the decoder sees diverse sequence lengths.
+
+Output:
+  calibration_data/encoder/encoder_calib_NNNN.npy
+  calibration_data/encoder/whisper_encoder_cali.txt              # list qbcompiler reads
+  calibration_data/decoder/sample_NNNN/{encoder,decoder}_hidden_states.npy
+  calibration_data/decoder/whisper_decoder_calib.json            # info + calib paths
+"""
 
 import json
 import os
@@ -10,6 +24,9 @@ import torch
 from tqdm import tqdm
 from transformers import WhisperForConditionalGeneration, WhisperProcessor
 
+BASE_MODEL = "openai/whisper-small"
+
+# FLEURS filename prefix -> Whisper language code (used to condition decoder generation).
 FLEURS_TO_WHISPER = {
     "ar_eg": "ar",
     "cmn_hans_cn": "zh",
@@ -30,6 +47,9 @@ FLEURS_TO_WHISPER = {
     "vi_vn": "vi",
 }
 
+# Length prefixes (fraction of each clip) for decoder calibration, so the decoder sees diverse
+FRACTIONS_TO_USE = [0.2, 0.4, 0.6, 0.8, 1.0]
+
 
 def set_seed(seed: int = 42) -> None:
     """Seed all RNGs so file selection and the translate/transcribe split are reproducible."""
@@ -40,183 +60,161 @@ def set_seed(seed: int = 42) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
-def generate_encoder_calibration_data(audio_dir, output_dir="./calibration_data/encoder", num_samples=1000):
-    """Generate calibration data for Whisper encoder."""
+def list_wavs(audio_dir, num_samples):
+    """Return up to num_samples wav filenames from audio_dir, sorted for reproducibility."""
+    return sorted(f for f in os.listdir(audio_dir) if f.endswith(".wav"))[:num_samples]
 
+
+def detect_language(filename):
+    """Map a FLEURS-prefixed filename (e.g. 'ko_kr_0001.wav') to a Whisper language code, or None."""
+    for prefix, code in FLEURS_TO_WHISPER.items():
+        if filename.startswith(prefix):
+            return code
+    return None
+
+
+def save_sample(output_dir, idx, encoder_hidden, decoder_hidden):
+    """Save one (encoder, decoder) hidden-state pair under sample_{idx:04d}/ and return their paths."""
+    sample_dir = os.path.join(os.path.abspath(output_dir), f"sample_{idx:04d}")
+    os.makedirs(sample_dir, exist_ok=True)
+    encoder_path = os.path.join(sample_dir, "encoder_hidden_states.npy")
+    decoder_path = os.path.join(sample_dir, "decoder_hidden_states.npy")
+    np.save(encoder_path, encoder_hidden)
+    np.save(decoder_path, decoder_hidden)
+    return encoder_path, decoder_path
+
+
+def generate_encoder_calibration_data(processor, audio_dir, output_dir="./calibration_data/encoder", num_samples=1000):
+    """Save each clip's mel spectrogram ([1, 3000, 80]) as encoder calibration input."""
     print("Generating encoder calibration data...")
     os.makedirs(output_dir, exist_ok=True)
 
-    processor = WhisperProcessor.from_pretrained("openai/whisper-small")
+    wavs = list_wavs(audio_dir, num_samples)
+    print(f"Processing {len(wavs)} audio files...")
 
-    audio_files = sorted(f for f in os.listdir(audio_dir) if f.endswith(".wav"))[:num_samples]
-    print(f"Processing {len(audio_files)} audio files...")
-
-    calibration_files = []
-
-    for i, audio_file in enumerate(tqdm(audio_files, desc="Encoder calibration", unit="file")):
-        audio_path = os.path.join(audio_dir, audio_file)
-
+    # ===== Build mel-spectrogram samples =====
+    calib_paths = []
+    for i, wav in enumerate(tqdm(wavs, desc="Encoder calibration", unit="file")):
         try:
-            audio_array, sampling_rate = librosa.load(audio_path, sr=16000)
-            inputs = processor(audio_array, sampling_rate=16000, return_tensors="pt")
-
+            audio, _ = librosa.load(os.path.join(audio_dir, wav), sr=16000)
+            mel = processor(audio, sampling_rate=16000, return_tensors="pt").input_features
             # mel spectrogram: [1, 80, 3000] -> [1, 3000, 80]
-            mel_np = inputs.input_features.transpose(1, 2).cpu().numpy().astype(np.float32)
-            mel_np = np.ascontiguousarray(mel_np)
-
-            calib_filename = f"encoder_calib_{i:04d}.npy"
-            calib_path = os.path.join(output_dir, calib_filename)
-            np.save(calib_path, mel_np)
-            calibration_files.append(calib_path)
-
+            mel = np.ascontiguousarray(mel.transpose(1, 2).cpu().numpy().astype(np.float32))
+            path = os.path.join(output_dir, f"encoder_calib_{i:04d}.npy")
+            np.save(path, mel)
+            calib_paths.append(os.path.abspath(path))
         except Exception as e:
-            tqdm.write(f"  Error processing {audio_file}: {e}")
-            continue
+            tqdm.write(f"  Error processing {wav}: {e}")
 
-    calib_list_path = os.path.join(output_dir, "whisper_encoder_cali.txt")
-    with open(calib_list_path, "w") as f:
-        for calib_file in calibration_files:
-            f.write(f"{os.path.abspath(calib_file)}\n")
+    # ===== Write index file =====
+    list_path = os.path.join(output_dir, "whisper_encoder_cali.txt")
+    with open(list_path, "w") as f:
+        f.write("\n".join(calib_paths) + "\n")
 
-    print(f"Encoder calibration: {len(calibration_files)} files -> {calib_list_path}")
-    return calib_list_path
+    print(f"Encoder calibration: {len(calib_paths)} files -> {list_path}")
+    return list_path
 
 
-def generate_decoder_calibration_data(audio_dir, output_dir="./calibration_data/decoder", num_samples=1000):
-    """Generate calibration data for Whisper decoder.
+def build_decoder_sample(model, processor, audio_chunk, language, task):
+    """Transcribe/translate one chunk and return its (encoder, decoder) hidden states as float32.
 
-    Uses whisper-small to generate transcriptions and translations on-the-fly,
-    then creates decoder input embeddings (token + positional) as calibration data.
+    Returns None if generation produced no tokens.
     """
+    decoder = model.model.decoder
+    features = processor(audio_chunk, sampling_rate=16000, return_tensors="pt").input_features.to(model.device)
+    with torch.no_grad():
+        encoder_hidden = model.model.encoder(features).last_hidden_state
+        tokens = model.generate(features, language=language, task=task)[0]
+        if tokens.numel() == 0:
+            return None
+        decoder_hidden = decoder.embed_tokens(tokens[None]) + decoder.embed_positions(tokens[None])
+    return (
+        encoder_hidden.cpu().numpy().astype(np.float32),
+        decoder_hidden.cpu().numpy().astype(np.float32),
+    )
 
+
+def generate_decoder_calibration_data(model, processor, audio_dir, output_dir="./calibration_data/decoder", num_samples=1000):
+    """Save decoder input embeddings (token + positional) as calibration data.
+
+    Two independent knobs per clip:
+      - length: cut the clip to several prefixes (FRACTIONS_TO_USE) for diverse sequence lengths.
+      - task:   transcribe or translate each sample (20% translate, 80% transcribe).
+    """
     print("Generating decoder calibration data...")
     os.makedirs(output_dir, exist_ok=True)
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
-
-    model = WhisperForConditionalGeneration.from_pretrained("openai/whisper-small")
-    model = model.eval().to(device)
-    processor = WhisperProcessor.from_pretrained("openai/whisper-small")
-
-    audio_files = sorted(f for f in os.listdir(audio_dir) if f.endswith(".wav"))[:num_samples]
-    print(f"Processing {len(audio_files)} audio files...")
-
-    calibration_data = []
-
-    for i, audio_file in enumerate(tqdm(audio_files, desc="Decoder calibration", unit="file")):
-        audio_path = os.path.join(audio_dir, audio_file)
-
+    # ===== Build samples: length prefix (FRACTIONS_TO_USE) x task per clip =====
+    samples = []  # (decoder_path, encoder_path, task)
+    idx = 0
+    for wav in tqdm(list_wavs(audio_dir, num_samples), desc="Decoder calibration", unit="file"):
+        language = detect_language(wav)
+        if language is None:
+            tqdm.write(f"  Skipping {wav}: language not in mapping")
+            continue
         try:
-            # Determine language from filename
-            lang_code = None
-            for fleurs_lang in FLEURS_TO_WHISPER:
-                if audio_file.startswith(fleurs_lang):
-                    lang_code = FLEURS_TO_WHISPER[fleurs_lang]
-                    break
-
-            if lang_code is None:
-                tqdm.write(f"  Skipping {audio_file}: language not in mapping")
-                continue
-
-            audio_array, sampling_rate = librosa.load(audio_path, sr=16000)
-            inputs = processor(audio_array, sampling_rate=16000, return_tensors="pt")
-
-            # Get encoder output
-            with torch.no_grad():
-                encoder_output = model.model.encoder(inputs.input_features.to(device))
-                encoder_hidden_states = encoder_output.last_hidden_state.cpu().numpy().astype(np.float32)
-
-            # 20% translation, 80% transcription
-            # Reflects typical usage where transcription is the primary task.
-            # Adjust ratio based on deployment needs (e.g., 0.5 if translation is equally used).
-            use_translation = random.random() < 0.2
-            task = "translate" if use_translation else "transcribe"
-
-            with torch.no_grad():
-                generated_ids = model.generate(inputs.input_features.to(device), language=lang_code, task=task)
-            tokens = generated_ids[0].tolist()
-
-            # Skip if only special tokens were generated (no actual content)
-            if len(tokens) <= 4:
-                tqdm.write(f"  Skipping {audio_file}: no content generated")
-                continue
-
-            task_type = "translation_with_lang" if use_translation else "transcription_with_lang"
-
-            # Create decoder hidden states (token embeddings + positional embeddings)
-            # Uses generated token IDs directly to avoid decode→normalize→re-tokenize mismatch
-            tokens_tensor = torch.tensor([tokens], dtype=torch.long)
-            token_embeds = model.model.decoder.embed_tokens(tokens_tensor.to(device))
-            positions = model.model.decoder.embed_positions(tokens_tensor.to(device))
-            decoder_hidden_states = (token_embeds + positions).detach().cpu().numpy().astype(np.float32)
-
-            # Save calibration files
-            encoder_calib_path = os.path.join(
-                os.path.abspath(output_dir),
-                f"sample_{i:04d}",
-                "encoder_hidden_states.npy",
-            )
-            decoder_calib_path = os.path.join(
-                os.path.abspath(output_dir),
-                f"sample_{i:04d}",
-                "decoder_hidden_states.npy",
-            )
-
-            os.makedirs(os.path.dirname(encoder_calib_path), exist_ok=True)
-            np.save(encoder_calib_path, encoder_hidden_states)
-            np.save(decoder_calib_path, decoder_hidden_states)
-
-            calibration_data.append(
-                {
-                    "encoder_hidden_states": encoder_calib_path,
-                    "decoder_hidden_states": decoder_calib_path,
-                    "task_type": task_type,
-                }
-            )
-
+            audio, _ = librosa.load(os.path.join(audio_dir, wav), sr=16000)
         except Exception as e:
-            tqdm.write(f"  Error processing {audio_file}: {e}")
+            tqdm.write(f"  Error loading {wav}: {e}")
             continue
 
-    # Save calibration JSON
-    calib_json_path = os.path.join(output_dir, "whisper_decoder_calib.json")
+        for fraction in FRACTIONS_TO_USE:
+            # Use the first `fraction` of the clip (shorter prefix -> shorter transcript).
+            chunk = audio[: int(fraction * len(audio))]
+            # 20% translation, 80% transcription (transcription is the primary task).
+            task = "translate" if random.random() < 0.2 else "transcribe"
 
+            try:
+                hidden = build_decoder_sample(model, processor, chunk, language, task)
+            except Exception as e:
+                tqdm.write(f"  Error processing {wav} fraction={fraction}: {e}")
+                continue
+            if hidden is None:  # empty generation
+                continue
+            encoder_np, decoder_np = hidden
+            encoder_path, decoder_path = save_sample(output_dir, idx, encoder_np, decoder_np)
+            samples.append((decoder_path, encoder_path, task))
+            idx += 1
+
+    # ===== Write index file (info + calib paths) =====
+    d_model = model.config.d_model
     calib_json = {
         "info": {
             "input names": ["decoder_hidden_states", "encoder_hidden_states"],
-            "input shapes": [
-                [1, -1, 768],  # Dynamic shape for decoder
-                [1, 1500, 768],  # Fixed shape for encoder
-            ],
+            "input shapes": [[1, -1, d_model], [1, 1500, d_model]],  # decoder is dynamic, encoder fixed
         },
-        "calib paths": [[item["decoder_hidden_states"], item["encoder_hidden_states"]] for item in calibration_data],
+        "calib paths": [[decoder_path, encoder_path] for decoder_path, encoder_path, _ in samples],
     }
-
+    calib_json_path = os.path.join(output_dir, "whisper_decoder_calib.json")
     with open(calib_json_path, "w") as f:
         json.dump(calib_json, f, indent=2)
 
-    print(f"Decoder calibration: {len(calibration_data)} samples -> {calib_json_path}")
-
-    # Task distribution
+    print(f"Decoder calibration: {len(samples)} samples -> {calib_json_path}")
     task_counts = {}
-    for item in calibration_data:
-        task_counts[item["task_type"]] = task_counts.get(item["task_type"], 0) + 1
+    for _, _, task in samples:
+        task_counts[task] = task_counts.get(task, 0) + 1
     print(f"Task distribution: {task_counts}")
-
     return calib_json_path
 
 
-if __name__ == "__main__":
-    set_seed(42)
+def main():
     audio_dir = "./audio_files"
-
     if not os.path.exists(audio_dir):
         print(f"Audio directory not found: {audio_dir}")
         print("Please run prepare_audio.py first!")
-    else:
-        encoder_calib_path = generate_encoder_calibration_data(audio_dir)
-        decoder_calib_path = generate_decoder_calibration_data(audio_dir)
+        return
 
-        print(f"\nEncoder calibration: {encoder_calib_path}")
-        print(f"Decoder calibration: {decoder_calib_path}")
+    set_seed(42)
+    processor = WhisperProcessor.from_pretrained(BASE_MODEL)
+    model = WhisperForConditionalGeneration.from_pretrained(BASE_MODEL)
+    model = model.eval().to("cuda" if torch.cuda.is_available() else "cpu")
+
+    encoder_calib_path = generate_encoder_calibration_data(processor, audio_dir)
+    decoder_calib_path = generate_decoder_calibration_data(model, processor, audio_dir)
+
+    print(f"\nEncoder calibration: {encoder_calib_path}")
+    print(f"Decoder calibration: {decoder_calib_path}")
+
+
+if __name__ == "__main__":
+    main()
