@@ -25,12 +25,6 @@ def main():
         help="Path to the folder containing compiled MXQ models",
     )
     parser.add_argument(
-        "--model-id",
-        type=str,
-        default="mobilint/whisper-small",
-        help="HuggingFace model ID for processor download",
-    )
-    parser.add_argument(
         "--language",
         type=str,
         default=None,
@@ -52,16 +46,16 @@ def main():
     print(f"Loading model from {args.model_folder}...")
     model = AutoModelForSpeechSeq2Seq.from_pretrained(args.model_folder)
 
-    # Load processor from HuggingFace
-    processor = AutoProcessor.from_pretrained(args.model_id)
+    # Load processor from the same self-contained folder (trust_remote_code for the bundled config).
+    processor = AutoProcessor.from_pretrained(args.model_folder, trust_remote_code=True)
 
     # Load and preprocess audio (resample to 16kHz)
     print(f"Loading audio: {args.audio}")
     audio_array, _ = librosa.load(args.audio, sr=16000)
     input_features = processor(audio_array, sampling_rate=16000, return_tensors="pt").input_features
 
-    # Prepare generation kwargs
-    generate_kwargs = {"max_new_tokens": 444}
+    # Prepare generation kwargs (length is bounded by generation_config: max_length=448)
+    generate_kwargs = {}
     if args.language:
         generate_kwargs["language"] = args.language
     if args.task:
@@ -73,7 +67,7 @@ def main():
     with torch.no_grad():
         predicted_ids = model.generate(input_features, **generate_kwargs)
 
-    transcription = processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
+    transcription = processor.decode(predicted_ids[0], skip_special_tokens=True)
 
     # Clean up NPU resources
     model.model.encoder.dispose()
