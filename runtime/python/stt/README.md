@@ -20,10 +20,10 @@ pip install -r requirements.txt
 
 This tutorial uses `mblt-model-zoo` to run Whisper through a Hugging Face-style API. The runtime flow has two stages:
 
-1. Prepare a model folder from the compilation outputs.
+1. Prepare a self-contained model folder (download the HF repo, then swap in your compiled MXQ).
 2. Run transcription or translation on an audio file.
 
-The prepared model folder stores the encoder MXQ, decoder MXQ, embedding weights, generation config, and NPU core allocation settings in one place.
+The prepared folder is self-contained: it holds `config.json`, the bundled proxy classes, the tokenizer/processor, generation config, the encoder/decoder MXQ files, and `model.safetensors` (decoder embedding weights).
 
 ## Files in This Tutorial
 
@@ -35,18 +35,20 @@ The prepared model folder stores the encoder MXQ, decoder MXQ, embedding weights
 
 ```bash
 python prepare_model.py \
-    --encoder-mxq ../../../compilation/stt/mxq/whisper-small_encoder.mxq \
-    --decoder-mxq ../../../compilation/stt/mxq/whisper-small_decoder.mxq \
+    --repo-id mobilint/whisper-small \
+    --compilation-dir ../../../compilation/stt/mxq \
     --output-folder ./whisper-small-mxq \
-    --base-model openai/whisper-small
+    --force
 ```
 
 This script:
 
-- Copies the compiled encoder and decoder MXQ files
-- Downloads the base Whisper configuration
-- Extracts decoder embedding weights into `model.safetensors`
-- Writes `config.json` with default NPU core allocation
+- Downloads the Hugging Face repo via `huggingface_hub.snapshot_download` (self-contained `config.json`, proxy classes, tokenizer, generation config, and `model.safetensors`), skipping only the repo's own `.mxq`
+- Copies your compiled encoder and decoder `.mxq` from the compilation directory
+- Patches `config.json`'s `encoder_mxq_path` / `decoder_mxq_path` to the copied filenames (the repo's core allocation is kept)
+
+> No `git-lfs` needed — `snapshot_download` fetches real files (`huggingface_hub` is installed with `mblt-model-zoo[transformers]`).
+> Unlike the VLM flow, `model.safetensors` is kept from the repo: for Whisper it holds the decoder embedding weights (run on CPU), not a compilation output.
 
 ## Step 2: Run Inference
 
@@ -70,7 +72,7 @@ The script loads audio with `librosa`, resamples it to `16 kHz`, runs generation
 
 ## NPU Core Modes
 
-The generated `config.json` can be edited to change encoder and decoder core allocation.
+The model folder's `config.json` (from the downloaded repo, which defaults to `global8`) can be edited to change encoder and decoder core allocation.
 
 | Mode | Description | Example encoder fields |
 | --- | --- | --- |
@@ -85,11 +87,10 @@ Use the same pattern for the decoder with the `decoder_` prefix.
 
 ### `prepare_model.py`
 
-- `--encoder-mxq`: Path to the compiled encoder MXQ file.
-- `--decoder-mxq`: Path to the compiled decoder MXQ file.
-- `--output-folder`: Destination folder for the prepared model.
-- `--base-model`: Hugging Face base model ID used for config and embedding extraction.
-- `--model-id`: Hugging Face model ID stored in the prepared config.
+- `--repo-id`: Hugging Face repo id to download (self-contained config, proxy classes, tokenizer, embeddings).
+- `--compilation-dir`: Path to the compilation output directory holding the 2 `.mxq` (encoder and decoder).
+- `--output-folder`: Destination folder (downloaded repo with the compiled MXQ swapped in).
+- `--force`: Remove `--output-folder` first if it already exists.
 
 ### `inference_mblt_model_zoo.py`
 

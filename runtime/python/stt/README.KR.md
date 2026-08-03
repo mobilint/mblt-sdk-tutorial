@@ -20,10 +20,10 @@ pip install -r requirements.txt
 
 이 튜토리얼은 `mblt-model-zoo`를 사용해 Hugging Face 스타일 API로 Whisper를 실행합니다. 런타임 흐름은 두 단계로 구성됩니다.
 
-1. 컴파일 결과로부터 모델 폴더를 준비합니다.
+1. 자체 포함형 모델 폴더를 준비합니다(HF repo를 다운로드한 뒤 컴파일한 MXQ로 교체).
 2. 오디오 파일에 대해 전사 또는 번역을 실행합니다.
 
-준비된 모델 폴더에는 인코더 MXQ, 디코더 MXQ, 임베딩 가중치, generation config, NPU 코어 할당 설정이 함께 저장됩니다.
+준비된 폴더는 자체 포함형입니다. `config.json`, 번들 proxy 클래스, tokenizer/processor, generation config, 인코더/디코더 MXQ 파일, 그리고 `model.safetensors`(디코더 임베딩 가중치)를 함께 담습니다.
 
 ## 이 튜토리얼의 파일
 
@@ -35,18 +35,20 @@ pip install -r requirements.txt
 
 ```bash
 python prepare_model.py \
-    --encoder-mxq ../../../compilation/stt/mxq/whisper-small_encoder.mxq \
-    --decoder-mxq ../../../compilation/stt/mxq/whisper-small_decoder.mxq \
+    --repo-id mobilint/whisper-small \
+    --compilation-dir ../../../compilation/stt/mxq \
     --output-folder ./whisper-small-mxq \
-    --base-model openai/whisper-small
+    --force
 ```
 
 이 스크립트는 다음 작업을 수행합니다.
 
-- 컴파일된 인코더와 디코더 MXQ 파일 복사
-- 기본 Whisper 설정 다운로드
-- 디코더 임베딩 가중치를 `model.safetensors`로 추출
-- 기본 NPU 코어 할당이 포함된 `config.json` 작성
+- `huggingface_hub.snapshot_download`로 Hugging Face repo 다운로드(자체 포함형 `config.json`, proxy 클래스, tokenizer, generation config, `model.safetensors`), repo 자체의 `.mxq`만 제외
+- 컴파일한 인코더와 디코더 `.mxq`를 컴파일 디렉터리에서 복사
+- `config.json`의 `encoder_mxq_path` / `decoder_mxq_path`를 복사한 파일명으로 패치(repo의 코어 할당은 유지)
+
+> `git-lfs`가 필요 없습니다 — `snapshot_download`가 실제 파일을 받습니다(`huggingface_hub`는 `mblt-model-zoo[transformers]`와 함께 설치됨).
+> VLM 흐름과 달리 `model.safetensors`는 repo의 것을 그대로 유지합니다. Whisper에서는 이 파일이 디코더 임베딩 가중치(CPU에서 실행)로, 컴파일 산출물이 아닙니다.
 
 ## Step 2: 추론 실행
 
@@ -70,7 +72,7 @@ python inference_mblt_model_zoo.py --audio audio.wav --model-folder ./whisper-sm
 
 ## NPU 코어 모드
 
-생성된 `config.json`을 편집해 인코더와 디코더의 코어 할당을 바꿀 수 있습니다.
+모델 폴더의 `config.json`(다운로드한 repo 기준, 기본값 `global8`)을 편집해 인코더와 디코더의 코어 할당을 바꿀 수 있습니다.
 
 | 모드 | 설명 | 예시 인코더 필드 |
 | --- | --- | --- |
@@ -85,11 +87,10 @@ python inference_mblt_model_zoo.py --audio audio.wav --model-folder ./whisper-sm
 
 ### `prepare_model.py`
 
-- `--encoder-mxq`: 컴파일된 인코더 MXQ 파일 경로
-- `--decoder-mxq`: 컴파일된 디코더 MXQ 파일 경로
-- `--output-folder`: 준비된 모델 저장 폴더
-- `--base-model`: 설정과 임베딩 추출에 사용할 Hugging Face 기본 모델 ID
-- `--model-id`: 준비된 설정 파일에 저장할 Hugging Face 모델 ID
+- `--repo-id`: 다운로드할 Hugging Face repo id(자체 포함형 config, proxy 클래스, tokenizer, 임베딩)
+- `--compilation-dir`: 2개의 `.mxq`(인코더와 디코더)가 있는 컴파일 출력 디렉터리 경로
+- `--output-folder`: 대상 폴더(다운로드한 repo에 컴파일한 MXQ를 교체해 넣음)
+- `--force`: 대상 폴더가 이미 있으면 먼저 삭제
 
 ### `inference_mblt_model_zoo.py`
 
