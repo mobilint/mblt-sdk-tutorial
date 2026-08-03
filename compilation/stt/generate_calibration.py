@@ -31,6 +31,15 @@ FLEURS_TO_WHISPER = {
 }
 
 
+def set_seed(seed: int = 42) -> None:
+    """Seed all RNGs so file selection and the translate/transcribe split are reproducible."""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
 def generate_encoder_calibration_data(audio_dir, output_dir="./calibration_data/encoder", num_samples=1000):
     """Generate calibration data for Whisper encoder."""
 
@@ -39,7 +48,7 @@ def generate_encoder_calibration_data(audio_dir, output_dir="./calibration_data/
 
     processor = WhisperProcessor.from_pretrained("openai/whisper-small")
 
-    audio_files = [f for f in os.listdir(audio_dir) if f.endswith(".wav")][:num_samples]
+    audio_files = sorted(f for f in os.listdir(audio_dir) if f.endswith(".wav"))[:num_samples]
     print(f"Processing {len(audio_files)} audio files...")
 
     calibration_files = []
@@ -90,7 +99,7 @@ def generate_decoder_calibration_data(audio_dir, output_dir="./calibration_data/
     model = model.eval().to(device)
     processor = WhisperProcessor.from_pretrained("openai/whisper-small")
 
-    audio_files = [f for f in os.listdir(audio_dir) if f.endswith(".wav")][:num_samples]
+    audio_files = sorted(f for f in os.listdir(audio_dir) if f.endswith(".wav"))[:num_samples]
     print(f"Processing {len(audio_files)} audio files...")
 
     calibration_data = []
@@ -163,9 +172,6 @@ def generate_decoder_calibration_data(audio_dir, output_dir="./calibration_data/
                     "encoder_hidden_states": encoder_calib_path,
                     "decoder_hidden_states": decoder_calib_path,
                     "task_type": task_type,
-                    "source_language": lang_code,
-                    "use_translation": use_translation,
-                    "decoded_tokens": processor.tokenizer.decode(tokens),
                 }
             )
 
@@ -185,13 +191,10 @@ def generate_decoder_calibration_data(audio_dir, output_dir="./calibration_data/
             ],
         },
         "calib paths": [[item["decoder_hidden_states"], item["encoder_hidden_states"]] for item in calibration_data],
-        "metadata": calibration_data,
     }
 
     with open(calib_json_path, "w") as f:
         json.dump(calib_json, f, indent=2)
-    with open(calib_json_path.replace(".json", "_metadata.json"), "w") as f:
-        json.dump([item["decoded_tokens"] for item in calibration_data], f, indent=2)
 
     print(f"Decoder calibration: {len(calibration_data)} samples -> {calib_json_path}")
 
@@ -205,6 +208,7 @@ def generate_decoder_calibration_data(audio_dir, output_dir="./calibration_data/
 
 
 if __name__ == "__main__":
+    set_seed(42)
     audio_dir = "./audio_files"
 
     if not os.path.exists(audio_dir):

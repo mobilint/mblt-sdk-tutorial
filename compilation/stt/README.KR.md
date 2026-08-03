@@ -68,7 +68,7 @@ python generate_calibration.py
   - `whisper_encoder_cali.txt` - 캘리브레이션 파일 경로 목록
   - `encoder_calib_*.npy` - 개별 캘리브레이션 샘플
 - `./calibration_data/decoder/` - 디코더 캘리브레이션 데이터
-  - `whisper_decoder_calib.json` - 캘리브레이션 메타데이터 및 경로
+  - `whisper_decoder_calib.json` - 입력 정보 및 캘리브레이션 경로
   - `sample_*/encoder_hidden_states.npy` - 인코더 출력
   - `sample_*/decoder_hidden_states.npy` - 디코더 입력
 

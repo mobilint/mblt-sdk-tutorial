@@ -1,13 +1,20 @@
 """Download FLEURS audio data for calibration."""
 
 import os
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from itertools import islice
 
-import librosa
-import soundfile as sf
-from datasets import load_dataset
-from tqdm import tqdm
+# Must run before importing datasets/huggingface_hub: these timeout constants are read
+# from the env at import time. The 10s default times out slow reads and spams backoff
+# retries; raise it.
+os.environ.setdefault("HF_HUB_DOWNLOAD_TIMEOUT", "60")
+os.environ.setdefault("HF_HUB_ETAG_TIMEOUT", "30")
+
+from concurrent.futures import ThreadPoolExecutor, as_completed  # noqa: E402
+from itertools import islice  # noqa: E402
+
+import librosa  # noqa: E402
+import soundfile as sf  # noqa: E402
+from datasets import load_dataset  # noqa: E402
+from tqdm import tqdm  # noqa: E402
 
 FLEURS_LANGUAGES: list[str] = [
     "ar_eg",  # Arabic (Egypt)
@@ -31,19 +38,18 @@ FLEURS_LANGUAGES: list[str] = [
 
 
 def download_one_language(lang: str, audio_dir: str, num_samples_per_lang: int) -> int:
-    """Stream one FLEURS language and save WAV files into ``audio_dir`` as a flat layout.
+    """Stream one FLEURS language into ``audio_dir`` as ``{lang}_{i:04d}.wav`` (16 kHz).
 
-    Samples whose WAV file already exists are skipped (idempotent). Audio that is
-    not 16 kHz is resampled with ``librosa.resample`` before being written.
-
-    Args:
-        lang: FLEURS language code (e.g. ``ko_kr``).
-        audio_dir: Directory where ``{lang}_{i:04d}.wav`` files are saved.
-        num_samples_per_lang: Number of samples to fetch.
-
-    Returns:
-        Count of WAV files newly written to disk (skipped files excluded).
+    Idempotent: skips existing files, and skips the network if already complete.
+    Returns the number of newly written files.
     """
+    # Skip the network if this language is already complete.
+    if all(
+        os.path.isfile(os.path.join(audio_dir, f"{lang}_{i:04d}.wav"))
+        for i in range(num_samples_per_lang)
+    ):
+        return 0
+
     new_count = 0
     try:
         dataset = load_dataset(
@@ -74,22 +80,12 @@ def download_fleurs_data(
     output_dir: str = ".",
     languages: list[str] = FLEURS_LANGUAGES,
     num_samples_per_lang: int = 20,
-    n_workers: int = 8,
+    n_workers: int = 4,
 ) -> str:
-    """Download FLEURS audio into ``audio_files/`` with a flat layout.
+    """Download FLEURS audio into ``audio_files/`` (flat layout), one thread per language.
 
-    Languages are fetched concurrently via ``ThreadPoolExecutor`` (max_workers=n_workers).
-    Each per-language streaming iterator is consumed by a single thread and stays
-    thread-safe. On re-run, samples whose WAV file already exists are skipped.
-
-    Args:
-        output_dir: Parent directory in which ``audio_files/`` is created.
-        languages: FLEURS language codes to fetch.
-        num_samples_per_lang: Samples per language.
-        n_workers: Maximum number of languages downloaded concurrently.
-
-    Returns:
-        Path to the ``audio_files`` directory.
+    A modest ``n_workers`` is intentional: too many concurrent streams saturate the link
+    and cause read timeouts. Existing files are skipped on re-run.
     """
     print(
         f"Downloading FLEURS data: {len(languages)} languages, "
@@ -122,7 +118,6 @@ if __name__ == "__main__":
     print("\nData download complete!")
     print(f"Audio files: {audio_dir}")
 
-    # Skip Python finalization to avoid PyGILState_Release crash
-    # caused by lingering PyArrow/aiohttp threads from streaming datasets.
-    # See: https://github.com/huggingface/datasets/issues/7357
+    # Skip finalization to avoid a PyGILState_Release crash from lingering streaming
+    # threads. See https://github.com/huggingface/datasets/issues/7357
     os._exit(0)
