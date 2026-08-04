@@ -68,7 +68,7 @@ python generate_calibration.py
   - `whisper_encoder_cali.txt` - List of calibration file paths
   - `encoder_calib_*.npy` - Individual calibration samples
 - `./calibration_data/decoder/` - Decoder calibration data
-  - `whisper_decoder_calib.json` - Calibration metadata and paths
+  - `whisper_decoder_calib.json` - Input info and calibration paths
   - `sample_*/encoder_hidden_states.npy` - Encoder outputs
   - `sample_*/decoder_hidden_states.npy` - Decoder inputs
 

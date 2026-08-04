@@ -1,6 +1,6 @@
 import argparse
 
-import librosa
+import soundfile as sf
 
 # Register mblt-model-zoo's Whisper model with HuggingFace AutoModel.
 # This single import enables AutoModelForSpeechSeq2Seq.from_pretrained()
@@ -25,12 +25,6 @@ def main():
         help="Path to the folder containing compiled MXQ models",
     )
     parser.add_argument(
-        "--model-id",
-        type=str,
-        default="mobilint/whisper-small",
-        help="HuggingFace model ID for processor download",
-    )
-    parser.add_argument(
         "--language",
         type=str,
         default=None,
@@ -52,16 +46,24 @@ def main():
     print(f"Loading model from {args.model_folder}...")
     model = AutoModelForSpeechSeq2Seq.from_pretrained(args.model_folder)
 
-    # Load processor from HuggingFace
-    processor = AutoProcessor.from_pretrained(args.model_id)
+    # Load processor from the same self-contained folder (trust_remote_code for the bundled config).
+    processor = AutoProcessor.from_pretrained(args.model_folder, trust_remote_code=True)
 
-    # Load and preprocess audio (resample to 16kHz)
+    # Load audio with soundfile (the mblt-model-zoo audio path). Whisper's feature extractor
+    # only accepts 16 kHz mono; fail clearly if the input is a different rate.
     print(f"Loading audio: {args.audio}")
-    audio_array, _ = librosa.load(args.audio, sr=16000)
+    audio_array, sampling_rate = sf.read(args.audio, dtype="float32")
+    if sampling_rate != 16000:
+        raise ValueError(
+            f"Audio sample rate is {sampling_rate} Hz, but Whisper requires 16000 Hz. "
+            f"Resample it to 16 kHz first, e.g. `ffmpeg -i {args.audio} -ar 16000 out.wav`."
+        )
+    if audio_array.ndim > 1:
+        audio_array = audio_array.mean(axis=1)
     input_features = processor(audio_array, sampling_rate=16000, return_tensors="pt").input_features
 
-    # Prepare generation kwargs
-    generate_kwargs = {"max_new_tokens": 444}
+    # Prepare generation kwargs (length is bounded by generation_config: max_length=448)
+    generate_kwargs = {}
     if args.language:
         generate_kwargs["language"] = args.language
     if args.task:
@@ -73,7 +75,7 @@ def main():
     with torch.no_grad():
         predicted_ids = model.generate(input_features, **generate_kwargs)
 
-    transcription = processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
+    transcription = processor.decode(predicted_ids[0], skip_special_tokens=True)
 
     # Clean up NPU resources
     model.model.encoder.dispose()
