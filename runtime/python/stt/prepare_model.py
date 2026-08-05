@@ -1,167 +1,116 @@
 import argparse
+import glob
 import json
 import os
 import shutil
 
-import torch
-from safetensors.torch import save_file
-from transformers import (
-    GenerationConfig,
-    WhisperConfig,
-    WhisperForConditionalGeneration,
-)
+from huggingface_hub import snapshot_download
+
+DEFAULT_REPO_ID = "mobilint/whisper-small"
 
 
-def prepare_model_folder(
-    encoder_mxq_path: str,
-    decoder_mxq_path: str,
-    output_folder: str,
-    base_model: str = "openai/whisper-small",
-    model_id: str = "mobilint/whisper-small",
-):
+def download_repo(repo_id: str, output_folder: str, force: bool) -> None:
+    """Download the self-contained HF repo, skipping only its `.mxq` (swapped in next step).
     """
-    Prepare a model folder with proper configuration for MXQ inference.
+    if os.path.exists(output_folder):
+        if not force:
+            raise FileExistsError(
+                f"{output_folder} already exists. Use --force to remove and re-download."
+            )
+        print(f"Removing existing folder: {output_folder}")
+        shutil.rmtree(output_folder)
 
-    Args:
-        encoder_mxq_path: Path to the compiled encoder MXQ file
-        decoder_mxq_path: Path to the compiled decoder MXQ file
-        output_folder: Output folder to create with all necessary files
-        base_model: HuggingFace model ID for base configuration and embedding extraction
-        model_id: HuggingFace model ID for mblt-model-zoo (stored in config._name_or_path)
+    print(f"Downloading {repo_id} -> {output_folder}")
+    snapshot_download(
+        repo_id=repo_id,
+        local_dir=output_folder,
+        ignore_patterns=["*.mxq"],
+    )
+
+
+def replace_artifacts(compilation_dir: str, output_folder: str) -> tuple[str, str]:
+    """Swap in the compiled encoder/decoder MXQ (removing stale `.mxq` first).
+
+    Returns (encoder_mxq, decoder_mxq) filenames.
     """
-    print(f"Preparing model folder: {output_folder}")
+    for path in glob.glob(os.path.join(output_folder, "*.mxq")):
+        print(f"Removing old artifact: {os.path.basename(path)}")
+        os.remove(path)
 
-    # Create output folder
-    os.makedirs(output_folder, exist_ok=True)
+    mxq_files = sorted(f for f in os.listdir(compilation_dir) if f.endswith(".mxq"))
+    if len(mxq_files) < 2:
+        raise FileNotFoundError(f"Expected 2 .mxq in {compilation_dir}, found {mxq_files}")
 
-    # Copy MXQ files to output folder
-    encoder_filename = os.path.basename(encoder_mxq_path)
-    decoder_filename = os.path.basename(decoder_mxq_path)
+    encoder_mxq = next((f for f in mxq_files if "encoder" in f.lower()), None)
+    decoder_mxq = next((f for f in mxq_files if "decoder" in f.lower()), None)
+    if encoder_mxq is None or decoder_mxq is None:
+        raise ValueError(f"Could not classify encoder/decoder MXQ from {mxq_files}")
 
-    print(f"Copying encoder MXQ: {encoder_mxq_path}")
-    shutil.copy(encoder_mxq_path, os.path.join(output_folder, encoder_filename))
+    for filename in (encoder_mxq, decoder_mxq):
+        print(f"Copying: {filename}")
+        shutil.copy(os.path.join(compilation_dir, filename), os.path.join(output_folder, filename))
 
-    print(f"Copying decoder MXQ: {decoder_mxq_path}")
-    shutil.copy(decoder_mxq_path, os.path.join(output_folder, decoder_filename))
+    return encoder_mxq, decoder_mxq
 
-    # Load base configuration
-    print(f"Loading base configuration from {base_model}...")
-    base_config = WhisperConfig.from_pretrained(base_model)
 
-    # Create Mobilint Whisper configuration
-    config_dict = base_config.to_dict()
-    config_dict["_name_or_path"] = model_id
-    config_dict["model_type"] = "mobilint-whisper"
-    config_dict["encoder_mxq_path"] = encoder_filename
-    config_dict["decoder_mxq_path"] = decoder_filename
-    config_dict["dev_no"] = 0
-    # NPU core allocation for mblt-model-zoo inference.
-    # Format: "cluster:core" (e.g., "0:0" = Cluster0, Core0)
-    # Required when MXQ is compiled with inference_scheme="all".
-    #
-    # Available core modes (same fields apply to decoder with decoder_ prefix):
-    #   single: encoder_target_cores=["0:0"]    — Cluster 0, Core 0 (default)
-    #           encoder_target_cores=["0:1"]    — Cluster 0, Core 1
-    #           encoder_target_cores=["0:3"]    — Cluster 0, Core 3
-    #           encoder_target_cores=["1:0"]    — Cluster 1, Core 0
-    #   multi:   encoder_core_mode="multi",   encoder_target_clusters=[0]
-    #   global4: encoder_core_mode="global4", encoder_target_clusters=[0]
-    #   global8: encoder_core_mode="global8", encoder_target_clusters=[0, 1]
-    config_dict["encoder_target_cores"] = ["0:0"]
-    config_dict["decoder_target_cores"] = ["0:0"]
-    config_dict["architectures"] = ["MobilintWhisperForConditionalGeneration"]
-
-    # Save configuration
+def patch_config(output_folder: str, encoder_mxq: str, decoder_mxq: str) -> None:
+    """Point config.json's mxq paths at the copied files; keep the repo's core allocation."""
     config_path = os.path.join(output_folder, "config.json")
-    print(f"Saving configuration to {config_path}")
+    with open(config_path) as f:
+        config = json.load(f)
+
+    config["encoder_mxq_path"] = encoder_mxq
+    config["decoder_mxq_path"] = decoder_mxq
+
     with open(config_path, "w") as f:
-        json.dump(config_dict, f, indent=2)
+        json.dump(config, f, indent=4)
+    print(f"Patched config.json: encoder_mxq_path={encoder_mxq}, decoder_mxq_path={decoder_mxq}")
 
-    # Save generation config
-    gen_config = GenerationConfig.from_pretrained(base_model)
-    gen_config.save_pretrained(output_folder)
 
-    # Extract and save embedding weights from the base model
-    print(f"Extracting embedding weights from {base_model}...")
-    base_model_obj = WhisperForConditionalGeneration.from_pretrained(base_model, dtype=torch.float32)
+def prepare_model_folder(repo_id: str, compilation_dir: str, output_folder: str, force: bool) -> None:
+    """Build a self-contained model folder: download repo, swap in compiled MXQ, patch config."""
+    download_repo(repo_id, output_folder, force)
+    encoder_mxq, decoder_mxq = replace_artifacts(compilation_dir, output_folder)
+    patch_config(output_folder, encoder_mxq, decoder_mxq)
 
-    # Get decoder embedding weights and positional embeddings
-    embed_tokens_weight = base_model_obj.model.decoder.embed_tokens.weight.data
-    embed_positions_weight = base_model_obj.model.decoder.embed_positions.weight.data
-
-    # Save only the embedding weights to safetensors
-    embedding_tensors = {
-        "model.decoder.embed_tokens.weight": embed_tokens_weight,
-        "model.decoder.embed_positions.weight": embed_positions_weight,
-    }
-
-    safetensors_path = os.path.join(output_folder, "model.safetensors")
-    print(f"Saving embedding weights to {safetensors_path}")
-    save_file(embedding_tensors, safetensors_path)
-
-    # Clean up to free memory
-    del base_model_obj
-
-    print(f"\nModel folder prepared successfully: {output_folder}")
-    print("\nFiles in output folder:")
-    for f in sorted(os.listdir(output_folder)):
-        filepath = os.path.join(output_folder, f)
-        size = os.path.getsize(filepath)
+    print(f"\nModel folder prepared: {output_folder}")
+    print("Contents:")
+    for name in sorted(os.listdir(output_folder)):
+        path = os.path.join(output_folder, name)
+        if os.path.isdir(path):
+            continue
+        size = os.path.getsize(path)
         if size > 1024 * 1024:
-            print(f"  {f} ({size / 1024 / 1024:.2f} MB)")
+            print(f"  {name} ({size / 1024 / 1024:.2f} MB)")
         elif size > 1024:
-            print(f"  {f} ({size / 1024:.2f} KB)")
+            print(f"  {name} ({size / 1024:.2f} KB)")
         else:
-            print(f"  {f} ({size} bytes)")
+            print(f"  {name} ({size} bytes)")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Prepare Model Folder for Whisper MXQ Inference")
-    parser.add_argument(
-        "--encoder-mxq",
-        type=str,
-        default="../../../compilation/stt/mxq/whisper-small_encoder.mxq",
-        help="Path to the compiled encoder MXQ file",
-    )
-    parser.add_argument(
-        "--decoder-mxq",
-        type=str,
-        default="../../../compilation/stt/mxq/whisper-small_decoder.mxq",
-        help="Path to the compiled decoder MXQ file",
-    )
-    parser.add_argument(
-        "--output-folder",
-        type=str,
-        default="./whisper-small-mxq",
-        help="Output folder to create with all necessary files",
-    )
-    parser.add_argument(
-        "--base-model",
-        type=str,
-        default="openai/whisper-small",
-        help="HuggingFace model ID for base configuration and embedding extraction",
-    )
-    parser.add_argument(
-        "--model-id",
-        type=str,
-        default="mobilint/whisper-small",
-        help="HuggingFace model ID for mblt-model-zoo (stored in config._name_or_path)",
-    )
-
+    parser = argparse.ArgumentParser(description="Prepare a self-contained Whisper MXQ model folder")
+    parser.add_argument("--repo-id", type=str, default=DEFAULT_REPO_ID,
+                        help="HuggingFace repo id to download (self-contained config/proxy/tokenizer/embeddings).")
+    parser.add_argument("--compilation-dir", type=str, default="../../../compilation/stt/mxq",
+                        help="Compilation output dir holding the 2 .mxq (encoder and decoder).")
+    parser.add_argument("--output-folder", type=str, default="./whisper-small-mxq",
+                        help="Destination folder (downloaded repo + swapped-in compiled artifacts).")
+    parser.add_argument("--force", action="store_true",
+                        help="Remove output-folder first if it already exists.")
     args = parser.parse_args()
 
-    if not os.path.exists(args.encoder_mxq):
-        raise FileNotFoundError(f"Encoder MXQ file not found: {args.encoder_mxq}")
-
-    if not os.path.exists(args.decoder_mxq):
-        raise FileNotFoundError(f"Decoder MXQ file not found: {args.decoder_mxq}")
+    if not os.path.exists(args.compilation_dir):
+        raise FileNotFoundError(
+            f"Compilation directory not found: {args.compilation_dir}\n"
+            f"Please run the compilation tutorial first."
+        )
 
     prepare_model_folder(
-        encoder_mxq_path=args.encoder_mxq,
-        decoder_mxq_path=args.decoder_mxq,
+        repo_id=args.repo_id,
+        compilation_dir=args.compilation_dir,
         output_folder=args.output_folder,
-        base_model=args.base_model,
-        model_id=args.model_id,
+        force=args.force,
     )
 
     print("\nYou can now run inference with:")
