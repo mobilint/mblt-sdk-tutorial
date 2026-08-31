@@ -31,7 +31,7 @@ git clone https://github.com/facebookresearch/sam2.git /workspace/sam2
 pip install -e /workspace/sam2
 ```
 
-If you prefer not to install it, clone it anywhere and pass the path with `--sam2-root` instead.
+If you prefer not to install the package itself, clone it anywhere and pass the path with `--sam2-root`. That only puts the checkout on `sys.path`, so you still need its dependencies installed (`pip install -r /path/to/sam2/requirements.txt`, or `pip install -e` it); otherwise importing `sam2.sam2_image_predictor` fails.
 
 The SAM2 checkpoint is downloaded from Hugging Face on first use, so the calibration host needs network access or a warm Hugging Face cache.
 
@@ -159,7 +159,7 @@ subgraph 0  host bridge   11 ops   output-token concat, image_embeddings + dense
 subgraph 1  NPU body     168 ops   TwoWayTransformer, upscaling, hypernetwork/IoU heads
 ```
 
-That split is the same one the tutorial would otherwise perform by hand. The prompt axis is marked dynamic on `sparse_prompt_embeddings`, so one decoder serves any point count.
+That split is the same one the tutorial would otherwise perform by hand. The prompt axis is marked dynamic on `sparse_prompt_embeddings`, so the decoder is not frozen to the prompt size it was traced with. This tutorial exercises 1-3 points, which is what `--point-mix` calibrates and what `inference_mxq.py` accepts.
 
 Outputs:
 
@@ -273,10 +273,7 @@ Without this the compiled decoder is fixed to a single prompt length and rejects
 
 ### Deferring the Decoder Manifest
 
-The decoder manifest is keyed by the input names the quantizer sees, and those are the **post-parse** names, not the names in an ONNX file. `--decoder-model` therefore accepts either form and always resolves the contract the same way the compile will:
-
-- a `.mblt` is read directly, as before;
-- a `.onnx` from `sam2_export_onnx.py` is parsed with the same parser configuration the compile uses (weights skipped), and the resulting graph's input names are used.
+The decoder manifest is keyed by the input names the quantizer sees, and those are the **post-parse** names read from the decoder `.mblt` that `sam2_decoder_to_mblt.py` produces. There is no decoder ONNX: the decoder never takes that route.
 
 Decoder tensor generation does not need the model at all: the tensors come from the official FP32 host path and are keyed by semantic role, not by model input name. Only the manifest needs the decoder MBLT, to record its input names. `--defer-manifest` splits the two, which is useful when the tensors are ready before a parseable decoder is:
 
@@ -324,7 +321,7 @@ Run the compilation:
 python model_compile.py --target-device aries-rb
 ```
 
-`--part` selects which models to compile. While the decoder cannot be parsed, compile the encoder on its own; the decoder manifest check is skipped along with it:
+`--part` selects which models to compile. It defaults to `both`; naming one compiles just that model, and skipping the decoder skips its manifest check along with it:
 
 ```bash
 python model_compile.py --part encoder
@@ -378,7 +375,7 @@ but found at least two devices, cpu and cuda:0!
 - `--decoder-samples`: number of decoder samples. Default: `300`.
 - `--point-mix`: point counts cycled across decoder samples. Default: `1,2,3`.
 - `--encoder-skip-videos`, `--decoder-skip-videos`: shuffled videos to skip, keeping the two sets disjoint. Defaults: `600` and `800`.
-- `--decoder-model`: decoder `.mblt` or `.onnx` whose post-parse input names the manifest must match.
+- `--decoder-model`: decoder `.mblt` from `sam2_decoder_to_mblt.py` whose post-parse input names the manifest must match.
 - `--defer-manifest`: generate decoder tensors without emitting the manifest.
 - `--stage manifest`: emit the manifest from previously saved tensors and `--decoder-model`.
 - `--decoder-input-bindings`: MBLT input name to semantic role map. Default: `./decoder_input_bindings.json`.

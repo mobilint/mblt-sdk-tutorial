@@ -66,7 +66,8 @@ def parse_args() -> argparse.Namespace:
         "--videos",
         type=int,
         default=120,
-        help="Videos to keep. The defaults need 16 for the encoder and 75 for the decoder.",
+        help="Videos to keep. The default ranges are positional and need 100: encoder 0-31, "
+        "decoder 36-95, with four-video gaps. Anything beyond that is the evaluation reserve.",
     )
     p.add_argument(
         "--frames-per-video",

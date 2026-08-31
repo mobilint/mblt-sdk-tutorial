@@ -31,7 +31,7 @@ git clone https://github.com/facebookresearch/sam2.git /workspace/sam2
 pip install -e /workspace/sam2
 ```
 
-설치하지 않으려면 원하는 위치에 clone한 뒤 `--sam2-root`로 경로를 전달하십시오.
+패키지 자체를 설치하지 않으려면 원하는 위치에 clone한 뒤 `--sam2-root`로 경로를 전달하십시오. 이 옵션은 checkout을 `sys.path`에 추가할 뿐이므로 의존성은 따로 설치해야 합니다(`pip install -r /path/to/sam2/requirements.txt` 또는 `pip install -e`). 그렇지 않으면 `sam2.sam2_image_predictor` import가 실패합니다.
 
 SAM2 체크포인트는 최초 실행 시 Hugging Face에서 다운로드되므로, 캘리브레이션 호스트에는 네트워크 접근 또는 미리 준비된 Hugging Face 캐시가 필요합니다.
 
@@ -159,7 +159,7 @@ subgraph 0  host bridge    11 ops   출력 토큰 concat, image_embeddings + den
 subgraph 1  NPU body      168 ops   TwoWayTransformer, 업스케일링, hypernetwork/IoU head
 ```
 
-이 분할은 원래 튜토리얼이 손으로 하던 것과 동일합니다. 프롬프트 축은 `sparse_prompt_embeddings`에 동적으로 표시되므로 하나의 디코더가 임의의 포인트 개수를 처리합니다.
+이 분할은 원래 튜토리얼이 손으로 하던 것과 동일합니다. 프롬프트 축은 `sparse_prompt_embeddings`에 동적으로 표시되므로 디코더가 추적 당시의 프롬프트 크기에 고정되지 않습니다. 이 튜토리얼이 다루는 범위는 1~3 포인트이며, `--point-mix`가 캘리브레이션하고 `inference_mxq.py`가 받아들이는 범위와 같습니다.
 
 출력:
 
@@ -273,6 +273,8 @@ if len(set(points_per_sample)) > 1:
 
 ### 디코더 manifest 미루기
 
+디코더 manifest는 quantizer가 보는 input name을 기준으로 하며, 이는 `sam2_decoder_to_mblt.py`가 만든 디코더 `.mblt`에서 읽는 **post-parse** 이름입니다. 디코더 ONNX는 존재하지 않습니다. 디코더는 그 경로를 거치지 않습니다.
+
 디코더 텐서 생성에는 모델이 전혀 필요하지 않습니다. 텐서는 공식 FP32 호스트 경로에서 생성되고 model input name이 아니라 semantic role로 저장되기 때문입니다. 모델이 필요한 것은 input name을 기록하는 manifest뿐입니다. `--defer-manifest`가 이 둘을 분리하며, 파싱 가능한 디코더보다 텐서가 먼저 준비된 경우에 유용합니다:
 
 ```bash
@@ -321,7 +323,7 @@ if info.get("input names") != model_inputs:
 python model_compile.py --target-device aries-rb
 ```
 
-`--part`로 컴파일할 모델을 선택합니다. 디코더를 파싱할 수 없는 동안에는 인코더만 컴파일하십시오. 디코더 manifest 검증도 함께 생략됩니다:
+`--part`로 컴파일할 모델을 선택합니다. 기본값은 `both`이며, 하나만 지정하면 그 모델만 컴파일합니다. 디코더를 건너뛰면 디코더 manifest 검증도 함께 생략됩니다:
 
 ```bash
 python model_compile.py --part encoder
@@ -375,7 +377,7 @@ but found at least two devices, cpu and cuda:0!
 - `--decoder-samples`: 디코더 샘플 개수. 기본값: `300`.
 - `--point-mix`: 디코더 샘플에 순환 적용할 포인트 개수. 기본값: `1,2,3`.
 - `--encoder-skip-videos`, `--decoder-skip-videos`: 두 세트를 분리하기 위해 건너뛸 비디오 수. 기본값: `600`, `800`.
-- `--decoder-model`: manifest가 post-parse input name과 일치해야 하는 디코더 `.mblt` 또는 `.onnx`.
+- `--decoder-model`: manifest가 post-parse input name과 일치해야 하는, `sam2_decoder_to_mblt.py`가 만든 디코더 `.mblt`.
 - `--defer-manifest`: manifest를 생성하지 않고 디코더 텐서만 생성합니다.
 - `--stage manifest`: 이미 저장된 텐서와 `--decoder-model`로부터 manifest를 생성합니다.
 - `--decoder-input-bindings`: MBLT input name과 semantic role 매핑. 기본값: `./decoder_input_bindings.json`.

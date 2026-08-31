@@ -17,8 +17,9 @@ the output-token concat and the `image_embeddings + dense_prompt_embeddings`
 sum) and the NPU body (subgraph 1). That is the same split the tutorial used to
 perform by hand on the host before the decoder was parsed this way.
 
-The prompt axis is marked dynamic on `sparse_prompt_embeddings`, so one decoder
-serves any point count.
+The prompt axis is marked dynamic on `sparse_prompt_embeddings`, so the decoder is
+not frozen to the prompt size it was traced with. This tutorial exercises 1-3
+points.
 """
 
 from __future__ import annotations
@@ -73,7 +74,7 @@ def build_feed_dict(captured: dict, device) -> dict:
 
     `sparse_prompt_embeddings` is `(1, N, 256)` for an N-point prompt, and it is
     what the in-graph token concat consumes. Marking axis -2 dynamic keeps one
-    decoder usable for any point count instead of freezing it at the traced
+    decoder usable across prompt sizes instead of freezing it at the traced
     prompt, the same intent as the ONNX export's `dynamic_axes` on `tokens`.
     """
     from qbcompiler.model_dict.parser.backend.torch.util import wrap_tensor

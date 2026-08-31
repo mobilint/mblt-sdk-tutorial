@@ -10,3 +10,6 @@ transformers==4.57.1
 # provides the same module; skip this line if that is already installed, because
 # having both onnxruntime and onnxruntime-gpu present conflicts.
 onnxruntime
+# torch.onnx.export needs onnx, and sam2_export_onnx.py imports it to check and
+# inspect the exported graph. onnxruntime does not provide this module.
+onnx

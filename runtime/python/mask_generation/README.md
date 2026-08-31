@@ -26,7 +26,7 @@ git clone https://github.com/facebookresearch/sam2.git /workspace/sam2
 pip install -e /workspace/sam2
 ```
 
-If you prefer not to install it, clone it anywhere and pass the path with `--sam2-root` instead.
+If you prefer not to install the package itself, clone it anywhere and pass the path with `--sam2-root`. That only puts the checkout on `sys.path`, so you still need its dependencies installed (`pip install -r /path/to/sam2/requirements.txt`, or `pip install -e` it); otherwise importing `sam2.sam2_image_predictor` fails.
 
 The SAM2 checkpoint is downloaded from Hugging Face on first use, so the runtime host needs network access or a warm Hugging Face cache.
 
@@ -140,7 +140,7 @@ Input - Shapes: [(256, 64, 64), (256, 64, 64), (256, 64, 64), (1, -1, 256),
                  (256, 256, 32), (128, 128, 64)]
 ```
 
-The `-1` is the prompt axis, so one compiled decoder serves any point count. Feeding the tensors in the wrong order produces plausible but wrong masks rather than an error, so `contracts.py` builds the feed by semantic role and then shape-checks it against the runtime:
+The `-1` is the prompt axis, so the compiled decoder is not fixed to one prompt size. This tutorial supports 1-3 points; `inference_mxq.py` rejects anything outside that range before inference. Feeding the tensors in the wrong order produces plausible but wrong masks rather than an error, so `contracts.py` builds the feed by semantic role and then shape-checks it against the runtime:
 
 ```python
 decoder_feed = build_decoder_runtime_feed(decoder_tensors, args.decoder_runtime_order)
@@ -196,7 +196,7 @@ The decoder accepts one to three points. The compiled model supports this range 
 - `--sam2-root`: Local `facebookresearch/sam2` checkout.
 - `--model-id`: SAM2 model id. Default: `facebook/sam2-hiera-large`.
 - `--torch-device`: Torch device for the host SAM2 code. Defaults to `cuda` when available, otherwise `cpu`.
-- `--decoder-runtime-order`: Comma-separated semantic input order reported by `mxq_show`.
+- `--decoder-runtime-order`: Comma-separated semantic input order. For a rebuilt decoder, read it from the calibration manifest's `info['slot roles']`; a shapes-only runtime summary cannot tell the three `(256, 64, 64)` inputs apart.
 
 ## Expected Output
 

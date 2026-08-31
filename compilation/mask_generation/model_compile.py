@@ -47,7 +47,7 @@ if __name__ == "__main__":
         "--part",
         choices=["encoder", "decoder", "both"],
         default="both",
-        help="Which model to compile. Use `encoder` while the decoder cannot be parsed.",
+        help="Which model to compile. Both are available; `encoder` or `decoder` compiles just one.",
     )
     parser.add_argument(
         "--encoder-mblt",

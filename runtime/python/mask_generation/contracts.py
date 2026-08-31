@@ -14,13 +14,19 @@ import numpy as np
 
 # Positional input order reported by the compiled decoder MXQ. It matches the
 # MBLT input-name order used during calibration and compilation, which the
-# earlier wrapper-traced decoder did not. Confirm it against your own artifact
-# with `qbruntime.get_model_summary(<path>.mxq)`, which prints:
+# earlier wrapper-traced decoder did not.
+#
+# For a rebuilt decoder, recover the order from the calibration manifest's
+# `info['slot roles']`, not from a runtime summary: the summary prints shapes
+# only, and the first three inputs are all (256, 64, 64), so a guess among them
+# passes every shape check and yields wrong masks. The summary is still useful
+# for confirming the shapes themselves, which it prints as:
 #
 #   Input - Shapes: [(256, 64, 64), (256, 64, 64), (256, 64, 64), (1, -1, 256),
 #                    (256, 256, 32), (128, 128, 64)]
 #
-# The `-1` is the prompt axis, so one decoder serves any point count.
+# The `-1` is the prompt axis, so the decoder is not fixed to one prompt size.
+# This tutorial supports 1-3 points; inference_mxq.py enforces that range.
 DEFAULT_DECODER_RUNTIME_ORDER = (
     "image_embeddings",
     "dense_prompt_embeddings",

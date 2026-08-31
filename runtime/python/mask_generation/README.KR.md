@@ -26,7 +26,7 @@ git clone https://github.com/facebookresearch/sam2.git /workspace/sam2
 pip install -e /workspace/sam2
 ```
 
-설치하지 않으려면 원하는 위치에 clone한 뒤 `--sam2-root`로 경로를 전달하십시오.
+패키지 자체를 설치하지 않으려면 원하는 위치에 clone한 뒤 `--sam2-root`로 경로를 전달하십시오. 이 옵션은 checkout을 `sys.path`에 추가할 뿐이므로 의존성은 따로 설치해야 합니다(`pip install -r /path/to/sam2/requirements.txt` 또는 `pip install -e`). 그렇지 않으면 `sam2.sam2_image_predictor` import가 실패합니다.
 
 SAM2 체크포인트는 최초 실행 시 Hugging Face에서 다운로드되므로, 런타임 호스트에는 네트워크 접근 또는 미리 준비된 Hugging Face 캐시가 필요합니다.
 
@@ -140,7 +140,7 @@ Input - Shapes: [(256, 64, 64), (256, 64, 64), (256, 64, 64), (1, -1, 256),
                  (256, 256, 32), (128, 128, 64)]
 ```
 
-`-1`이 프롬프트 축이므로 컴파일된 디코더 하나가 임의의 포인트 개수를 처리합니다. 순서를 잘못 전달하면 오류가 아니라 그럴듯하지만 잘못된 마스크가 나오므로, `contracts.py`는 semantic role로 입력을 구성한 뒤 런타임 shape과 대조합니다:
+`-1`이 프롬프트 축이므로 컴파일된 디코더가 하나의 프롬프트 크기에 고정되지 않습니다. 이 튜토리얼이 지원하는 범위는 1~3 포인트이며, `inference_mxq.py`는 그 범위를 벗어나면 추론 전에 거부합니다. 순서를 잘못 전달하면 오류가 아니라 그럴듯하지만 잘못된 마스크가 나오므로, `contracts.py`는 semantic role로 입력을 구성한 뒤 런타임 shape과 대조합니다:
 
 ```python
 decoder_feed = build_decoder_runtime_feed(decoder_tensors, args.decoder_runtime_order)
@@ -196,7 +196,7 @@ python inference_mxq.py --encoder-mxq ../../../compilation/mask_generation/sam2_
 - `--sam2-root`: `facebookresearch/sam2` 로컬 checkout.
 - `--model-id`: SAM2 모델 id. 기본값: `facebook/sam2-hiera-large`.
 - `--torch-device`: 호스트 SAM2 코드가 사용할 torch 디바이스. 사용 가능하면 `cuda`, 그렇지 않으면 `cpu`가 기본값입니다.
-- `--decoder-runtime-order`: `mxq_show`가 보고하는 semantic 입력 순서(쉼표 구분).
+- `--decoder-runtime-order`: semantic 입력 순서(쉼표 구분). 다시 빌드한 디코더라면 캘리브레이션 manifest의 `info['slot roles']`에서 읽으십시오. shape만 출력하는 런타임 요약으로는 `(256, 64, 64)` 입력 3개를 구분할 수 없습니다.
 
 ## 예상 출력
 
