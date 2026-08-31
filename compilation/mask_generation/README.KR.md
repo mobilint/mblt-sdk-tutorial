@@ -102,8 +102,9 @@ python prepare_sav.py --archive sav_val.tar --videos 155
 
 ```bash
 python prepare_calibration.py --stage both --defer-manifest \
-  --sav-root ./data/sav \
-  --encoder-skip-videos 0 --decoder-skip-videos 20
+  --sav-root ./data/sav --seed 1234 \
+  --encoder-samples 32 --encoder-skip-videos 0 --encoder-max-videos 32 \
+  --decoder-samples 60 --decoder-skip-videos 36 --decoder-max-videos 60
 ```
 
 ### 하나의 split으로 캘리브레이션과 평가를 모두 수행
@@ -236,7 +237,9 @@ python -c "from decoder_bindings import read_mblt_input_names; print(read_model_
 한 번의 실행으로 두 세트를 모두 생성합니다:
 
 ```bash
-python prepare_calibration.py --sav-root ./data/sav --encoder-skip-videos 0 --decoder-skip-videos 20 --decoder-model ./sam2_hiera_large_decoder.mblt
+python prepare_calibration.py --sav-root ./data/sav --decoder-model ./sam2_hiera_large_decoder.mblt \
+  --encoder-samples 32 --encoder-skip-videos 0 --encoder-max-videos 32 \
+  --decoder-samples 60 --decoder-skip-videos 36 --decoder-max-videos 60
 ```
 
 출력은 현재 작업 디렉터리가 아니라 스크립트와 같은 위치에 저장되므로, 어디에서 실행하든 튜토리얼의 `calib/` 트리가 동일한 자리에 생성됩니다:

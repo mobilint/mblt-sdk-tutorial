@@ -102,8 +102,9 @@ The script prints the exact next command, including skip values sized to the vid
 
 ```bash
 python prepare_calibration.py --stage both --defer-manifest \
-  --sav-root ./data/sav \
-  --encoder-skip-videos 0 --decoder-skip-videos 20
+  --sav-root ./data/sav --seed 1234 \
+  --encoder-samples 32 --encoder-skip-videos 0 --encoder-max-videos 32 \
+  --decoder-samples 60 --decoder-skip-videos 36 --decoder-max-videos 60
 ```
 
 ### One Split Covers Calibration and Evaluation
@@ -182,7 +183,7 @@ The export also applies the same `qbcompiler` patcher the torch parser applies, 
 
 ### Verifying the Export
 
-`--verify` is on by default. It runs the exported graph under `onnxruntime`, compares every output against the torch outputs the export traced, and then runs the decoder a second time with a different token count to prove the token axis is genuinely dynamic rather than merely annotated as dynamic.
+`--verify` is on by default. It runs the exported encoder under `onnxruntime` and compares every output against the torch outputs the export traced. This script exports only the encoder, so it makes no claim about the decoder; the decoder's dynamic prompt axis is established by `sam2_decoder_to_mblt.py` and confirmed on the compiled artifact with `qbruntime.get_model_summary`, which reports the prompt axis as `-1`.
 
 The comparison is relative to each output's magnitude, not absolute. `onnxruntime` runs on the CPU, so a CUDA export is compared across devices. The export disables TF32 for this reason: on Ampere and later GPUs the default TF32 mantissa drifts the reference forward by roughly `2e-3` relative across the Hiera trunk, which is enough to fail an honest tolerance even though the export is exact.
 
@@ -236,7 +237,9 @@ Compare the result with `decoder_input_bindings.json`. If the names differ, writ
 Generate both sets in one run:
 
 ```bash
-python prepare_calibration.py --sav-root ./data/sav --decoder-model ./sam2_hiera_large_decoder.mblt --encoder-skip-videos 0 --decoder-skip-videos 20
+python prepare_calibration.py --sav-root ./data/sav --decoder-model ./sam2_hiera_large_decoder.mblt \
+  --encoder-samples 32 --encoder-skip-videos 0 --encoder-max-videos 32 \
+  --decoder-samples 60 --decoder-skip-videos 36 --decoder-max-videos 60
 ```
 
 Outputs, written next to the scripts rather than into the current working directory, so the tutorial's `calib/` tree fills in the same place no matter where you run from:

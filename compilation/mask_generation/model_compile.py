@@ -109,6 +109,11 @@ if __name__ == "__main__":
     parser.add_argument("--dry-run", action="store_true", help="Validate inputs without compiling")
     args = parser.parse_args()
 
+    # Before any CUDA query. torch.cuda.is_available() initializes and caches the
+    # process's device visibility, so setting this afterwards would not remap it
+    # and calibration could still land on GPU 0 or see every GPU.
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
+
     parts = ["encoder", "decoder"] if args.part == "both" else [args.part]
     encoder_mblt = Path(args.encoder_mblt).resolve()
     decoder_mblt = Path(args.decoder_mblt).resolve()
@@ -143,7 +148,6 @@ if __name__ == "__main__":
     if args.dry_run:
         raise SystemExit(0)
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
     # Imported after CUDA_VISIBLE_DEVICES so calibration uses the requested GPU.
     from qbcompiler import mxq_compile
     from qbcompiler.configs import CompileConfig

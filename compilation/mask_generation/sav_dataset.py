@@ -261,6 +261,20 @@ def _select_masks(
     return selected
 
 
+def _video_window(videos: list, skip_videos: int, max_videos: int | None) -> list:
+    """Return the positional video range a calibration set is allowed to use.
+
+    The bound belongs here rather than around the yielded samples: a video can
+    produce nothing at all (every mask below ``--min-mask-area``, every prompt
+    candidate rejected, an unreadable annotation), and such a video is invisible
+    downstream. Counting only videos that yielded would let the set walk past its
+    range into videos reserved for another set, which is the exact contamination
+    the range exists to prevent. Slicing the list makes the range positional.
+    """
+    stop = None if max_videos is None else skip_videos + max_videos
+    return videos[skip_videos:stop]
+
+
 def _iter_frame_samples_train(
     sav_root: str | Path,
     *,
@@ -268,10 +282,11 @@ def _iter_frame_samples_train(
     skip_videos: int,
     annotation_sample_rate: int,
     per_video: int,
+    max_videos: int | None = None,
 ) -> Iterator[SavFrameSample]:
     """Yield evenly spaced frames per video for encoder calibration (train layout)."""
     rng = random.Random(seed + 11)
-    for annotation in annotation_pairs(sav_root, seed)[skip_videos:]:
+    for annotation in _video_window(annotation_pairs(sav_root, seed), skip_videos, max_videos):
         stem = annotation.name.removesuffix("_manual.json")
         frames = decode_video_rgb(annotation.with_name(f"{stem}.mp4"))[::annotation_sample_rate]
         if not frames:
@@ -296,11 +311,12 @@ def _iter_mask_samples_train(
     annotation_sample_rate: int,
     min_mask_area: int,
     per_video: int,
+    max_videos: int | None = None,
 ) -> Iterator[SavMaskSample]:
     """Yield frame/mask pairs for decoder calibration (train layout)."""
     rng = random.Random(seed + 7)
     bins = [0] * len(AREA_BINS)
-    for annotation in annotation_pairs(sav_root, seed)[skip_videos:]:
+    for annotation in _video_window(annotation_pairs(sav_root, seed), skip_videos, max_videos):
         try:
             metadata = json.loads(annotation.read_text())
             masklet = metadata.get("masklet")
@@ -353,10 +369,11 @@ def _iter_frame_samples_vos(
     skip_videos: int,
     annotation_sample_rate: int,
     per_video: int,
+    max_videos: int | None = None,
 ) -> Iterator[SavFrameSample]:
     """Yield evenly spaced frames per video for encoder calibration (vos layout)."""
     rng = random.Random(seed + 11)
-    for video_dir in vos_video_dirs(sav_root, seed)[skip_videos:]:
+    for video_dir in _video_window(vos_video_dirs(sav_root, seed), skip_videos, max_videos):
         frames = sorted(video_dir.glob("*.jpg"))[::annotation_sample_rate]
         if not frames:
             continue
@@ -369,7 +386,13 @@ def _iter_frame_samples_vos(
             for i in range(per_video)
         }
         for frame_index in sorted(indices):
-            yield SavFrameSample(video_dir.name, frame_index, _read_rgb(frames[frame_index]))
+            frame_path = frames[frame_index]
+            # Report the frame number encoded in the filename, not the position in
+            # the stride-subsampled list, so a calibration sample recorded in
+            # encoder_calib_samples.json can be traced back to its source frame.
+            # The mask iterator already records `int(mask_path.stem)` for the same
+            # reason, so both stages report comparable numbers.
+            yield SavFrameSample(video_dir.name, int(frame_path.stem), _read_rgb(frame_path))
 
 
 def _iter_mask_samples_vos(
@@ -380,6 +403,7 @@ def _iter_mask_samples_vos(
     annotation_sample_rate: int,
     min_mask_area: int,
     per_video: int,
+    max_videos: int | None = None,
 ) -> Iterator[SavMaskSample]:
     """Yield frame/mask pairs for decoder calibration (vos layout).
 
@@ -389,7 +413,7 @@ def _iter_mask_samples_vos(
     """
     rng = random.Random(seed + 7)
     bins = [0] * len(AREA_BINS)
-    for video_dir in vos_video_dirs(sav_root, seed)[skip_videos:]:
+    for video_dir in _video_window(vos_video_dirs(sav_root, seed), skip_videos, max_videos):
         mask_dir = vos_mask_dir(video_dir)
         candidates: list[tuple[int, int, np.ndarray, int]] = []
         for object_dir in sorted(mask_dir.iterdir()):
@@ -432,37 +456,14 @@ def _iter_mask_samples_vos(
             yield SavMaskSample(video_dir.name, frame_index, object_index, frame, mask)
 
 
-def _bounded(stream, max_videos: int | None):
-    """Stop `stream` after `max_videos` distinct videos.
-
-    Encoder and decoder calibration are meant to occupy disjoint video ranges, but
-    a range cannot be derived from `samples / per_video`: a video may yield fewer
-    samples than requested (`iter_frame_samples` builds a *set* of jittered frame
-    indices that can collapse to one, `build_prompt` rejects masks too thin to
-    place a point in), so the consumer walks further down the shuffled order than
-    the arithmetic suggests and silently reaches into the next range. Bounding the
-    stream makes the range a hard limit: the caller runs out of samples and raises
-    instead of quietly calibrating on videos reserved for something else.
-    """
-    if max_videos is None:
-        yield from stream
-        return
-    seen: set[str] = set()
-    for sample in stream:
-        if sample.video not in seen:
-            if len(seen) >= max_videos:
-                return
-            seen.add(sample.video)
-        yield sample
-
 
 def iter_frame_samples(sav_root: str | Path, *, max_videos: int | None = None, **kwargs):
     """Yield encoder-calibration frames from whichever SA-V layout `sav_root` holds."""
     picker = _iter_frame_samples_vos if detect_layout(sav_root) == "vos" else _iter_frame_samples_train
-    yield from _bounded(picker(sav_root, **kwargs), max_videos)
+    yield from picker(sav_root, max_videos=max_videos, **kwargs)
 
 
 def iter_mask_samples(sav_root: str | Path, *, max_videos: int | None = None, **kwargs):
     """Yield decoder-calibration frame/mask pairs from whichever layout `sav_root` holds."""
     picker = _iter_mask_samples_vos if detect_layout(sav_root) == "vos" else _iter_mask_samples_train
-    yield from _bounded(picker(sav_root, **kwargs), max_videos)
+    yield from picker(sav_root, max_videos=max_videos, **kwargs)

@@ -40,12 +40,21 @@ def preprocess_encoder_input(predictor, image: np.ndarray) -> np.ndarray:
     return np.ascontiguousarray(tensor.permute(0, 2, 3, 1).float().cpu().numpy(), dtype=np.float32)
 
 
+# The three Hiera FPN levels, as (channels, height, width). Matching a whole
+# shape is what makes the layout unambiguous: testing the last axis alone
+# misreads NCHW, because (32, 256, 256) ends in 256 and would be taken for a
+# 256-channel NHWC tensor, and (256, 64, 64) would be taken for 64-channel.
+FPN_LEVELS_CHW: tuple[tuple[int, int, int], ...] = ((32, 256, 256), (64, 128, 128), (256, 64, 64))
+
+
 def fpn_from_runtime(outputs: Sequence[np.ndarray], device: torch.device) -> list[torch.Tensor]:
     """Convert the three encoder FPN outputs to NCHW tensors ordered 32/64/256.
 
-    The runtime may report either NHWC or NCHW, so the channel count is used to
-    identify each level rather than the axis position.
+    The runtime may report either NHWC or NCHW, so each level is identified by
+    its complete shape rather than by one axis.
     """
+    nhwc = {(h, w, c): c for c, h, w in FPN_LEVELS_CHW}
+    nchw = {(c, h, w): c for c, h, w in FPN_LEVELS_CHW}
     features: dict[int, torch.Tensor] = {}
     for output in outputs:
         array = np.asarray(output, dtype=np.float32)
@@ -53,12 +62,13 @@ def fpn_from_runtime(outputs: Sequence[np.ndarray], device: torch.device) -> lis
             array = array[0]
         if array.ndim != 3:
             continue
-        if array.shape[-1] in (32, 64, 256):
-            channel = int(array.shape[-1])
-            tensor = torch.from_numpy(np.ascontiguousarray(array)).permute(2, 0, 1)[None]
-        elif array.shape[0] in (32, 64, 256):
-            channel = int(array.shape[0])
+        shape = tuple(int(dim) for dim in array.shape)
+        if shape in nchw:
+            channel = nchw[shape]
             tensor = torch.from_numpy(np.ascontiguousarray(array))[None]
+        elif shape in nhwc:
+            channel = nhwc[shape]
+            tensor = torch.from_numpy(np.ascontiguousarray(array)).permute(2, 0, 1)[None]
         else:
             continue
         if channel in features:
