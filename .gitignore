@@ -279,6 +279,7 @@ node_modules/
 
 !.github/badges/clones.json
 
-# Tutorial source configs that the global *.json rule would otherwise drop.
+# Source configs that the global *.json rule would otherwise drop.
+!package.json
 !compilation/mask_generation/compile_config.json
 !compilation/mask_generation/decoder_input_bindings.json

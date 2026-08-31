@@ -98,16 +98,22 @@ This is the opposite of the single-input vision tutorials in this repository, wh
 
 ### Encoder Outputs
 
-The encoder returns three FPN levels. The script identifies them by channel count rather than by position, so it works whether the runtime reports NHWC or NCHW:
+The encoder returns three FPN levels. The script identifies each by its **complete shape** rather than by one axis, so it works whether the runtime reports NHWC or NCHW:
 
 ```python
-if array.shape[-1] in (32, 64, 256):
-    channel = int(array.shape[-1])
-    tensor = torch.from_numpy(np.ascontiguousarray(array)).permute(2, 0, 1)[None]
-elif array.shape[0] in (32, 64, 256):
-    channel = int(array.shape[0])
+FPN_LEVELS_CHW = ((32, 256, 256), (64, 128, 128), (256, 64, 64))
+nhwc = {(h, w, c): c for c, h, w in FPN_LEVELS_CHW}
+nchw = {(c, h, w): c for c, h, w in FPN_LEVELS_CHW}
+...
+if shape in nchw:
+    channel = nchw[shape]
     tensor = torch.from_numpy(np.ascontiguousarray(array))[None]
+elif shape in nhwc:
+    channel = nhwc[shape]
+    tensor = torch.from_numpy(np.ascontiguousarray(array)).permute(2, 0, 1)[None]
 ```
+
+Matching a whole shape is what makes this unambiguous. Testing the last axis alone misreads NCHW: `(32, 256, 256)` ends in `256` and would be taken for a 256-channel NHWC tensor, and `(256, 64, 64)` for a 64-channel one.
 
 The three levels are then installed into the host predictor, which skips its own encoder and uses the NPU features for prompt encoding and mask upscaling.
 
@@ -141,7 +147,13 @@ decoder_feed = build_decoder_runtime_feed(decoder_tensors, args.decoder_runtime_
 validate_runtime_shapes(decoder_feed, decoder.get_model_input_shape(), "decoder")
 ```
 
-If you recompile with a different decoder MBLT, confirm the runtime order with `get_model_summary` and pass it through `--decoder-runtime-order`.
+If you recompile with a different decoder MBLT, do **not** try to recover the semantic order from `get_model_summary`. It prints shapes only, and the first three inputs are all `(256, 64, 64)`, so guessing among them can swap `image_embeddings`, `dense_prompt_embeddings`, and `image_pe` while passing every shape check and producing plausible but wrong masks.
+
+Read the ordered `slot roles` from the calibration manifest that was generated against that exact MBLT instead, then pass them through `--decoder-runtime-order`:
+
+```bash
+python -c "import json; print(json.load(open('../../../compilation/mask_generation/calib/decoder/decoder_calib.json'))['info']['slot roles'])"
+```
 
 ### Decoder Outputs
 

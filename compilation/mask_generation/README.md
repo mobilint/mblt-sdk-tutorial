@@ -4,7 +4,7 @@ This tutorial explains how to compile a promptable segmentation model with Mobil
 
 The example uses [SAM2 Hiera large](https://github.com/facebookresearch/sam2) from Meta. SAM2 is not a single feed-forward network: an image encoder runs once per image, and a lightweight mask decoder runs once per prompt. This tutorial compiles both into separate MXQ models and keeps the prompt encoder on the host.
 
-> **Note**: SAM2 reaches MBLT through ONNX like the other compilation tutorials in this repository, but in two explicit steps rather than one, because the encoder and decoder are separate graphs captured from a live forward pass. Step 1 exports both to ONNX and then compiles them with `mblt_compile`.
+> **Note**: The encoder and decoder take different routes to MBLT. The encoder goes through ONNX like the other compilation tutorials, in two explicit steps (`sam2_export_onnx.py` then `sam2_onnx_to_mblt.py`). The decoder cannot: the current parser rejects its hypernetwork matmul, so `sam2_decoder_to_mblt.py` parses it with the legacy parser and no decoder ONNX is produced. Step 1 covers both.
 
 ## Prerequisites
 
@@ -41,7 +41,7 @@ The SAM2 checkpoint is downloaded from Hugging Face on first use, so the calibra
 The workflow has four main steps:
 
 0. **Prepare the calibration source**: Extract a SA-V subset with `prepare_sav.py`.
-1. **Build the MBLT graphs**: Export SAM2 to ONNX, then compile each to MBLT.
+1. **Build the MBLT graphs**: Export the encoder to ONNX and compile it; parse the decoder directly with the legacy parser.
 2. **Prepare the calibration dataset**: Generate encoder and decoder calibration tensors from SA-V.
 3. **Compile the models**: Convert both MBLT graphs to `.mxq` using that calibration data.
 

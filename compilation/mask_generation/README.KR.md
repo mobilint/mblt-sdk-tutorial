@@ -4,7 +4,7 @@
 
 이 예제에서는 Meta의 [SAM2 Hiera large](https://github.com/facebookresearch/sam2) 모델을 사용합니다. SAM2는 단일 순전파 네트워크가 아닙니다. 이미지 인코더는 이미지당 한 번 실행되고, 가벼운 마스크 디코더는 프롬프트당 한 번 실행됩니다. 이 튜토리얼에서는 두 모델을 각각 MXQ로 컴파일하고, 프롬프트 인코더는 호스트에 남겨 둡니다.
 
-> **참고**: SAM2도 이 저장소의 다른 컴파일 튜토리얼과 마찬가지로 ONNX를 거쳐 MBLT에 도달하지만, 인코더와 디코더가 실제 forward 실행에서 캡처되는 별개의 그래프이므로 한 단계가 아니라 두 단계로 진행됩니다. 단계 1에서 둘을 ONNX로 내보낸 뒤 `mblt_compile`로 컴파일합니다.
+> **참고**: 인코더와 디코더는 MBLT에 도달하는 경로가 다릅니다. 인코더는 다른 컴파일 튜토리얼과 같이 ONNX를 거치며 두 단계로 진행됩니다(`sam2_export_onnx.py` 다음 `sam2_onnx_to_mblt.py`). 디코더는 그 경로를 쓸 수 없습니다. 현재 파서가 디코더의 hypernetwork matmul을 거부하므로 `sam2_decoder_to_mblt.py`가 legacy 파서로 파싱하며, 디코더 ONNX는 생성되지 않습니다. 단계 1이 두 경우를 모두 다룹니다.
 
 ## 사전 준비
 
@@ -41,7 +41,7 @@ SAM2 체크포인트는 최초 실행 시 Hugging Face에서 다운로드되므�
 워크플로우는 크게 네 단계로 구성됩니다:
 
 0. **캘리브레이션 소스 준비**: `prepare_sav.py`로 SA-V subset을 추출합니다.
-1. **MBLT 그래프 생성**: SAM2를 ONNX로 내보낸 뒤 각각 MBLT로 컴파일합니다.
+1. **MBLT 그래프 생성**: 인코더는 ONNX로 내보내 컴파일하고, 디코더는 legacy 파서로 직접 파싱합니다.
 2. **캘리브레이션 데이터셋 준비**: SA-V에서 인코더와 디코더 캘리브레이션 텐서를 생성합니다.
 3. **모델 컴파일**: 해당 캘리브레이션 데이터로 두 MBLT 그래프를 `.mxq`로 변환합니다.
 
@@ -183,7 +183,7 @@ inputs: ['input_image_channel_last', '/image_encoder/trunk/Transpose_output_0']
 
 ### 내보내기 검증
 
-`--verify`는 기본으로 켜져 있습니다. 내보낸 그래프를 `onnxruntime`으로 실행해 모든 출력을 추적 시점의 torch 출력과 비교하고, 이어서 디코더를 다른 토큰 개수로 한 번 더 실행해 토큰 축이 표기만 동적인 것이 아니라 실제로 동적임을 확인합니다.
+`--verify`는 기본으로 켜져 있습니다. 내보낸 인코더를 `onnxruntime`으로 실행해 모든 출력을 추적 시점의 torch 출력과 비교합니다. 이 스크립트는 인코더만 내보내므로 디코더에 대해서는 아무것도 검증하지 않습니다. 디코더의 동적 프롬프트 축은 `sam2_decoder_to_mblt.py`가 설정하며, 컴파일된 아티팩트에서 `qbruntime.get_model_summary`가 프롬프트 축을 `-1`로 보고하는 것으로 확인합니다.
 
 비교는 절대값이 아니라 각 출력의 크기에 대한 상대값으로 수행합니다. `onnxruntime`은 CPU에서 실행되므로 CUDA로 내보낸 경우 서로 다른 디바이스 간 비교가 됩니다. 같은 이유로 내보내기 시 TF32를 비활성화합니다. Ampere 이후 GPU의 기본 TF32 정밀도는 Hiera trunk 전체를 지나며 참조 forward를 상대 오차 약 `2e-3`만큼 밀어내는데, 내보내기 자체는 정확하더라도 정직한 허용 오차를 통과하지 못할 정도입니다.
 
@@ -225,7 +225,7 @@ SAM2 디코더 변경이 포함된 `qbcompiler`/`mblt-graph` 조합을 사용할
 디코더 input name은 파싱된 그래프에 따라 달라지며, 단계 2와 단계 3이 모두 이 이름에 의존합니다. MBLT가 실제로 보고하는 이름을 출력합니다:
 
 ```bash
-python -c "from decoder_bindings import read_mblt_input_names; print(read_model_input_names('./sam2_hiera_large_decoder.mblt'))"
+python -c "from decoder_bindings import read_model_input_names; print(read_model_input_names('./sam2_hiera_large_decoder.mblt'))"
 ```
 
 결과를 `decoder_input_bindings.json`과 비교하십시오. 이름이 다르면 해당 이름을 동일한 6개 semantic role에 매핑하는 새 파일을 작성하고 단계 2와 단계 3에서 `--decoder-input-bindings`로 전달합니다. 기본값에 맞추려고 캘리브레이션 텐서 순서를 바꾸지 마십시오. 여러 디코더 입력이 같은 shape을 가지므로 위치로 추측하면 오류 없이 조용히 잘못된 결과가 나옵니다.

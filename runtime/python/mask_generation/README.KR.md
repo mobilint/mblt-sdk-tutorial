@@ -98,16 +98,22 @@ def strip_runtime_batch(value: np.ndarray) -> np.ndarray:
 
 ### 인코더 출력
 
-인코더는 FPN 3단계를 반환합니다. 스크립트는 위치가 아니라 채널 수로 각 단계를 식별하므로, 런타임이 NHWC를 보고하든 NCHW를 보고하든 동작합니다:
+인코더는 FPN 3단계를 반환합니다. 스크립트는 한 축이 아니라 **전체 shape**으로 각 단계를 식별하므로, 런타임이 NHWC를 보고하든 NCHW를 보고하든 동작합니다:
 
 ```python
-if array.shape[-1] in (32, 64, 256):
-    channel = int(array.shape[-1])
-    tensor = torch.from_numpy(np.ascontiguousarray(array)).permute(2, 0, 1)[None]
-elif array.shape[0] in (32, 64, 256):
-    channel = int(array.shape[0])
+FPN_LEVELS_CHW = ((32, 256, 256), (64, 128, 128), (256, 64, 64))
+nhwc = {(h, w, c): c for c, h, w in FPN_LEVELS_CHW}
+nchw = {(c, h, w): c for c, h, w in FPN_LEVELS_CHW}
+...
+if shape in nchw:
+    channel = nchw[shape]
     tensor = torch.from_numpy(np.ascontiguousarray(array))[None]
+elif shape in nhwc:
+    channel = nhwc[shape]
+    tensor = torch.from_numpy(np.ascontiguousarray(array)).permute(2, 0, 1)[None]
 ```
+
+전체 shape을 대조해야 모호함이 없습니다. 마지막 축만 검사하면 NCHW를 잘못 읽습니다. `(32, 256, 256)`은 `256`으로 끝나므로 256채널 NHWC로, `(256, 64, 64)`는 64채널로 오인됩니다.
 
 이후 세 단계를 호스트 predictor에 설치하면, predictor는 자체 인코더를 건너뛰고 NPU 특징을 사용해 프롬프트 인코딩과 마스크 업스케일링을 수행합니다.
 
@@ -141,7 +147,13 @@ decoder_feed = build_decoder_runtime_feed(decoder_tensors, args.decoder_runtime_
 validate_runtime_shapes(decoder_feed, decoder.get_model_input_shape(), "decoder")
 ```
 
-다른 디코더 MBLT로 다시 컴파일한 경우 `get_model_summary`로 런타임 순서를 확인하고 `--decoder-runtime-order`로 전달하십시오.
+다른 디코더 MBLT로 다시 컴파일한 경우 `get_model_summary`로 semantic 순서를 복원하려 하지 **마십시오**. shape만 출력되는데 앞의 세 입력이 모두 `(256, 64, 64)`이므로, 그 셋 사이에서 추측하면 `image_embeddings`, `dense_prompt_embeddings`, `image_pe`가 서로 뒤바뀐 채 모든 shape 검사를 통과하고 그럴듯하지만 잘못된 마스크가 나옵니다.
+
+대신 해당 MBLT로 생성한 캘리브레이션 manifest의 `slot roles` 순서를 읽어 `--decoder-runtime-order`로 전달하십시오:
+
+```bash
+python -c "import json; print(json.load(open('../../../compilation/mask_generation/calib/decoder/decoder_calib.json'))['info']['slot roles'])"
+```
 
 ### 디코더 출력
 
