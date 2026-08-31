@@ -31,7 +31,13 @@ git clone https://github.com/facebookresearch/sam2.git /workspace/sam2
 pip install -e /workspace/sam2
 ```
 
-If you prefer not to install the package itself, clone it anywhere and pass the path with `--sam2-root`. That only puts the checkout on `sys.path`, so you still need its dependencies installed (`pip install -r /path/to/sam2/requirements.txt`, or `pip install -e` it); otherwise importing `sam2.sam2_image_predictor` fails.
+If you prefer not to install the package itself, clone it anywhere and pass the path with `--sam2-root`. That only puts the checkout on `sys.path`, so SAM2's own dependencies still have to be present. It declares them in its package metadata rather than a `requirements.txt`, so install them explicitly:
+
+```bash
+pip install 'torch>=2.5.1' 'torchvision>=0.20.1' 'numpy>=1.24.4' 'pillow>=9.4.0' 'hydra-core>=1.3.2' 'iopath>=0.1.10' 'tqdm>=4.66.1'
+```
+
+Without them, importing `sam2.sam2_image_predictor` fails even though the tutorial's own `requirements.txt` is satisfied.
 
 The SAM2 checkpoint is downloaded from Hugging Face on first use, so the calibration host needs network access or a warm Hugging Face cache.
 

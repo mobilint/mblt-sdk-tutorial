@@ -80,9 +80,19 @@ def detect_layout(sav_root: str | Path) -> str:
     split directory itself.
     """
     sav_root = Path(sav_root)
-    if next(sav_root.rglob(VOS_FRAME_DIR), None) is not None:
-        return "vos"
-    return "train"
+    has_vos = next(sav_root.rglob(VOS_FRAME_DIR), None) is not None
+    has_train = next(sav_root.rglob("*_manual.json"), None) is not None
+    if has_vos and has_train:
+        # Every consumer -- video_ids() and both iterator families -- dispatches on
+        # this single answer, so one layout would silently swallow the other's
+        # videos: the reported budget would be smaller than what was extracted and
+        # calibration could run short despite enough combined data. Refuse instead.
+        raise ValueError(
+            f"{sav_root} holds both SA-V layouts: mp4 + *_manual.json (train) and "
+            f"{VOS_FRAME_DIR} (val/test). Extract each split into its own --output-dir "
+            "and point --sav-root at one of them."
+        )
+    return "vos" if has_vos else "train"
 
 
 def vos_roots(sav_root: str | Path) -> list[Path]:

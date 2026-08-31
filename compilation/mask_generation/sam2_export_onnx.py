@@ -176,9 +176,14 @@ def verify(onnx_path: Path, feed: dict[str, np.ndarray], reference, names, tol: 
         absolute = float(np.abs(got.astype(np.float32) - want).max())
         scale = max(float(np.abs(want).max()), 1.0)
         relative = absolute / scale
-        status = "ok" if relative <= tol else "MISMATCH"
+        # A NaN anywhere makes `relative` NaN, and `relative > tol` is False for NaN,
+        # so a numerically broken export would print MISMATCH and still exit 0. The
+        # pass condition is therefore stated positively: anything not demonstrably
+        # within tolerance fails.
+        passed = bool(np.isfinite(relative)) and relative <= tol
+        status = "ok" if passed else "MISMATCH"
         print(f"[verify] {onnx_path.name}: {name} abs {absolute:.3e} rel {relative:.3e} (tol {tol:g}) {status}")
-        if relative > tol:
+        if not passed:
             failed.append(name)
     if failed:
         raise RuntimeError(f"{onnx_path.name}: exported graph does not match the torch outputs: {failed}")

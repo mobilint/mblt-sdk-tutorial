@@ -31,7 +31,13 @@ git clone https://github.com/facebookresearch/sam2.git /workspace/sam2
 pip install -e /workspace/sam2
 ```
 
-패키지 자체를 설치하지 않으려면 원하는 위치에 clone한 뒤 `--sam2-root`로 경로를 전달하십시오. 이 옵션은 checkout을 `sys.path`에 추가할 뿐이므로 의존성은 따로 설치해야 합니다(`pip install -r /path/to/sam2/requirements.txt` 또는 `pip install -e`). 그렇지 않으면 `sam2.sam2_image_predictor` import가 실패합니다.
+패키지 자체를 설치하지 않으려면 원하는 위치에 clone한 뒤 `--sam2-root`로 경로를 전달하십시오. 이 옵션은 checkout을 `sys.path`에 추가할 뿐이므로 SAM2 자체의 의존성은 별도로 설치해야 합니다. SAM2는 `requirements.txt`가 아니라 패키지 메타데이터로 의존성을 선언하므로 직접 설치하십시오:
+
+```bash
+pip install 'torch>=2.5.1' 'torchvision>=0.20.1' 'numpy>=1.24.4' 'pillow>=9.4.0' 'hydra-core>=1.3.2' 'iopath>=0.1.10' 'tqdm>=4.66.1'
+```
+
+설치하지 않으면 이 튜토리얼의 `requirements.txt`를 모두 만족하더라도 `sam2.sam2_image_predictor` import가 실패합니다.
 
 SAM2 체크포인트는 최초 실행 시 Hugging Face에서 다운로드되므로, 캘리브레이션 호스트에는 네트워크 접근 또는 미리 준비된 Hugging Face 캐시가 필요합니다.
 
