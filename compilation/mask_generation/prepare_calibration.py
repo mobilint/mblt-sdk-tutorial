@@ -6,12 +6,10 @@ of each slot, and the per-slot tensor paths, because several decoder inputs
 share the same shape.
 
 The manifest is keyed by the input names the quantizer sees, which are the
-POST-PARSE names: read from the decoder ``.mblt`` directly, or, for the ONNX
-route, recovered by parsing the decoder ``.onnx`` the same way the compile
-will (``--decoder-model`` accepts either). Decoder tensor generation does not
-need the model at all, so ``--defer-manifest`` saves the tensors now and
-``--stage manifest`` emits the manifest later, once a parseable decoder model
-exists.
+POST-PARSE names read from the decoder ``.mblt`` that ``sam2_decoder_to_mblt.py``
+produces. Decoder tensor generation does not need the model at all, so
+``--defer-manifest`` saves the tensors now and ``--stage manifest`` emits the
+manifest later, once the decoder model exists.
 """
 
 import json
@@ -310,8 +308,8 @@ if __name__ == "__main__":
         "--decoder-model",
         type=str,
         default="./sam2_hiera_large_decoder.mblt",
-        help="Decoder model whose post-parse input names the manifest must match: a .mblt, or a .onnx "
-        "from sam2_export_onnx.py (parsed the same way the compile will parse it)",
+        help="Decoder MBLT whose post-parse input names the manifest must match, "
+        "as produced by sam2_decoder_to_mblt.py",
     )
     parser.add_argument(
         "--defer-manifest",

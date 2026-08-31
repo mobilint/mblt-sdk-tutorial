@@ -10,12 +10,13 @@ The example uses [SAM2 Hiera large](https://github.com/facebookresearch/sam2) fr
 
 Before you begin, make sure you have:
 
-- `qbcompiler` and the `mblt` Python package. Decoder parsing in Step 1 needs a build newer than the released 1.2.0 wheel; see the known issue below.
+- `qbcompiler` and the `mblt` Python package, from a matching pair. The encoder uses the current ONNX frontend and the decoder uses the legacy parser; both ship in the same wheel.
 - Python 3.10 or later
 - A CUDA GPU for calibration
 - A local checkout of [facebookresearch/sam2](https://github.com/facebookresearch/sam2)
 - A SA-V archive (`sav_train` chunk, or `sav_val.tar` / `sav_test.tar`), downloaded from Meta and prepared with `prepare_sav.py`; see [Step 0](#step-0-prepare-the-sa-v-calibration-source).
 - `transformers==4.57.1`, which the parsing wrappers are pinned to
+- `onnxruntime`, used by the encoder export for constant folding and `--verify`. The compiler environment usually ships `onnxruntime-gpu`, which provides the same module; do not install both.
 
 Install the required Python packages:
 

@@ -101,7 +101,9 @@ if __name__ == "__main__":
         "--decoder-runtime-order",
         type=str,
         default=",".join(DEFAULT_DECODER_RUNTIME_ORDER),
-        help="Comma-separated semantic input order reported by mxq_show",
+        help="Comma-separated semantic input order. For a rebuilt decoder read it from the "
+        "calibration manifest's info['slot roles']; a shapes-only dump cannot tell the three "
+        "(256, 64, 64) inputs apart",
     )
     args = parser.parse_args()
 

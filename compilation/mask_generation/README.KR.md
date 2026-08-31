@@ -10,12 +10,13 @@
 
 시작하기 전에 다음 항목이 준비되어 있어야 합니다:
 
-- `qbcompiler` 및 `mblt` Python 패키지. 단계 1의 디코더 파싱에는 배포된 1.2.0 wheel보다 최신 빌드가 필요합니다. 아래 알려진 문제를 참고하십시오.
+- 서로 맞는 조합의 `qbcompiler` 및 `mblt` Python 패키지. 인코더는 현재 ONNX 프론트엔드를, 디코더는 legacy 파서를 사용하며 둘 다 같은 wheel에 포함됩니다.
 - Python 3.10 이상
 - 캘리브레이션용 CUDA GPU
 - [facebookresearch/sam2](https://github.com/facebookresearch/sam2) 로컬 checkout
 - SA-V 아카이브(`sav_train` 청크 또는 `sav_val.tar` / `sav_test.tar`). Meta에서 직접 받아 `prepare_sav.py`로 준비합니다. [단계 0](#단계-0-sa-v-캘리브레이션-소스-준비)을 참고하십시오.
 - 파싱 wrapper가 고정하고 있는 `transformers==4.57.1`
+- 인코더 내보내기의 상수 폴딩과 `--verify`가 사용하는 `onnxruntime`. 컴파일러 환경에는 보통 같은 모듈을 제공하는 `onnxruntime-gpu`가 설치되어 있으므로 둘을 함께 설치하지 마십시오.
 
 필요한 Python 패키지는 다음과 같이 설치합니다:
 

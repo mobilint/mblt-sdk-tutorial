@@ -4,12 +4,17 @@
   python sam2_export_onnx.py
   python sam2_export_onnx.py --torch-device cpu
 
-Step 1 of the two-step MBLT route. Inputs are captured from a real
-`set_image` / `predict` pass and the two wrappers (`Sam2ImageEncoderWrapper`,
-`Sam2MaskDecoderWrapper`) are traced to `.onnx`. `sam2_onnx_to_mblt.py` then
-turns each file into `.mblt` through `mblt_compile(..., backend="onnx")`.
+Step 1 of the encoder's two-step MBLT route. The input is captured from a real
+`set_image` pass and `Sam2ImageEncoderWrapper` is traced to `.onnx`, which
+`sam2_onnx_to_mblt.py` turns into `.mblt` through
+`mblt_compile(..., backend="onnx")`.
 
-The qbcompiler patcher for each wrapper is applied before tracing, exactly as
+This exports the encoder only. The decoder does not take this route: the
+current parser rejects its hypernetwork matmul, so `sam2_decoder_to_mblt.py`
+produces the decoder `.mblt` directly with the legacy parser, and no decoder
+ONNX is written.
+
+The qbcompiler patcher for the wrapper is applied before tracing, exactly as
 the torch parser applies it, so the exported graph carries the device-friendly
 rewrites (windowed attention without `unbind`, `LayerNorm2d` without `sqrt`,
 `FpnNeck` upsampling through `nn.Upsample`) rather than the stock ones.
