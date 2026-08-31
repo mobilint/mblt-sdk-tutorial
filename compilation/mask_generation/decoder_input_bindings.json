@@ -1,0 +1,8 @@
+{
+  "image_embeddings": "image_embeddings",
+  "dense_prompt_embeddings": "dense_prompt_embeddings",
+  "image_pe": "image_pe",
+  "sparse_prompt_embeddings_0": "sparse_prompt_embeddings",
+  "high_res_features0_0": "hrf0_nhwc",
+  "high_res_features1_0": "hrf1_nhwc"
+}

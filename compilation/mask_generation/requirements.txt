@@ -1,0 +1,7 @@
+# SAM2 host model and calibration dependencies.
+# qbcompiler and mblt come from the Mobilint compiler environment and are not listed here.
+torch
+numpy
+opencv-python
+pycocotools
+transformers==4.57.1
