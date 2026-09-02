@@ -27,11 +27,12 @@ from __future__ import annotations
 
 import argparse
 import collections
+import inspect
 import random
 import re
 import sys
 import tarfile
-from pathlib import Path, PurePosixPath, PurePosixPath
+from pathlib import Path, PurePosixPath
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -214,12 +215,18 @@ def report(output_dir: Path, seed: int) -> None:
 
 def safe_extract(tar: tarfile.TarFile, output_dir: Path, members: list[tarfile.TarInfo]) -> None:
     """Extract selected regular files and directories without traversal or links."""
-    if sys.version_info >= (3, 10, 12):
+    if "filter" in inspect.signature(tar.extractall).parameters:
         tar.extractall(output_dir, members=members, filter="data")
         return
     for member in members:
         path = PurePosixPath(member.name)
-        if path.is_absolute() or ".." in path.parts or not (member.isdir() or member.isreg()):
+        destination = (output_dir / path).resolve(strict=False)
+        if (
+            path.is_absolute()
+            or ".." in path.parts
+            or not destination.is_relative_to(output_dir.resolve())
+            or not (member.isdir() or member.isreg())
+        ):
             raise tarfile.TarError(f"unsafe archive member: {member.name}")
         tar.extract(member, path=output_dir)
 
