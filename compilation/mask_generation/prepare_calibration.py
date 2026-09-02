@@ -355,14 +355,15 @@ if __name__ == "__main__":
         print(f"wrote {write_decoder_manifest(args)}")
         raise SystemExit(0)
 
+    if args.defer_manifest and args.stage in ("decoder", "both"):
+        (Path(args.decoder_output_dir) / "decoder_calib.json").unlink(missing_ok=True)
+
     predictor = build_predictor(args.model_id, args.sam2_root, args.torch_device)
     if args.stage in ("encoder", "both"):
         print(f"wrote {generate_encoder_calibration(args, predictor)}")
     if args.stage in ("decoder", "both"):
         print(f"wrote {generate_decoder_tensors(args, predictor)}")
         if args.defer_manifest:
-            manifest = Path(args.decoder_output_dir) / "decoder_calib.json"
-            manifest.unlink(missing_ok=True)
             print("manifest deferred; emit it later with --stage manifest --decoder-model <model>")
         else:
             print(f"wrote {write_decoder_manifest(args)}")

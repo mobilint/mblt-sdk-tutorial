@@ -198,7 +198,7 @@ def report(output_dir: Path, seed: int) -> None:
     if videos < decoder_end:
         print(
             f"\nwarning: only {videos} videos, but decoder calibration wants videos up to "
-            f"{decoder_end - 1}.\nLower --decoder-samples or --decoder-skip-videos, or prepare more videos."
+            f"{decoder_end - 1}. Lower sample counts while preserving nonoverlapping ranges, or prepare more videos."
         )
     # --*-max-videos turns each range into a hard bound. Without them the sets walk
     # past their range and quietly consume videos held back for evaluation.

@@ -134,11 +134,16 @@ if __name__ == "__main__":
         validate_decoder_manifest(decoder_mblt, decoder_calib, args.decoder_input_bindings)
 
     if "encoder" in parts:
-        missing = [Path(line.strip()) for line in encoder_calib.read_text().splitlines() if line.strip() and not Path(line.strip()).is_file()]
+        encoder_paths = [line.strip() for line in encoder_calib.read_text().splitlines() if line.strip()]
+        if not encoder_paths:
+            raise ValueError("encoder calibration listing contains no tensor paths")
+        missing = [Path(path) for path in encoder_paths if not Path(path).is_file()]
         if missing:
             raise FileNotFoundError(f"encoder calibration tensor: {missing[0]}")
     if "decoder" in parts:
         paths = json.loads(decoder_calib.read_text()).get("calib paths", [])
+        if not paths or any(not sample for sample in paths):
+            raise ValueError("decoder calibration manifest contains no tensor paths")
         missing = [Path(path) for sample in paths for path in sample if not Path(path).is_file()]
         if missing:
             raise FileNotFoundError(f"decoder calibration tensor: {missing[0]}")

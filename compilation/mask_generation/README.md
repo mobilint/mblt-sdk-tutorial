@@ -374,14 +374,14 @@ but found at least two devices, cpu and cuda:0!
 
 ## Validated Result
 
-This calibration recipe was measured on 200 one-click SA-V samples drawn from videos disjoint from the calibration ranges, running both MXQ models on an Aries2 NPU with `qbruntime` v1.2.0:
+These are historical results from the earlier host-token-assembly decoder path, not validation of the current direct-parser workflow:
 
 | Path | Samples | mIoU |
 | --- | ---: | ---: |
 | Official FP32 | 200 | 0.775005 |
 | Encoder + decoder MXQ | 200 | 0.775706 |
 
-Binary mask agreement against FP32 was `0.983084` and low-resolution logit cosine similarity was `0.998363`. The compiled decoder accepted all three calibrated token lengths (8, 9, and 10).
+Binary mask agreement against FP32 was `0.983084` and low-resolution logit cosine similarity was `0.998363`; the earlier decoder accepted token lengths 8, 9, and 10.
 
 Reproducing these numbers requires the evaluation harness, which is outside the scope of this tutorial.
 

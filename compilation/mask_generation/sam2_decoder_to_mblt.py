@@ -3,11 +3,8 @@
 
   python sam2_decoder_to_mblt.py
 
-The ONNX route in Step 1 compiles the encoder but not the decoder: the decoder
-dies in `mblt-graph`'s matmul transform with `unable to broadcast: 256, 32`.
-That failure belongs to the *new* parser (`qbcompiler.model_dict_new`). The
-legacy parser (`qbcompiler.model_dict`) lowers the same hypernetwork matmul
-successfully, so the decoder can be produced today by routing it there.
+Both Step 1 components use direct legacy-parser routes. The decoder uses
+`qbcompiler.model_dict`, which lowers its hypernetwork matmul successfully.
 
 Modelled on the reference at `qbcompiler/scripts/sam2/sam2_devel_decoder.py`.
 Unlike the encoder route this parses `predictor.model.sam_mask_decoder`
