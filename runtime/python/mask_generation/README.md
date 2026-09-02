@@ -56,7 +56,6 @@ image
   -> prompt encoder                           host
   -> decoder host bridge and mask decoder body decoder MXQ
   -> mask upscaling                           host
-  -> mask upscaling                           host
 ```
 
 ## Files in This Tutorial

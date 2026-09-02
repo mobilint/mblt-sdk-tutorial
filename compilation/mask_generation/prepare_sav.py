@@ -31,7 +31,7 @@ import random
 import re
 import sys
 import tarfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PurePosixPath
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -212,6 +212,18 @@ def report(output_dir: Path, seed: int) -> None:
     )
 
 
+def safe_extract(tar: tarfile.TarFile, output_dir: Path, members: list[tarfile.TarInfo]) -> None:
+    """Extract selected regular files and directories without traversal or links."""
+    if sys.version_info >= (3, 10, 12):
+        tar.extractall(output_dir, members=members, filter="data")
+        return
+    for member in members:
+        path = PurePosixPath(member.name)
+        if path.is_absolute() or ".." in path.parts or not (member.isdir() or member.isreg()):
+            raise tarfile.TarError(f"unsafe archive member: {member.name}")
+        tar.extract(member, path=output_dir)
+
+
 def main() -> None:
     args = parse_args()
     output_dir = Path(args.output_dir).resolve()
@@ -235,8 +247,7 @@ def main() -> None:
             continue
         output_dir.mkdir(parents=True, exist_ok=True)
         with tarfile.open(archive) as tar:
-            # filter="data" rejects absolute paths, `..` traversal, and device nodes.
-            tar.extractall(output_dir, members=members, filter="data")
+            safe_extract(tar, output_dir, members)
         total += len(members)
         print(f"  extracted into {output_dir}")
 
