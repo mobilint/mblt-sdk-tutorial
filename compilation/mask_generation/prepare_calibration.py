@@ -21,7 +21,7 @@ import numpy as np
 import torch
 from decoder_bindings import (
     load_binding_map,
-    read_model_input_names,
+    read_mblt_input_names,
     resolve_decoder_bindings,
 )
 from sam2_host import build_predictor, prepare_decoder_tensors, preprocess_encoder_input
@@ -34,6 +34,14 @@ ENCODER_INPUT_SHAPE = (1, 1024, 1024, 3)
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_ENCODER_OUTPUT_DIR = SCRIPT_DIR / "calib" / "encoder"
 DEFAULT_DECODER_OUTPUT_DIR = SCRIPT_DIR / "calib" / "decoder"
+DEFAULT_SAV_ROOT = SCRIPT_DIR / "data" / "sav"
+# These ranges match prepare_sav.py's default 120-video sav_val subset.  The
+# hard maximums prevent either calibration set from spilling into the other.
+DEFAULT_ENCODER_SKIP_VIDEOS = 0
+DEFAULT_ENCODER_MAX_VIDEOS = 32
+DEFAULT_DECODER_SKIP_VIDEOS = 36
+DEFAULT_DECODER_MAX_VIDEOS = 60
+DEFAULT_DECODER_SAMPLES = 60
 
 
 def parse_point_mix(values: str) -> tuple[int, ...]:
@@ -111,7 +119,7 @@ def read_decoder_input_names(args) -> tuple[Path, list[str]]:
             f"decoder model not found: {decoder_model}. Produce it with sam2_decoder_to_mblt.py."
         )
     try:
-        return decoder_model, read_model_input_names(decoder_model)
+        return decoder_model, read_mblt_input_names(decoder_model)
     except Exception as error:
         raise RuntimeError(f"could not read the input contract from {decoder_model}: {error}") from error
 
@@ -262,8 +270,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--sav-root",
         type=str,
-        default=None,
-        help="Path to the SA-V sav_train directory (not needed for --stage manifest)",
+        default=str(DEFAULT_SAV_ROOT),
+        help="Extracted SA-V val/test or train root. Default: data/sav next to this script",
     )
     parser.add_argument("--sam2-root", type=str, default=None, help="Local facebookresearch/sam2 checkout")
     parser.add_argument("--model-id", type=str, default="facebook/sam2-hiera-large", help="SAM2 model id")
@@ -279,12 +287,14 @@ if __name__ == "__main__":
         help="Encoder output directory. Default: calib/encoder next to this script",
     )
     parser.add_argument("--encoder-samples", type=int, default=32, help="Number of encoder samples")
-    parser.add_argument("--encoder-skip-videos", type=int, default=600, help="Videos to skip for the encoder set")
+    parser.add_argument(
+        "--encoder-skip-videos", type=int, default=DEFAULT_ENCODER_SKIP_VIDEOS, help="Videos to skip for the encoder set"
+    )
     parser.add_argument("--encoder-per-video", type=int, default=2, help="Encoder frames per video")
     parser.add_argument(
         "--encoder-max-videos",
         type=int,
-        default=None,
+        default=DEFAULT_ENCODER_MAX_VIDEOS,
         help="Hard cap on videos the encoder set may span, keeping it inside its range",
     )
 
@@ -294,20 +304,22 @@ if __name__ == "__main__":
         default=str(DEFAULT_DECODER_OUTPUT_DIR),
         help="Decoder output directory. Default: calib/decoder next to this script",
     )
-    parser.add_argument("--decoder-samples", type=int, default=300, help="Number of decoder samples")
-    parser.add_argument("--decoder-skip-videos", type=int, default=800, help="Videos to skip for the decoder set")
+    parser.add_argument("--decoder-samples", type=int, default=DEFAULT_DECODER_SAMPLES, help="Number of decoder samples")
+    parser.add_argument(
+        "--decoder-skip-videos", type=int, default=DEFAULT_DECODER_SKIP_VIDEOS, help="Videos to skip for the decoder set"
+    )
     parser.add_argument("--decoder-per-video", type=int, default=4, help="Decoder masks per video")
     parser.add_argument(
         "--decoder-max-videos",
         type=int,
-        default=None,
+        default=DEFAULT_DECODER_MAX_VIDEOS,
         help="Hard cap on videos the decoder set may span, keeping it inside its range",
     )
     parser.add_argument("--point-mix", type=str, default="1,2,3", help="Point counts cycled across decoder samples")
     parser.add_argument(
         "--decoder-model",
         type=str,
-        default="./sam2_hiera_large_decoder.mblt",
+        default=str(SCRIPT_DIR / "sam2_hiera_large_decoder.mblt"),
         help="Decoder MBLT whose post-parse input names the manifest must match, "
         "as produced by sam2_decoder_to_mblt.py",
     )
@@ -320,14 +332,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--decoder-input-bindings",
         type=str,
-        default="./decoder_input_bindings.json",
+        default=str(SCRIPT_DIR / "decoder_input_bindings.json"),
         help="MBLT input name to semantic role map",
     )
     args = parser.parse_args()
 
     if args.stage != "manifest":
-        if args.sav_root is None:
-            parser.error("--sav-root is required unless --stage manifest")
         # Fail before the model load: scanning a missing or empty tree yields
         # nothing silently, which would surface only as "wrote 0 samples" at the end.
         if not Path(args.sav_root).is_dir():

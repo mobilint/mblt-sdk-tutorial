@@ -34,35 +34,6 @@ def load_binding_map(path: str | Path | None) -> dict[str, str]:
     return data
 
 
-def read_onnx_input_names(path: str | Path, feed_dict=None) -> list[str]:
-    """Parse an ONNX model with qbcompiler and return the post-parse input names.
-
-    Calibration must be keyed by the input names the quantizer sees, and those are
-    the names of the parsed MBLT graph, not the names in the ONNX file (the parser
-    renames inputs and can split or add them while normalizing the graph head).
-    ``ignore_weight`` keeps the parse cheap: only the graph structure is needed.
-
-    ``feed_dict`` supplies concrete example inputs when the ONNX graph has symbolic
-    dimensions the parser cannot resolve on its own.
-    """
-    from qbcompiler.model_dict_new.parser import ModelParser, get_parser_config
-    from qbcompiler.model_dict_new.parser.target import OnnxTarget
-
-    parser_config = get_parser_config("dev")
-    parser_config.log_level = "error"
-    parser_config.inference_validation = False
-    parser_config.ignore_weight = True
-    # Mirror the mblt_compile parse configuration: the input contract depends on
-    # the device-marking transforms, so a differently configured parse could
-    # report different names than the compile will use.
-    parser_config.device_alloc = True
-    parser_config.largest_supported_only = True
-    model_dict = ModelParser(target=OnnxTarget(path=str(path)), parser_config=parser_config).parse(
-        write_mblt=False, feed_dict=feed_dict
-    )
-    return list(model_dict.inputs)
-
-
 def read_mblt_input_names(path: str | Path) -> list[str]:
     """Read top-level MBLT input names without loading weight buffers."""
     from mblt.serialize import SerializeMeta as MbltSerializeMeta
@@ -77,14 +48,6 @@ def read_mblt_input_names(path: str | Path) -> list[str]:
     else:
         model_dict = MbltSerializeMeta.get_model_dict(path)
     return list(model_dict.inputs)
-
-
-def read_model_input_names(path: str | Path, feed_dict=None) -> list[str]:
-    """Read post-parse input names from a ``.mblt`` or ``.onnx`` decoder model."""
-    path = Path(path)
-    if path.suffix == ".onnx":
-        return read_onnx_input_names(path, feed_dict=feed_dict)
-    return read_mblt_input_names(path)
 
 
 def resolve_decoder_bindings(input_names: Sequence[str], mapping: Mapping[str, str] | None = None) -> list[str]:

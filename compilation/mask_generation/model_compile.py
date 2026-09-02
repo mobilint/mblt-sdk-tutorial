@@ -52,13 +52,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--encoder-mblt",
         type=str,
-        default="./sam2_hiera_large_encoder.mblt",
+        default=str(SCRIPT_DIR / "sam2_hiera_large_encoder.mblt"),
         help="Path to the SAM2 image encoder MBLT",
     )
     parser.add_argument(
         "--decoder-mblt",
         type=str,
-        default="./sam2_hiera_large_decoder.mblt",
+        default=str(SCRIPT_DIR / "sam2_hiera_large_decoder.mblt"),
         help="Path to the SAM2 mask decoder MBLT",
     )
     parser.add_argument(
@@ -76,25 +76,25 @@ if __name__ == "__main__":
     parser.add_argument(
         "--encoder-save-path",
         type=str,
-        default="./sam2_hiera_large_encoder.mxq",
+        default=str(SCRIPT_DIR / "sam2_hiera_large_encoder.mxq"),
         help="Path to save the encoder MXQ model",
     )
     parser.add_argument(
         "--decoder-save-path",
         type=str,
-        default="./sam2_hiera_large_decoder.mxq",
+        default=str(SCRIPT_DIR / "sam2_hiera_large_decoder.mxq"),
         help="Path to save the decoder MXQ model",
     )
     parser.add_argument(
         "--compile-config",
         type=str,
-        default="./compile_config.json",
+        default=str(SCRIPT_DIR / "compile_config.json"),
         help="qbcompiler CompileConfig JSON",
     )
     parser.add_argument(
         "--decoder-input-bindings",
         type=str,
-        default="./decoder_input_bindings.json",
+        default=str(SCRIPT_DIR / "decoder_input_bindings.json"),
         help="MBLT input name to semantic role map",
     )
     parser.add_argument(

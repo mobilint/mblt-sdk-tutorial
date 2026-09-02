@@ -4,19 +4,18 @@
 
 이 예제에서는 Meta의 [SAM2 Hiera large](https://github.com/facebookresearch/sam2) 모델을 사용합니다. SAM2는 단일 순전파 네트워크가 아닙니다. 이미지 인코더는 이미지당 한 번 실행되고, 가벼운 마스크 디코더는 프롬프트당 한 번 실행됩니다. 이 튜토리얼에서는 두 모델을 각각 MXQ로 컴파일하고, 프롬프트 인코더는 호스트에 남겨 둡니다.
 
-> **참고**: 인코더와 디코더는 MBLT에 도달하는 경로가 다릅니다. 인코더는 다른 컴파일 튜토리얼과 같이 ONNX를 거치며 두 단계로 진행됩니다(`sam2_export_onnx.py` 다음 `sam2_onnx_to_mblt.py`). 디코더는 그 경로를 쓸 수 없습니다. 현재 파서가 디코더의 hypernetwork matmul을 거부하므로 `sam2_decoder_to_mblt.py`가 legacy 파서로 파싱하며, 디코더 ONNX는 생성되지 않습니다. 단계 1이 두 경우를 모두 다룹니다.
+> **참고**: 기본 워크플로에서는 인코더와 디코더 모두 qbcompiler의 legacy torch parser로 SAM2에서 직접 MBLT로 내보냅니다. ONNX 내보내기나 ONNX 프론트엔드는 사용하지 않습니다.
 
 ## 사전 준비
 
 시작하기 전에 다음 항목이 준비되어 있어야 합니다:
 
-- 서로 맞는 조합의 `qbcompiler` 및 `mblt` Python 패키지. 인코더는 현재 ONNX 프론트엔드를, 디코더는 legacy 파서를 사용하며 둘 다 같은 wheel에 포함됩니다.
+- 서로 맞는 조합의 `qbcompiler` 및 `mblt` Python 패키지. 두 내보내기 모두 qbcompiler의 legacy torch parser를 사용합니다.
 - Python 3.10 이상
 - 캘리브레이션용 CUDA GPU
 - [facebookresearch/sam2](https://github.com/facebookresearch/sam2) 로컬 checkout
 - SA-V 아카이브(`sav_train` 청크 또는 `sav_val.tar` / `sav_test.tar`). Meta에서 직접 받아 `prepare_sav.py`로 준비합니다. [단계 0](#단계-0-sa-v-캘리브레이션-소스-준비)을 참고하십시오.
 - 파싱 wrapper가 고정하고 있는 `transformers==4.57.1`
-- 인코더 내보내기의 상수 폴딩과 `--verify`가 사용하는 `onnxruntime`. 컴파일러 환경에는 보통 같은 모듈을 제공하는 `onnxruntime-gpu`가 설치되어 있으므로 둘을 함께 설치하지 마십시오.
 
 필요한 Python 패키지는 다음과 같이 설치합니다:
 
@@ -48,7 +47,7 @@ SAM2 체크포인트는 최초 실행 시 Hugging Face에서 다운로드되므�
 워크플로우는 크게 네 단계로 구성됩니다:
 
 0. **캘리브레이션 소스 준비**: `prepare_sav.py`로 SA-V subset을 추출합니다.
-1. **MBLT 그래프 생성**: 인코더는 ONNX로 내보내 컴파일하고, 디코더는 legacy 파서로 직접 파싱합니다.
+1. **MBLT 그래프 생성**: 인코더와 디코더를 모두 legacy parser로 직접 파싱합니다.
 2. **캘리브레이션 데이터셋 준비**: SA-V에서 인코더와 디코더 캘리브레이션 텐서를 생성합니다.
 3. **모델 컴파일**: 해당 캘리브레이션 데이터로 두 MBLT 그래프를 `.mxq`로 변환합니다.
 
@@ -88,10 +87,11 @@ high_res_features1_0        -> hrf1_nhwc                 (1, 128, 128,  64)
 
 캘리브레이션 프레임과 마스크는 SA-V에서 가져옵니다. **먼저 직접 다운로드하십시오.** 공식 [SA-V 데이터셋 가이드](https://github.com/facebookresearch/sam2/blob/main/sav_dataset/README.md)가 각 split을 설명하고, 양식 동의가 필요한 [다운로드 페이지](https://ai.meta.com/datasets/segment-anything-video-downloads/)로 안내합니다. 이 튜토리얼은 데이터를 직접 받아오지 않으며 게이트를 우회하지도 않습니다. 미러가 아니라 Meta에서 직접 받으십시오.
 
-`.tar`를 확보했다면 `prepare_sav.py`가 이를 캘리브레이션용 subset으로 변환합니다:
+명령을 실행하는 디렉터리에 `sav_val.tar`를 두십시오. `./sav_val.tar`가
+기본값이므로, 다음 명령으로 범위가 제한된 캘리브레이션 subset을 추출합니다:
 
 ```bash
-python prepare_sav.py --archive sav_val.tar --videos 155
+python prepare_sav.py
 ```
 
 두 가지 SA-V 레이아웃을 모두 지원하며 자동으로 감지합니다:
@@ -101,7 +101,7 @@ python prepare_sav.py --archive sav_val.tar --videos 155
 | `sav_train` | train | `{video}.mp4`와 `{video}_manual.json`, 마스크는 RLE |
 | `sav_val`, `sav_test` | vos | `JPEGImages_24fps/{video}/{frame}.jpg`와 `Annotations_6fps/{video}/{object}/{frame}.png` |
 
-전체가 아니라 subset만 추출합니다. 캘리브레이션에는 인코더 32개, 디코더 300개 샘플이 필요한 반면 `sav_val.tar`는 155개 비디오에 15 GB이므로, 스크립트는 `--videos`개 비디오와 비디오당 `--frames-per-video`개의 어노테이션된 프레임만 남기고 어노테이션이 없는 프레임은 버립니다. `sav_val.tar`에서 155개 비디오를 모두 추출하면 15 GB가 아니라 **307 MB**가 됩니다. `--dry-run`으로 선택 결과와 크기를 미리 확인할 수 있습니다.
+전체가 아니라 subset만 추출합니다. 기본값은 서로 겹치지 않는 비디오 구간에서 인코더 32개와 디코더 60개 샘플을 생성합니다. 전체 `sav_val.tar`는 155개 비디오에 15 GB이지만, 스크립트는 120개 비디오와 비디오당 8개의 어노테이션 프레임만 남기고 어노테이션이 없는 프레임은 버립니다. `--dry-run`으로 선택 결과와 크기를 미리 확인할 수 있습니다.
 
 프레임 단위로 해당 프레임의 모든 객체 마스크를 함께 보존하므로, 디코더 캘리브레이션이 프레임당 임의의 객체 하나만 받는 대신 객체 크기 균형을 그대로 맞출 수 있습니다.
 
@@ -135,30 +135,39 @@ disjoint video ranges (no video is shared between them):
 
 ### 비디오 개수
 
-기본 skip 구간은 규모가 큰 `sav_train` split을 전제로 합니다:
+기본값은 제공된 `sav_val` 아카이브를 대상으로 합니다:
 
 | 세트 | 계산 | 필요 비디오 수 |
 | --- | --- | ---: |
-| 인코더 | skip 600 + 샘플 32 / 비디오당 2 | 616 |
-| 디코더 | skip 800 + 샘플 300 / 비디오당 4 | 875 |
+| 인코더 | skip 0 + 샘플 32 / 비디오당 2 | 32 |
+| 디코더 | skip 36 + 샘플 60 / 비디오당 4 | 60 |
 
-`sav_val`은 155개, `sav_test`는 150개 비디오뿐이라 어느 쪽도 이 기본값을 만족하지 못하며, `prepare_sav.py`가 서로 겹치지 않는 더 작은 구간을 대신 출력합니다. 디코더는 계산값보다 조금 더 필요합니다. `build_prompt()`는 포인트를 놓기에 너무 얇은 마스크에 대해 `None`을 반환하고, 큰 객체가 적은 비디오에서는 `--decoder-per-video`보다 적게 선택되기 때문입니다.
+처음 96개 위치가 두 캘리브레이션 구간과 그 사이의 4개 비디오 간격을 포함합니다. 기본 120개 비디오 추출은 평가용으로 20개 비디오도 남깁니다. hard cap이 있어 샘플이 부족하면 평가 구간을 조용히 소비하지 않고 실패합니다.
 
 > **참고**: 비디오 선택은 `--seed`로 섞이므로, 나중에 비디오를 더 추출하면 분할이 다시 섞이고 이전에 생성한 캘리브레이션이 더 이상 같은 비디오에 대응하지 않습니다. 준비를 끝낸 뒤 생성하거나, 두 세트를 함께 다시 생성하십시오.
 
 ## 단계 1: MBLT 그래프 생성
 
-두 부분은 서로 다른 파서를 필요로 하므로 경로가 다릅니다.
+두 부분 모두 qbcompiler SAM2 참조 구현의 direct torch-parser 경로를 사용합니다.
 
 ```bash
-python sam2_export_onnx.py            # 인코더: SAM2 -> ONNX
-python sam2_onnx_to_mblt.py           # 인코더: ONNX -> MBLT
+python sam2_encoder_to_mblt.py         # 인코더: SAM2 -> MBLT
 python sam2_decoder_to_mblt.py        # 디코더: SAM2 -> MBLT
 ```
 
-**인코더**는 이 저장소의 다른 튜토리얼과 동일한 ONNX 경로를 사용합니다. `sam2_export_onnx.py`가 `set_image` 중 `image_encoder`에 hook을 걸어 Hiera trunk와 FPN neck을 `Sam2ImageEncoderWrapper`로 내보내고, `sam2_onnx_to_mblt.py`가 `mblt_compile(..., backend="onnx")`로 파싱합니다. 결과는 입력 `input_image_channel_last` 1개와 FPN 출력 3개를 보고합니다.
+두 명령은 다른 작업 디렉터리에서 절대 경로로 실행해도 기본적으로 이
+`compilation/mask_generation` 디렉터리에 결과를 작성합니다.
+다른 위치를 사용하려면 각 명령에 `--save-path /path/to/output/<part>.mblt`를 전달하십시오.
 
-**디코더**는 그 경로를 쓸 수 없습니다. `mblt_compile`이 사용하는 현재 파서의 matmul transform이 SAM2의 hypernetwork head를 `unable to broadcast: 256, 32`로 거부하기 때문입니다. `sam2_decoder_to_mblt.py`는 이를 legacy 파서(`qbcompiler.model_dict`)로 넘기며, legacy 파서는 같은 matmul을 문제없이 lowering합니다. wrapper가 아니라 `sam_mask_decoder`를 직접 파싱하고, 파서가 그래프를 스스로 분할합니다:
+선택 사항으로 남겨 둔 `sam2_export_onnx.py`도 동일한 외부 경계를 사용합니다.
+입력 `input_image_0`과 출력 `add`, `model_sam_mask_decoder_conv_s1`,
+`model_sam_mask_decoder_conv_s0`은 모두 NHWC이며, 이름과 순서가 직접 생성한
+인코더 MBLT와 같습니다. 내보내는 동안 각 공개 입출력의 min-max 범위를 출력하고
+같은 wrapper를 기준으로 ONNX 값을 검증합니다.
+
+**인코더**는 `forward_image` 호출을 캡처해 직접 파싱합니다. `sam2_encoder_to_mblt.py`는 Hiera trunk와 FPN neck의 세 feature map을 노출하는 wrapper를 사용한 뒤 legacy parser 결과를 직렬화합니다. MBLT는 공식 SAM2 전처리의 NHWC 이미지 텐서를 입력으로 받고 세 FPN 출력을 생성합니다.
+
+**디코더**도 `qbcompiler.model_dict`로 직접 파싱합니다. wrapper가 아니라 `sam_mask_decoder`를 직접 파싱하고, 파서가 그래프를 스스로 분할합니다:
 
 ```text
 subgraph 0  host bridge    11 ops   출력 토큰 concat, image_embeddings + dense
@@ -169,12 +178,12 @@ subgraph 1  NPU body      168 ops   TwoWayTransformer, 업스케일링, hypernet
 
 출력:
 
-- `sam2_hiera_large_encoder.onnx`와 `sam2_hiera_large_encoder.mblt`
+- `sam2_hiera_large_encoder.mblt`
 - `sam2_hiera_large_decoder.mblt`
 
 기본 추적 이미지는 `../../runtime/python/rc/bus.jpg`이고, 기본 프롬프트는 `sam2_host.prompt_arrays()`의 3포인트 프롬프트입니다. `sam2` checkout을 바로 import할 수 없다면 `--sam2-root`를 전달하십시오.
 
-### 상수 폴딩은 선택 사항이 아닙니다
+### 선택 사항: ONNX 경로의 상수 폴딩
 
 Hiera는 위치 임베딩을 `x.shape`에 맞춰 보간하며, ONNX exporter는 이를 `Resize`로 이어지는 `Shape`/`Gather`/`Div` 체인으로 그대로 기록합니다. parser는 이 체인을 배치할 수 없어 해당 지점에서 그래프를 잘라내고, patch embed가 조용히 **두 번째** 그래프 입력이 됩니다:
 
@@ -188,18 +197,18 @@ inputs: ['input_image_channel_last', '/image_encoder/trunk/Transpose_output_0']
 
 또한 내보내기 과정에서 torch parser가 적용하는 것과 동일한 `qbcompiler` patcher를 적용하므로, 내보낸 그래프는 stock 그래프가 아니라 디바이스 친화적으로 재작성된 형태를 갖습니다. `--no-patch`는 패치되지 않은 그래프를 확인할 때만 사용하십시오.
 
-### 내보내기 검증
+### 선택 사항: ONNX 내보내기 검증
 
 `--verify`는 기본으로 켜져 있습니다. 내보낸 인코더를 `onnxruntime`으로 실행해 모든 출력을 추적 시점의 torch 출력과 비교합니다. 이 스크립트는 인코더만 내보내므로 디코더에 대해서는 아무것도 검증하지 않습니다. 디코더의 동적 프롬프트 축은 `sam2_decoder_to_mblt.py`가 설정하며, 컴파일된 아티팩트에서 `qbruntime.get_model_summary`가 프롬프트 축을 `-1`로 보고하는 것으로 확인합니다.
 
 비교는 절대값이 아니라 각 출력의 크기에 대한 상대값으로 수행합니다. `onnxruntime`은 CPU에서 실행되므로 CUDA로 내보낸 경우 서로 다른 디바이스 간 비교가 됩니다. 같은 이유로 내보내기 시 TF32를 비활성화합니다. Ampere 이후 GPU의 기본 TF32 정밀도는 Hiera trunk 전체를 지나며 참조 forward를 상대 오차 약 `2e-3`만큼 밀어내는데, 내보내기 자체는 정확하더라도 정직한 허용 오차를 통과하지 못할 정도입니다.
 
-### 추적 메모리
+### 선택 사항: ONNX 내보내기 메모리
 
 내보내기는 모든 연산을 즉시 실행하므로 Hiera-large 인코더에는 12 GB를 넘는 VRAM이 필요합니다. 12 GB 카드에서는 trunk 도중 `torch.OutOfMemoryError`로 실패합니다. 이 경우 CPU에서 내보내십시오:
 
 ```bash
-python sam2_export_onnx.py --part encoder --torch-device cpu
+python sam2_encoder_to_mblt.py --torch-device cpu
 ```
 
 인코더 내보내기는 CPU에서 약 2분, RAM 약 10 GB를 사용합니다. `--torch-device`는 CUDA를 사용할 수 있으면 CUDA를, 그렇지 않으면 CPU를 기본값으로 사용합니다.
@@ -214,9 +223,9 @@ feed["sparse_prompt_embeddings"].src_shape[-2].set_dynamic(True)
 
 파싱된 그래프는 `sparse_prompt_embeddings_0`을 `(1, 1, dyn(4), 256)`으로 보고합니다. 단계 2는 캘리브레이션 manifest에 `shapes_by_role["sparse_prompt_embeddings"][2] = -1`로 동일한 제약을 기록합니다.
 
-### 디코더가 legacy 파서를 쓰는 이유
+### 두 모델이 legacy parser를 쓰는 이유
 
-`mblt_compile`과 `sam2_export_onnx.py`는 모두 현재 파서(`qbcompiler.model_dict_new`)를 거치는데, 그 matmul transform이 디코더의 hypernetwork head를 거부합니다:
+현재 ONNX 경로(`mblt_compile` 및 `sam2_export_onnx.py`)는 `qbcompiler.model_dict_new`를 거치는데, 그 matmul transform이 디코더의 hypernetwork head를 거부합니다:
 
 ```text
 mblt/transform/ruleset/dataflow/matmul.py, in case0
@@ -225,14 +234,14 @@ ValueError: unable to broadcast: 256, 32
 
 `hyper_in @ upscaled_embedding` 연산이며, 원인이 프론트엔드가 아니라 `mblt-graph`의 transform rule에 있기 때문에 ONNX 경로와 torch 경로 모두에서 동일하게 실패합니다. legacy 파서(`qbcompiler.model_dict`)는 자체 lowering 경로를 가지고 있어 같은 matmul을 처리하며, 그래서 디코더를 그쪽으로 보냅니다. `qbcompiler/scripts/sam2/sam2_devel_decoder.py`가 이 방식의 참조 구현입니다.
 
-SAM2 디코더 변경이 포함된 `qbcompiler`/`mblt-graph` 조합을 사용할 수 있게 되면 디코더도 ONNX 경로로 옮겨 인코더와 통일할 수 있습니다. 그때는 입력 계약이 바뀌므로 단계 1-1을 다시 수행하십시오.
+따라서 기본 워크플로는 두 모델 모두 legacy parser를 사용합니다. ONNX 경로를 선택하면 입력 계약이 달라질 수 있으므로 단계 1-1을 다시 수행하십시오.
 
 ## 단계 1-1: 디코더 input name 확인
 
 디코더 input name은 파싱된 그래프에 따라 달라지며, 단계 2와 단계 3이 모두 이 이름에 의존합니다. MBLT가 실제로 보고하는 이름을 출력합니다:
 
 ```bash
-python -c "from decoder_bindings import read_model_input_names; print(read_model_input_names('./sam2_hiera_large_decoder.mblt'))"
+python -c "from decoder_bindings import read_mblt_input_names; print(read_mblt_input_names('./sam2_hiera_large_decoder.mblt'))"
 ```
 
 결과를 `decoder_input_bindings.json`과 비교하십시오. 이름이 다르면 해당 이름을 동일한 6개 semantic role에 매핑하는 새 파일을 작성하고 단계 2와 단계 3에서 `--decoder-input-bindings`로 전달합니다. 기본값에 맞추려고 캘리브레이션 텐서 순서를 바꾸지 마십시오. 여러 디코더 입력이 같은 shape을 가지므로 위치로 추측하면 오류 없이 조용히 잘못된 결과가 나옵니다.
@@ -241,12 +250,10 @@ python -c "from decoder_bindings import read_model_input_names; print(read_model
 
 `prepare_calibration.py`는 SA-V manual masklet에서 두 캘리브레이션 세트를 생성합니다. 인코더 캘리브레이션에는 프레임만 필요하지만, 디코더 캘리브레이션에는 객체 내부에 포인트 프롬프트를 배치하기 위한 ground-truth 마스크도 필요합니다.
 
-한 번의 실행으로 두 세트를 모두 생성합니다:
+단계 0 이후 두 세트를 한 번에 생성합니다. 이제 `--sav-root`와 분리된 비디오 구간 인자는 기본값이므로, 디코더 MBLT만 있으면 됩니다:
 
 ```bash
-python prepare_calibration.py --sav-root ./data/sav --decoder-model ./sam2_hiera_large_decoder.mblt \
-  --encoder-samples 32 --encoder-skip-videos 0 --encoder-max-videos 32 \
-  --decoder-samples 60 --decoder-skip-videos 36 --decoder-max-videos 60
+python prepare_calibration.py
 ```
 
 출력은 현재 작업 디렉터리가 아니라 스크립트와 같은 위치에 저장되므로, 어디에서 실행하든 튜토리얼의 `calib/` 트리가 동일한 자리에 생성됩니다:
@@ -258,7 +265,7 @@ python prepare_calibration.py --sav-root ./data/sav --decoder-model ./sam2_hiera
 
 `model_compile.py`도 기본값으로 동일한 두 경로를 읽습니다. 경로를 바꾸려면 `--encoder-output-dir` / `--decoder-output-dir`와 대응하는 `--encoder-calib` / `--decoder-calib`를 함께 지정하십시오.
 
-인코더와 디코더 세트는 서로 겹치지 않는 비디오 구간(`--encoder-skip-videos 600`, `--decoder-skip-videos 800`)에서 추출되므로 두 모델이 동일한 영상으로 캘리브레이션되지 않습니다. `--stage encoder` 또는 `--stage decoder`로 한 세트씩 생성할 수도 있습니다.
+인코더와 디코더 세트는 서로 겹치지 않는 비디오 구간(`--encoder-skip-videos 0`, `--decoder-skip-videos 36`)에서 추출되므로 두 모델이 동일한 영상으로 캘리브레이션되지 않습니다. `--stage encoder` 또는 `--stage decoder`로 한 세트씩 생성할 수도 있습니다.
 
 ### 인코더 캘리브레이션
 
@@ -284,8 +291,8 @@ if len(set(points_per_sample)) > 1:
 디코더 텐서 생성에는 모델이 전혀 필요하지 않습니다. 텐서는 공식 FP32 호스트 경로에서 생성되고 model input name이 아니라 semantic role로 저장되기 때문입니다. 모델이 필요한 것은 input name을 기록하는 manifest뿐입니다. `--defer-manifest`가 이 둘을 분리하며, 파싱 가능한 디코더보다 텐서가 먼저 준비된 경우에 유용합니다:
 
 ```bash
-python prepare_calibration.py --stage decoder --defer-manifest --sav-root ./data/sav
-python prepare_calibration.py --stage manifest --decoder-model ./sam2_hiera_large_decoder.mblt
+python prepare_calibration.py --stage decoder --defer-manifest
+python prepare_calibration.py --stage manifest
 ```
 
 이 명령은 role별 텐서와 `calib/decoder/decoder_tensor_meta.json`을 저장한 뒤 manifest를 생성하며, 그 사이에 SA-V나 FP32 인코더를 다시 실행하지 않습니다. 인코더 캘리브레이션은 모델 파일이 전혀 필요 없습니다.
@@ -376,13 +383,13 @@ but found at least two devices, cpu and cuda:0!
 `prepare_calibration.py`:
 
 - `--stage`: 생성할 세트. `encoder`, `decoder`, `both` 중 선택. 기본값: `both`.
-- `--sav-root`: SA-V `sav_train` 디렉토리 경로. 필수.
+- `--sav-root`: 추출한 SA-V val/test 또는 train 루트. 기본값은 이 스크립트 옆 `data/sav`입니다.
 - `--sam2-root`: `facebookresearch/sam2` 로컬 checkout.
 - `--model-id`: SAM2 모델 id. 기본값: `facebook/sam2-hiera-large`.
 - `--encoder-samples`: 인코더 샘플 개수. 기본값: `32`.
-- `--decoder-samples`: 디코더 샘플 개수. 기본값: `300`.
+- `--decoder-samples`: 디코더 샘플 개수. 기본값: `60`.
 - `--point-mix`: 디코더 샘플에 순환 적용할 포인트 개수. 기본값: `1,2,3`.
-- `--encoder-skip-videos`, `--decoder-skip-videos`: 두 세트를 분리하기 위해 건너뛸 비디오 수. 기본값: `600`, `800`.
+- `--encoder-skip-videos`, `--decoder-skip-videos`: 두 세트를 분리하기 위해 건너뛸 비디오 수. 기본값: `0`, `36`.
 - `--decoder-model`: manifest가 post-parse input name과 일치해야 하는, `sam2_decoder_to_mblt.py`가 만든 디코더 `.mblt`.
 - `--defer-manifest`: manifest를 생성하지 않고 디코더 텐서만 생성합니다.
 - `--stage manifest`: 이미 저장된 텐서와 `--decoder-model`로부터 manifest를 생성합니다.
@@ -417,8 +424,8 @@ FP32 대비 binary mask agreement는 `0.983084`, low-resolution logit cosine 유
 ## 이 튜토리얼의 파일
 
 - `prepare_sav.py`: 다운로드한 SA-V 아카이브에서 캘리브레이션용 subset을 추출합니다
-- `sam2_export_onnx.py`: 인코더 wrapper를 ONNX로 내보냅니다
-- `sam2_onnx_to_mblt.py`: 인코더 ONNX를 `mblt_compile`로 MBLT에 컴파일합니다
+- `sam2_encoder_to_mblt.py`: 인코더를 legacy parser로 직접 MBLT에 내보냅니다
+- `sam2_export_onnx.py`, `sam2_onnx_to_mblt.py`: 선택 사항인 인코더 ONNX 경로입니다
 - `sam2_decoder_to_mblt.py`: legacy 파서로 마스크 디코더를 MBLT로 파싱합니다
 - `prepare_calibration.py`: SA-V에서 인코더와 디코더 캘리브레이션 데이터를 생성합니다
 - `model_compile.py`: 선택한 `--target-device`에 대해 두 MBLT 그래프를 MXQ로 컴파일합니다

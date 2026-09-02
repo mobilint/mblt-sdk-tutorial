@@ -4,19 +4,18 @@ This tutorial explains how to compile a promptable segmentation model with Mobil
 
 The example uses [SAM2 Hiera large](https://github.com/facebookresearch/sam2) from Meta. SAM2 is not a single feed-forward network: an image encoder runs once per image, and a lightweight mask decoder runs once per prompt. This tutorial compiles both into separate MXQ models and keeps the prompt encoder on the host.
 
-> **Note**: The encoder and decoder take different routes to MBLT. The encoder goes through ONNX like the other compilation tutorials, in two explicit steps (`sam2_export_onnx.py` then `sam2_onnx_to_mblt.py`). The decoder cannot: the current parser rejects its hypernetwork matmul, so `sam2_decoder_to_mblt.py` parses it with the legacy parser and no decoder ONNX is produced. Step 1 covers both.
+> **Note**: Both encoder and decoder export directly from SAM2 to MBLT through qbcompiler's legacy torch parser. No ONNX export or ONNX frontend is involved in the default workflow.
 
 ## Prerequisites
 
 Before you begin, make sure you have:
 
-- `qbcompiler` and the `mblt` Python package, from a matching pair. The encoder uses the current ONNX frontend and the decoder uses the legacy parser; both ship in the same wheel.
+- `qbcompiler` and the `mblt` Python package, from a matching pair. Both exports use qbcompiler's legacy torch parser.
 - Python 3.10 or later
 - A CUDA GPU for calibration
 - A local checkout of [facebookresearch/sam2](https://github.com/facebookresearch/sam2)
 - A SA-V archive (`sav_train` chunk, or `sav_val.tar` / `sav_test.tar`), downloaded from Meta and prepared with `prepare_sav.py`; see [Step 0](#step-0-prepare-the-sa-v-calibration-source).
 - `transformers==4.57.1`, which the parsing wrappers are pinned to
-- `onnxruntime`, used by the encoder export for constant folding and `--verify`. The compiler environment usually ships `onnxruntime-gpu`, which provides the same module; do not install both.
 
 Install the required Python packages:
 
@@ -48,7 +47,7 @@ The SAM2 checkpoint is downloaded from Hugging Face on first use, so the calibra
 The workflow has four main steps:
 
 0. **Prepare the calibration source**: Extract a SA-V subset with `prepare_sav.py`.
-1. **Build the MBLT graphs**: Export the encoder to ONNX and compile it; parse the decoder directly with the legacy parser.
+1. **Build the MBLT graphs**: Parse both encoder and decoder directly with the legacy parser.
 2. **Prepare the calibration dataset**: Generate encoder and decoder calibration tensors from SA-V.
 3. **Compile the models**: Convert both MBLT graphs to `.mxq` using that calibration data.
 
@@ -90,8 +89,11 @@ Calibration frames and masks come from SA-V. **Download it yourself first**: the
 
 Once you have a `.tar`, `prepare_sav.py` turns it into a calibration-ready subset:
 
+Place `sav_val.tar` in the directory where you run the command. That
+`./sav_val.tar` path is the default, so extract a bounded calibration subset with:
+
 ```bash
-python prepare_sav.py --archive sav_val.tar --videos 155
+python prepare_sav.py
 ```
 
 Both SA-V layouts are accepted and detected automatically:
@@ -101,7 +103,7 @@ Both SA-V layouts are accepted and detected automatically:
 | `sav_train` | train | `{video}.mp4` beside `{video}_manual.json`, masks as RLE |
 | `sav_val`, `sav_test` | vos | `JPEGImages_24fps/{video}/{frame}.jpg` beside `Annotations_6fps/{video}/{object}/{frame}.png` |
 
-Only a subset is extracted. Calibration needs 32 encoder and 300 decoder samples, while a full `sav_val.tar` is 15 GB across 155 videos, so the script keeps `--videos` videos and `--frames-per-video` annotated frames each, discarding frames with no annotation. Extracting all 155 videos from `sav_val.tar` yields **307 MB** rather than 15 GB. Use `--dry-run` to see the selection and its size before extracting.
+Only a subset is extracted. The defaults generate 32 encoder and 60 decoder samples from disjoint video ranges, while a full `sav_val.tar` is 15 GB across 155 videos. The script keeps 120 videos and eight annotated frames per video, discarding frames with no annotation. Use `--dry-run` to see the selection and its size before extracting.
 
 Whole annotated frames are kept, with every object mask on them, so decoder calibration can still balance across object sizes instead of being handed one arbitrary object per frame.
 
@@ -135,30 +137,33 @@ What matters is that no video appears in two ranges; which split you draw them f
 
 ### Video Counts
 
-The default skip ranges assume the large `sav_train` split:
+The defaults target the supplied `sav_val` archive:
 
 | Set | Arithmetic | Videos needed |
 | --- | --- | ---: |
-| Encoder | skip 600, then 32 samples / 2 per video | 616 |
-| Decoder | skip 800, then 300 samples / 4 per video | 875 |
+| Encoder | skip 0, then 32 samples / 2 per video | 32 |
+| Decoder | skip 36, then 60 samples / 4 per video | 60 |
 
-`sav_val` has 155 videos and `sav_test` has 150, so those defaults do not fit either one and `prepare_sav.py` prints smaller, still-disjoint ranges instead. The decoder also needs somewhat more videos than the arithmetic suggests, since `build_prompt()` returns `None` for masks too thin to place a point in and the selector yields fewer than `--decoder-per-video` on videos with few large objects.
+The first 96 positions cover both calibration ranges and leave a four-video gap between them; the default 120-video extraction also leaves 20 videos for evaluation. The hard caps make an undersized or low-yield selection fail rather than silently consume the evaluation reserve.
 
 > **Note**: video selection is shuffled under `--seed`, so extracting more videos later reshuffles the split and previously generated calibration no longer maps to the same videos. Finish preparing before generating, or regenerate both sets together.
 
 ## Step 1: Build the MBLT Graphs
 
-The two halves take different routes, because they need different parsers.
+Both halves use the direct torch-parser route from the qbcompiler SAM2 references.
 
 ```bash
-python sam2_export_onnx.py            # encoder: SAM2 -> ONNX
-python sam2_onnx_to_mblt.py           # encoder: ONNX -> MBLT
+python sam2_encoder_to_mblt.py         # encoder: SAM2 -> MBLT
 python sam2_decoder_to_mblt.py        # decoder: SAM2 -> MBLT
 ```
 
-**The encoder** goes through ONNX, the same route the other compilation tutorials use. `sam2_export_onnx.py` hooks `image_encoder` during `set_image` and exports the Hiera trunk and FPN neck through `Sam2ImageEncoderWrapper`; `sam2_onnx_to_mblt.py` parses it with `mblt_compile(..., backend="onnx")`. The result reports one input, `input_image_channel_last`, and three FPN outputs.
+Both commands default to this `compilation/mask_generation` directory,
+even when invoked with an absolute script path from another working directory.
+Use `--save-path /path/to/output/<part>.mblt` to place either artifact elsewhere.
 
-**The decoder** cannot take that route: `mblt_compile` uses the current parser, whose matmul transform rejects SAM2's hypernetwork head with `unable to broadcast: 256, 32`. `sam2_decoder_to_mblt.py` routes it to the legacy parser (`qbcompiler.model_dict`), which lowers the same matmul without complaint. It parses `sam_mask_decoder` directly rather than a wrapper, and the parser splits the graph itself:
+**The encoder** is parsed directly from a `forward_image` capture. `sam2_encoder_to_mblt.py` wraps that method to expose the Hiera trunk and FPN neck's three feature maps, then serializes the legacy parser output. The MBLT consumes the official SAM2-preprocessed NHWC image tensor and produces three FPN outputs.
+
+**The decoder** is also parsed directly with `qbcompiler.model_dict`. It parses `sam_mask_decoder` rather than a wrapper, and the parser splits the graph itself:
 
 ```text
 subgraph 0  host bridge   11 ops   output-token concat, image_embeddings + dense
@@ -169,40 +174,18 @@ That split is the same one the tutorial would otherwise perform by hand. The pro
 
 Outputs:
 
-- `sam2_hiera_large_encoder.onnx` and `sam2_hiera_large_encoder.mblt`
+- `sam2_hiera_large_encoder.mblt`
 - `sam2_hiera_large_decoder.mblt`
 
 The default trace image is `../../runtime/python/rc/bus.jpg` and the default prompt is the three-point prompt in `sam2_host.prompt_arrays()`. Pass `--sam2-root` if your `sam2` checkout is not already importable.
 
-### Constant Folding Is Not Optional
+### Direct-export validation
 
-Hiera interpolates its position embedding to `x.shape`, which the ONNX exporter records as a live `Shape`/`Gather`/`Div` chain feeding a `Resize`. The parser cannot place that chain, so it cuts the graph there and the patch embed silently becomes a **second** graph input:
-
-```text
-inputs: ['input_image_channel_last', '/image_encoder/trunk/Transpose_output_0']
-```
-
-That graph parses without raising and is wrong. `sam2_export_onnx.py` therefore constant-folds every export with `onnxruntime` before writing it, which restores the single-input graph. `--no-fold` exists for debugging only.
-
-Do not reach for the extended `onnxruntime` optimization level by hand. Its fusions emit ops the ONNX frontend does not convert, and the parse then falls back to a 23-op fragment of the first block.
-
-The export also applies the same `qbcompiler` patcher the torch parser applies, so the exported graph carries the device-friendly rewrites rather than the stock ones. Pass `--no-patch` only to inspect the unpatched graph.
-
-### Verifying the Export
-
-`--verify` is on by default. It runs the exported encoder under `onnxruntime` and compares every output against the torch outputs the export traced. This script exports only the encoder, so it makes no claim about the decoder; the decoder's dynamic prompt axis is established by `sam2_decoder_to_mblt.py` and confirmed on the compiled artifact with `qbruntime.get_model_summary`, which reports the prompt axis as `-1`.
-
-The comparison is relative to each output's magnitude, not absolute. `onnxruntime` runs on the CPU, so a CUDA export is compared across devices. The export disables TF32 for this reason: on Ampere and later GPUs the default TF32 mantissa drifts the reference forward by roughly `2e-3` relative across the Hiera trunk, which is enough to fail an honest tolerance even though the export is exact.
-
-### Trace Memory
-
-Exporting evaluates every operation eagerly, so the Hiera-large encoder needs more than 12 GB of VRAM. On a 12 GB card it fails with `torch.OutOfMemoryError` partway through the trunk. Export on the CPU instead:
-
-```bash
-python sam2_export_onnx.py --part encoder --torch-device cpu
-```
-
-The encoder export takes about two minutes on the CPU and roughly 10 GB of RAM. `--torch-device` defaults to CUDA when it is available and otherwise falls back to the CPU.
+Both exporters capture real SAM2 calls before parsing, so their input contracts
+come from the official image transform and prompt encoder rather than manually
+invented tensors. Use `--ignore-weight` to check graph construction without
+serializing weights. If CUDA memory is insufficient, use `--torch-device cpu`;
+the scripts automatically fall back to CPU when CUDA is unavailable.
 
 ### The Dynamic Prompt Axis
 
@@ -214,25 +197,18 @@ feed["sparse_prompt_embeddings"].src_shape[-2].set_dynamic(True)
 
 The parsed graph then reports `sparse_prompt_embeddings_0` as `(1, 1, dyn(4), 256)`. Step 2 records the same constraint in the calibration manifest as `shapes_by_role["sparse_prompt_embeddings"][2] = -1`.
 
-### Why the Decoder Uses the Legacy Parser
+### Why both models use the legacy parser
 
-`mblt_compile` and `sam2_export_onnx.py` both go through the current parser (`qbcompiler.model_dict_new`), whose matmul transform rejects the decoder's hypernetwork head:
-
-```text
-mblt/transform/ruleset/dataflow/matmul.py, in case0
-ValueError: unable to broadcast: 256, 32
-```
-
-That is `hyper_in @ upscaled_embedding`, and it fails on the ONNX and torch frontends alike because the blocker is in `mblt-graph`'s transform rules rather than in either frontend. The legacy parser (`qbcompiler.model_dict`) has its own lowering path and handles the same matmul, which is why the decoder is routed there. `qbcompiler/scripts/sam2/sam2_devel_decoder.py` is the reference this follows.
-
-When a `qbcompiler`/`mblt-graph` pair that includes the SAM2 decoder changes becomes available, the decoder can move to the ONNX route and match the encoder. The input contract would change with it, so re-run Step 1-1 if you switch.
+This is the direct route used by `qbcompiler/scripts/sam2/sam2_devel_encoder.py`
+and `sam2_devel_decoder.py`, giving both artifacts one consistent parser and
+serialization path.
 
 ## Step 1-1: Confirm the Decoder Input Names
 
 The decoder input names depend on the parsed graph, and Step 2 and Step 3 both rely on them. Print the names your MBLT actually reports:
 
 ```bash
-python -c "from decoder_bindings import read_model_input_names; print(read_model_input_names('./sam2_hiera_large_decoder.mblt'))"
+python -c "from decoder_bindings import read_mblt_input_names; print(read_mblt_input_names('./sam2_hiera_large_decoder.mblt'))"
 ```
 
 Compare the result with `decoder_input_bindings.json`. If the names differ, write a new map from those names to the same six semantic roles and pass it with `--decoder-input-bindings` in Step 2 and Step 3. Do not reorder the calibration tensors to fit the defaults: several decoder inputs share a shape, so a positional guess fails silently rather than raising.
@@ -241,12 +217,11 @@ Compare the result with `decoder_input_bindings.json`. If the names differ, writ
 
 `prepare_calibration.py` builds both calibration sets from SA-V manual masklets. Encoder calibration needs only frames, while decoder calibration also needs a ground-truth mask so a point prompt can be placed inside the object.
 
-Generate both sets in one run:
+After Step 0, generate both sets in one run. `--sav-root` and the disjoint
+range arguments are now defaults, so only the decoder MBLT is required:
 
 ```bash
-python prepare_calibration.py --sav-root ./data/sav --decoder-model ./sam2_hiera_large_decoder.mblt \
-  --encoder-samples 32 --encoder-skip-videos 0 --encoder-max-videos 32 \
-  --decoder-samples 60 --decoder-skip-videos 36 --decoder-max-videos 60
+python prepare_calibration.py
 ```
 
 Outputs, written next to the scripts rather than into the current working directory, so the tutorial's `calib/` tree fills in the same place no matter where you run from:
@@ -284,8 +259,8 @@ The decoder manifest is keyed by the input names the quantizer sees, and those a
 Decoder tensor generation does not need the model at all: the tensors come from the official FP32 host path and are keyed by semantic role, not by model input name. Only the manifest needs the decoder MBLT, to record its input names. `--defer-manifest` splits the two, which is useful when the tensors are ready before a parseable decoder is:
 
 ```bash
-python prepare_calibration.py --stage decoder --defer-manifest --sav-root ./data/sav
-python prepare_calibration.py --stage manifest --decoder-model ./sam2_hiera_large_decoder.mblt
+python prepare_calibration.py --stage decoder --defer-manifest
+python prepare_calibration.py --stage manifest
 ```
 
 This writes the role-keyed tensors plus `calib/decoder/decoder_tensor_meta.json`, then the manifest, without re-running SA-V or the FP32 encoder in between. Encoder calibration needs no model file at all.
@@ -374,11 +349,11 @@ but found at least two devices, cpu and cuda:0!
 `prepare_calibration.py`:
 
 - `--stage`: which set to generate, `encoder`, `decoder`, or `both`. Default: `both`.
-- `--sav-root`: path to the SA-V `sav_train` directory. Required.
+- `--sav-root`: extracted SA-V val/test or train root. Defaults to `data/sav` next to this script.
 - `--sam2-root`: local `facebookresearch/sam2` checkout.
 - `--model-id`: SAM2 model id. Default: `facebook/sam2-hiera-large`.
 - `--encoder-samples`: number of encoder samples. Default: `32`.
-- `--decoder-samples`: number of decoder samples. Default: `300`.
+- `--decoder-samples`: number of decoder samples. Default: `60`.
 - `--point-mix`: point counts cycled across decoder samples. Default: `1,2,3`.
 - `--encoder-skip-videos`, `--decoder-skip-videos`: shuffled videos to skip, keeping the two sets disjoint. Defaults: `600` and `800`.
 - `--decoder-model`: decoder `.mblt` from `sam2_decoder_to_mblt.py` whose post-parse input names the manifest must match.
@@ -415,8 +390,7 @@ These figures were measured on a decoder MBLT from an earlier Mobilint model bui
 ## Files in This Tutorial
 
 - `prepare_sav.py`: extracts a calibration-ready subset from a downloaded SA-V archive
-- `sam2_export_onnx.py`: exports the encoder wrapper to ONNX
-- `sam2_onnx_to_mblt.py`: compiles the encoder ONNX to MBLT with `mblt_compile`
+- `sam2_encoder_to_mblt.py`: parses the encoder directly to MBLT
 - `sam2_decoder_to_mblt.py`: parses the mask decoder to MBLT with the legacy parser
 - `prepare_calibration.py`: generates encoder and decoder calibration data from SA-V
 - `model_compile.py`: compiles both MBLT graphs into MXQ for the selected `--target-device`

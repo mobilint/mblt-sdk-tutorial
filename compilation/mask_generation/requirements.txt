@@ -5,11 +5,3 @@ numpy
 opencv-python
 pycocotools
 transformers==4.57.1
-# sam2_export_onnx.py imports onnxruntime for constant folding and --verify, both
-# on by default. The Mobilint compiler environment ships onnxruntime-gpu, which
-# provides the same module; skip this line if that is already installed, because
-# having both onnxruntime and onnxruntime-gpu present conflicts.
-onnxruntime
-# torch.onnx.export needs onnx, and sam2_export_onnx.py imports it to check and
-# inspect the exported graph. onnxruntime does not provide this module.
-onnx

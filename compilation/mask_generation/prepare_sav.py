@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Turn a SA-V archive you downloaded into a calibration-ready subset.
 
-  python prepare_sav.py --archive sav_test.tar
+  python prepare_sav.py
   python prepare_sav.py --archive sav_val.tar --videos 40 --dry-run
 
 Download SA-V yourself first. The official guide is
@@ -18,7 +18,7 @@ Both SA-V layouts are accepted:
 
 Only a subset is extracted, because calibration needs a few hundred samples
 rather than the whole split: a full `sav_val.tar` is 15 GB and 64,148 frames,
-while the tutorial's defaults need 32 encoder and 300 decoder samples. Frames
+while the tutorial's defaults need 32 encoder and 60 decoder samples. Frames
 without a matching annotation are skipped, so the extracted tree is a few
 hundred MB instead of tens of GB.
 """
@@ -39,8 +39,13 @@ from sav_dataset import VOS_FRAME_DIR, VOS_MASK_DIR, video_ids  # noqa: E402
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_OUTPUT_DIR = SCRIPT_DIR / "data" / "sav"
+# Resolve this relative to the invocation directory so users can stage the
+# archive beside their command rather than depending on a workspace-specific path.
+DEFAULT_ARCHIVE = Path("./sav_val.tar")
 
-# prepare_calibration.py defaults: skip 600 then 32/2 videos, and skip 800 then 300/4.
+# prepare_calibration.py defaults use disjoint ranges in sav_val: 0-31 for the
+# encoder and 36-95 for the decoder. They are intentionally sized for the
+# worst case of one usable sample per video.
 # Worst-case video budget, not samples/per_video: a video can yield fewer samples
 # than requested (jittered frame indices collapsing, build_prompt rejecting thin
 # masks), so a range sized by the arithmetic gets overrun. One sample per video is
@@ -56,7 +61,12 @@ TRAIN_RE = re.compile(r"(?:^|/)([^/]+)_manual\.json$")
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--archive", action="append", required=True, help="SA-V .tar you downloaded; repeatable")
+    p.add_argument(
+        "--archive",
+        action="append",
+        default=None,
+        help=f"SA-V .tar to extract; repeatable. Default: {DEFAULT_ARCHIVE}",
+    )
     p.add_argument(
         "--output-dir",
         default=str(DEFAULT_OUTPUT_DIR),
@@ -206,7 +216,8 @@ def main() -> None:
     args = parse_args()
     output_dir = Path(args.output_dir).resolve()
     total = 0
-    for path in args.archive:
+    archives = args.archive or [str(DEFAULT_ARCHIVE)]
+    for path in archives:
         archive = Path(path).resolve()
         if not archive.is_file():
             raise FileNotFoundError(f"--archive not found: {archive}")
