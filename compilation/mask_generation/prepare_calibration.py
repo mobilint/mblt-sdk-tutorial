@@ -358,7 +358,9 @@ if __name__ == "__main__":
     if args.stage in ("encoder", "both"):
         (Path(args.encoder_output_dir) / "encoder_calib.txt").unlink(missing_ok=True)
     if args.stage in ("decoder", "both"):
-        (Path(args.decoder_output_dir) / "decoder_calib.json").unlink(missing_ok=True)
+        decoder_output_dir = Path(args.decoder_output_dir)
+        (decoder_output_dir / "decoder_calib.json").unlink(missing_ok=True)
+        (decoder_output_dir / "decoder_tensor_meta.json").unlink(missing_ok=True)
 
     predictor = build_predictor(args.model_id, args.sam2_root, args.torch_device)
     if args.stage in ("encoder", "both"):

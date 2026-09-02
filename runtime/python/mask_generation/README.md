@@ -46,8 +46,8 @@ The runtime flow is implemented in `inference_mxq.py` and follows these steps:
 2. Apply the official SAM2 image transform to produce a `[1024, 1024, 3]` float32 input.
 3. Run the encoder MXQ on the Mobilint NPU to obtain three FPN feature levels.
 4. Install those features into the host predictor and run the prompt encoder.
-5. Feed the six assembled decoder inputs to the decoder MXQ.
-5. Feed the six raw prompt-encoder outputs to the decoder MXQ; its host bridge assembles tokens.
+5. Feed the six raw decoder inputs (image features plus prompt-encoder outputs) to the decoder MXQ.
+6. Upscale mask logits to the original image size and render overlays.
 
 ```text
 image
@@ -55,7 +55,7 @@ image
   -> image encoder                            encoder MXQ
   -> prompt encoder                           host
   -> decoder host bridge and mask decoder body decoder MXQ
-  -> mask decoder body                        decoder MXQ
+  -> mask upscaling                           host
   -> mask upscaling                           host
 ```
 

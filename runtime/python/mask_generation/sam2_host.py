@@ -25,7 +25,7 @@ def build_predictor(model_id: str, sam2_root: str | Path | None, device: str):
     # Imported lazily so `--help` works without the sam2 package installed.
     from sam2.sam2_image_predictor import SAM2ImagePredictor
 
-    predictor = SAM2ImagePredictor.from_pretrained(model_id)
+    predictor = SAM2ImagePredictor.from_pretrained(model_id, device=device)
     predictor.model.to(torch.device(device)).eval()
     return predictor
 

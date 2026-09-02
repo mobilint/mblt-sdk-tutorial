@@ -283,3 +283,8 @@ node_modules/
 !package.json
 !compilation/mask_generation/compile_config.json
 !compilation/mask_generation/decoder_input_bindings.json
+
+# User-supplied SAM2 calibration data.
+compilation/mask_generation/data/sav/
+*.tar
+*.mp4
