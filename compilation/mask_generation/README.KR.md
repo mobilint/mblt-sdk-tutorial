@@ -345,14 +345,14 @@ but found at least two devices, cpu and cuda:0!
 
 ## 검증된 결과
 
-이 캘리브레이션 구성은 캘리브레이션 구간과 겹치지 않는 비디오에서 추출한 SA-V one-click 샘플 200개로, 두 MXQ 모델을 Aries2 NPU와 `qbruntime` v1.2.0에서 실행하여 측정했습니다:
+다음 수치는 현재 direct-parser 워크플로우의 검증이 아니라, 이전 host-token-assembly 디코더 경로에서 측정한 historical 결과입니다:
 
 | 경로 | 샘플 수 | mIoU |
 | --- | ---: | ---: |
 | Official FP32 | 200 | 0.775005 |
 | 인코더 + 디코더 MXQ | 200 | 0.775706 |
 
-FP32 대비 binary mask agreement는 `0.983084`, low-resolution logit cosine 유사도는 `0.998363`이었습니다. 컴파일된 디코더는 캘리브레이션된 세 가지 토큰 길이(8, 9, 10)를 모두 정상적으로 처리했습니다.
+FP32 대비 binary mask agreement는 `0.983084`, low-resolution logit cosine 유사도는 `0.998363`이었고, 이전 디코더는 토큰 길이 8, 9, 10을 처리했습니다.
 
 이 수치를 재현하려면 별도의 평가 도구가 필요하며, 해당 내용은 이 튜토리얼의 범위를 벗어납니다.
 

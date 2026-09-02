@@ -3,7 +3,7 @@
 Pipeline:
     image -> SAM2 transform (host)
           -> encoder MXQ (NPU)
-          -> prompt encoder and token assembly (host)
+          -> prompt encoder (host; decoder host bridge assembles tokens)
           -> decoder MXQ (NPU)
           -> mask upscaling and overlay (host)
 """

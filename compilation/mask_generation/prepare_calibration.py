@@ -355,7 +355,9 @@ if __name__ == "__main__":
         print(f"wrote {write_decoder_manifest(args)}")
         raise SystemExit(0)
 
-    if args.defer_manifest and args.stage in ("decoder", "both"):
+    if args.stage in ("encoder", "both"):
+        (Path(args.encoder_output_dir) / "encoder_calib.txt").unlink(missing_ok=True)
+    if args.stage in ("decoder", "both"):
         (Path(args.decoder_output_dir) / "decoder_calib.json").unlink(missing_ok=True)
 
     predictor = build_predictor(args.model_id, args.sam2_root, args.torch_device)
