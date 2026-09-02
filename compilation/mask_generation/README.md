@@ -355,7 +355,7 @@ but found at least two devices, cpu and cuda:0!
 - `--encoder-samples`: number of encoder samples. Default: `32`.
 - `--decoder-samples`: number of decoder samples. Default: `60`.
 - `--point-mix`: point counts cycled across decoder samples. Default: `1,2,3`.
-- `--encoder-skip-videos`, `--decoder-skip-videos`: shuffled videos to skip, keeping the two sets disjoint. Defaults: `600` and `800`.
+- `--encoder-skip-videos`, `--decoder-skip-videos`: shuffled videos to skip, keeping the two sets disjoint. Defaults: `0` and `36`.
 - `--decoder-model`: decoder `.mblt` from `sam2_decoder_to_mblt.py` whose post-parse input names the manifest must match.
 - `--defer-manifest`: generate decoder tensors without emitting the manifest.
 - `--stage manifest`: emit the manifest from previously saved tensors and `--decoder-model`.

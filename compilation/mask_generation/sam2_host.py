@@ -17,7 +17,7 @@ import torch
 from PIL import Image
 
 DEFAULT_MODEL_ID = "facebook/sam2-hiera-large"
-DEFAULT_IMAGE = "../../runtime/python/rc/bus.jpg"
+DEFAULT_IMAGE = Path(__file__).resolve().parents[2] / "runtime" / "python" / "rc" / "bus.jpg"
 
 
 def resolve_device(name: str = "cuda") -> str:
