@@ -361,6 +361,8 @@ if __name__ == "__main__":
     if args.stage in ("decoder", "both"):
         print(f"wrote {generate_decoder_tensors(args, predictor)}")
         if args.defer_manifest:
+            manifest = Path(args.decoder_output_dir) / "decoder_calib.json"
+            manifest.unlink(missing_ok=True)
             print("manifest deferred; emit it later with --stage manifest --decoder-model <model>")
         else:
             print(f"wrote {write_decoder_manifest(args)}")

@@ -233,7 +233,7 @@ Outputs, written next to the scripts rather than into the current working direct
 
 `model_compile.py` reads the same two paths by default. Override either side with `--encoder-output-dir` / `--decoder-output-dir` and the matching `--encoder-calib` / `--decoder-calib`.
 
-The encoder and decoder sets are drawn from disjoint video ranges (`--encoder-skip-videos 600` and `--decoder-skip-videos 800`) so the two models are not calibrated on the same footage. You can also generate one set at a time with `--stage encoder` or `--stage decoder`.
+The encoder and decoder sets are drawn from disjoint video ranges (`--encoder-skip-videos 0` and `--decoder-skip-videos 36`) so the two models are not calibrated on the same footage. You can also generate one set at a time with `--stage encoder` or `--stage decoder`.
 
 ### Encoder Calibration
 

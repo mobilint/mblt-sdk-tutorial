@@ -159,6 +159,7 @@ python sam2_decoder_to_mblt.py        # 디코더: SAM2 -> MBLT
 `compilation/mask_generation` 디렉터리에 결과를 작성합니다.
 다른 위치를 사용하려면 각 명령에 `--save-path /path/to/output/<part>.mblt`를 전달하십시오.
 
+**인코더**는 `forward_image` 캡처를 legacy parser로 직접 파싱하여 세 FPN feature map을 노출합니다. **디코더**는 `sam_mask_decoder`를 직접 파싱하며 host bridge에서 출력 토큰 concat과 `image_embeddings + dense` 합성을 수행합니다. 두 명령은 `sam2_hiera_large_encoder.mblt`와 `sam2_hiera_large_decoder.mblt`를 생성합니다. `sparse_prompt_embeddings`의 프롬프트 축은 동적으로 표시되며, 이 튜토리얼은 1~3 포인트를 지원합니다. 그래프만 확인하려면 `--ignore-weight`를 쓰고, CUDA 메모리가 부족하면 `--torch-device cpu`를 사용하십시오.
 
 ## 단계 1-1: 디코더 input name 확인
 

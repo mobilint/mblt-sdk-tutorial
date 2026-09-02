@@ -133,6 +133,16 @@ if __name__ == "__main__":
     if "decoder" in parts:
         validate_decoder_manifest(decoder_mblt, decoder_calib, args.decoder_input_bindings)
 
+    if "encoder" in parts:
+        missing = [Path(line.strip()) for line in encoder_calib.read_text().splitlines() if line.strip() and not Path(line.strip()).is_file()]
+        if missing:
+            raise FileNotFoundError(f"encoder calibration tensor: {missing[0]}")
+    if "decoder" in parts:
+        paths = json.loads(decoder_calib.read_text()).get("calib paths", [])
+        missing = [Path(path) for sample in paths for path in sample if not Path(path).is_file()]
+        if missing:
+            raise FileNotFoundError(f"decoder calibration tensor: {missing[0]}")
+
     compile_device = get_compile_device()
     print(f"Using {compile_device.upper()} for MXQ compilation")
 
