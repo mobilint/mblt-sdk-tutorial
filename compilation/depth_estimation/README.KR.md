@@ -75,7 +75,16 @@ python convert_img_to_tensor.py
 preprocessing_config = PreprocessingConfig(
     apply=True,
     auto_convert_format=True,
-    pipeline=[{"op": "letterbox", "height": 768, "width": 768, "padValue": 114}],
+    pipeline=[
+        {"op": "letterbox", "height": 768, "width": 768, "padValue": 114},
+        {
+            "op": "normalize",
+            "scaleToUint8": True,
+            "mean": [0.0, 0.0, 0.0],
+            "std": [1.0, 1.0, 1.0],
+            "fuseIntoFirstLayer": True,
+        },
+    ],
     input_configs={},
 )
 ```

@@ -87,7 +87,14 @@ preprocessing_config = PreprocessingConfig(
             "height": 1024,
             "width": 2048,
             "padValue": 114,
-        }
+        },
+        {
+            "op": "normalize",
+            "scaleToUint8": True,
+            "mean": [0.0, 0.0, 0.0],
+            "std": [1.0, 1.0, 1.0],
+            "fuseIntoFirstLayer": True,
+        },
     ],
     input_configs={},
 )

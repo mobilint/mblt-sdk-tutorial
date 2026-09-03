@@ -142,7 +142,16 @@ Mobilint 컴파일 API는 캘리브레이션 중에 전처리 파이프라인을
 `model_compile.py`에서 전처리 파이프라인은 다음과 같이 정의됩니다:
 
 ```python
-preprocess_pipeline = [{"op": "letterbox", "height": 1024, "width": 1024, "padValue": 114}]
+preprocess_pipeline = [
+    {"op": "letterbox", "height": 1024, "width": 1024, "padValue": 114},
+    {
+        "op": "normalize",
+        "scaleToUint8": True,
+        "mean": [0.0, 0.0, 0.0],
+        "std": [1.0, 1.0, 1.0],
+        "fuseIntoFirstLayer": True,
+    },
+]
 preprocessing_config = PreprocessingConfig(
     apply=True,
     auto_convert_format=True,
