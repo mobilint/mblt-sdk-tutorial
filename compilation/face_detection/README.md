@@ -156,7 +156,16 @@ Before compiling, confirm the preprocessing required by the model. As in the YOL
 In `model_compile.py`, the preprocessing pipeline is defined as follows:
 
 ```python
-preprocess_pipeline = [{"op": "letterbox", "height": 640, "width": 640, "padValue": 114}]
+preprocess_pipeline = [
+    {"op": "letterbox", "height": 640, "width": 640, "padValue": 114},
+    {
+        "op": "normalize",
+        "scaleToUint8": True,
+        "mean": [0.0, 0.0, 0.0],
+        "std": [1.0, 1.0, 1.0],
+        "fuseIntoFirstLayer": True,
+    },
+]
 
 preprocessing_config = PreprocessingConfig(
     apply=True,
@@ -166,7 +175,7 @@ preprocessing_config = PreprocessingConfig(
 )
 ```
 
-As part of normalization, the `letterbox` operation includes `1/255` scaling. This preprocessing can be fused into the MXQ model through `fuseIntoFirstLayer` and `Uint8InputConfig`.
+The `normalize` operation applies `1/255` scaling and is fused into the first layer through `fuseIntoFirstLayer`. The spatial `letterbox` operation remains a separate preprocessing step.
 
 When you enable preprocessing fusion, set the MXQ input type to `uint8`:
 

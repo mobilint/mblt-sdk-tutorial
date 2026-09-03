@@ -141,7 +141,14 @@ preprocess_pipeline = [
         "height": 640,
         "width": 640,
         "padValue": 114,
-    }
+    },
+    {
+        "op": "normalize",
+        "scaleToUint8": True,
+        "mean": [0.0, 0.0, 0.0],
+        "std": [1.0, 1.0, 1.0],
+        "fuseIntoFirstLayer": True,
+    },
 ]
 preprocessing_config = PreprocessingConfig(
     apply=True,
@@ -151,7 +158,7 @@ preprocessing_config = PreprocessingConfig(
 )
 ```
 
-정규화 과정의 일부로 `letterbox` 단계에는 `1/255` 스케일링도 포함됩니다. 이 전처리는 `Uint8InputConfig`를 사용해 MXQ 모델 안으로 fuse할 수 있습니다.
+`normalize` 연산은 `1/255` 스케일링을 적용하고 `fuseIntoFirstLayer`를 통해 첫 번째 레이어에 융합됩니다. 공간 변환인 `letterbox` 연산은 별도의 전처리 단계로 유지됩니다.
 
 전처리 fuse를 사용할 때는 MXQ 입력 타입을 `uint8`로 설정하세요:
 

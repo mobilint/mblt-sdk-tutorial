@@ -65,7 +65,16 @@ if __name__ == "__main__":
     compile_device = get_compile_device()
     print(f"Using {compile_device.upper()} for MXQ compilation")
 
-    preprocess_pipeline = [{"op": "letterbox", "height": 1024, "width": 1024, "padValue": 114}]
+    preprocess_pipeline = [
+        {"op": "letterbox", "height": 1024, "width": 1024, "padValue": 114},
+        {
+            "op": "normalize",
+            "scaleToUint8": True,  # [0, 255] -> [0, 1]
+            "mean": [0.0, 0.0, 0.0],
+            "std": [1.0, 1.0, 1.0],
+            "fuseIntoFirstLayer": True,
+        },
+    ]
 
     preprocessing_config = PreprocessingConfig(
         apply=True,

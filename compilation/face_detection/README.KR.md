@@ -156,7 +156,16 @@ python convert_img_to_tensor.py
 `model_compile.py`에서는 다음과 같이 전처리 파이프라인을 정의합니다.
 
 ```python
-preprocess_pipeline = [{"op": "letterbox", "height": 640, "width": 640, "padValue": 114}]
+preprocess_pipeline = [
+    {"op": "letterbox", "height": 640, "width": 640, "padValue": 114},
+    {
+        "op": "normalize",
+        "scaleToUint8": True,
+        "mean": [0.0, 0.0, 0.0],
+        "std": [1.0, 1.0, 1.0],
+        "fuseIntoFirstLayer": True,
+    },
+]
 
 preprocessing_config = PreprocessingConfig(
     apply=True,
@@ -166,7 +175,7 @@ preprocessing_config = PreprocessingConfig(
 )
 ```
 
-정규화 과정에서 `letterbox` 연산에는 `1/255` 스케일링이 포함되며, 이 전처리는 `fuseIntoFirstLayer`와 `Uint8InputConfig`를 통해 MXQ 모델 안으로 fuse할 수 있습니다.
+`normalize` 연산은 `1/255` 스케일링을 적용하고 `fuseIntoFirstLayer`를 통해 첫 번째 레이어에 융합됩니다. 공간 변환인 `letterbox` 연산은 별도의 전처리 단계로 유지됩니다.
 
 전처리 fuse를 사용할 때는 MXQ 입력 타입을 `uint8`로 설정해야 합니다.
 
