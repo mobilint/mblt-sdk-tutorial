@@ -278,3 +278,13 @@ __marimo__/
 node_modules/
 
 !.github/badges/clones.json
+
+# Source configs that the global *.json rule would otherwise drop.
+!package.json
+!compilation/mask_generation/compile_config.json
+!compilation/mask_generation/decoder_input_bindings.json
+
+# User-supplied SAM2 calibration data.
+compilation/mask_generation/data/sav/
+*.tar
+*.mp4

@@ -1,0 +1,6 @@
+# SAM2 host model dependencies.
+# qbruntime comes from the Mobilint runtime installation and is not listed here.
+torch
+numpy
+pillow
+huggingface_hub

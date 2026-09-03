@@ -16,30 +16,57 @@ scripts, or both.
 
 ## Synchronization Policy
 
-Keep the Codex and Claude agent guides aligned, and keep shared skill guidance
-and its tool-specific entrypoints aligned. A major workflow change requires
-reviewing and updating all applicable shared guidance and entrypoints in the
-same change. Major workflow changes include changes to the repository map,
-tutorial architecture, SDK or tooling setup, validation process, dependency
-expectations, or documentation policy; ordinary tutorial-content edits are not
-major workflow changes.
+This file is the single canonical guide for both general agent work and the
+`mobilint-sdk-tutorial` skill. `AGENTS.md` is the repository entrypoint and
+`CLAUDE.md` is a symlink to it, so there is no separate Codex copy and Claude
+copy to keep aligned. `.claude/skills/mobilint-sdk-tutorial/SKILL.md` stays a
+thin skill entrypoint that points here; it keeps its own frontmatter because
+Claude Code skill discovery requires a `name` field.
 
-The shared guides in `.agents/` are canonical. Keep `AGENTS.md`, `CLAUDE.md`,
-and `.claude/skills/mobilint-sdk-tutorial/SKILL.md` as tool-specific entrypoints
-that point to the applicable canonical guide.
+A major workflow change requires updating this guide and any affected
+entrypoint in the same change. Major workflow changes include changes to the
+repository map, tutorial architecture, SDK or tooling setup, validation
+process, dependency expectations, documentation policy, or this entrypoint
+layout; ordinary tutorial-content edits are not major workflow changes.
+
+## First Reads
+
+Start with the smallest set of files that anchor the task:
+
+- `README.md` and `README.KR.md` for the top-level product framing
+- The nearest `compilation/<task>/README.md` or `runtime/<task>/README.md`
+- `compilation/_guides/*.md` or `runtime/_guides/*.md` when the task affects
+  shared compilation or runtime concepts and terminology
+- The adjacent script files used by that tutorial
+- `pyproject.toml` for Python version and Ruff settings
+- `package.json` when Markdown validation or docs tooling matters
+- `git status --short` before editing so you do not overwrite unrelated user
+  work
+
+If the touched tutorial has a Korean counterpart, open `README.KR.md` early so
+structure changes can stay aligned.
 
 ## Repo Map
 
 - `README.md`, `README.KR.md`: Top-level overview for the full tutorial repo
 - `compilation/`: Tutorials and helper scripts for qbcompiler workflows
+- `compilation/README.md`: Compiler setup, Docker workflow, and qbcompiler
+  installation guidance
+- `compilation/_guides/*.md`: Shared compilation concepts such as the
+  compilation pipeline, quantization config, calibration data, and
+  multi-component models
 - `runtime/`: Tutorials and helper scripts for qbruntime workflows
-- `runtime/_guides/`: Shared runtime concepts such as pipeline, model
+- `runtime/README.md`: Runtime setup, driver/library installation, and NPU
+  assumptions
+- `runtime/_guides/*.md`: Shared runtime concepts such as pipeline, model
   preparation, and API selection
 - `runtime/python/`: Python runtime tutorials, including direct `qbruntime`
   flows and wrapper-based examples
 - `runtime/cpp/`: C++ runtime tutorials with per-example `CMakeLists.txt` and
   local helper code
 - `assets/`: Shared images used by the docs
+- `runtime/python/rc/`, `runtime/cpp/rc/`: Shared sample images used by the
+  runtime examples
 - `compilation/oriented_bounding_boxes/`: `YOLO11m-obb` compilation tutorial
   for DOTAv1-style OBB models
 - `runtime/python/oriented_bounding_boxes/`: Self-contained MXQ runtime
@@ -61,6 +88,36 @@ that point to the applicable canonical guide.
 - `pyproject.toml`: Repository Ruff and Python version settings
 - `package.json`: Markdown tooling for docs maintenance
 
+## Current Repo State
+
+- The repo contains paired compilation and runtime tutorials under
+  `compilation/` and `runtime/`.
+- Many tutorials have both `README.md` and `README.KR.md`; where both exist,
+  update their structure, commands, paths, defaults, and user-visible behavior
+  together. Do not create a missing Korean mirror unless the task explicitly
+  requests it.
+- Runtime Python tutorials commonly use small local helper modules such as
+  `utils.py`, `postprocess.py`, `visualize.py`, and dataset label files like
+  `coco.py` or `dota.py`.
+- `runtime/python/bert/` and `runtime/python/llm/` keep local `wrapper/`
+  modules instead of a single direct `qbruntime` script.
+- Runtime STT and VLM Python tutorials center on `mblt-model-zoo` style flows
+  through `prepare_model.py` and `inference_mblt_model_zoo.py` rather than a
+  direct local `qbruntime` inference script.
+- Runtime C++ tutorials include local `utils/inference/` and
+  `utils/postprocess/` helpers, so README changes there often need code checks
+  beyond the top-level `infer_*.cc`.
+- The workspace includes generated `tmp/` and `__pycache__/` directories in
+  tutorial folders; do not treat them as authored source.
+- `compilation/oriented_bounding_boxes/` contains the `YOLO11m-obb`
+  compilation flow that produces `yolo11m-obb.mxq`.
+- `runtime/python/oriented_bounding_boxes/` is a self-contained OBB runtime
+  tutorial that expects
+  `../../../compilation/oriented_bounding_boxes/yolo11m-obb.mxq`, uses
+  `1024x1024` letterbox preprocessing, keeps runtime input as `uint8`, decodes
+  DOTA OBB rows as `cx, cy, w, h, conf, cls, angle`, and renders rotated
+  polygons.
+
 ## Working Model
 
 - Treat each tutorial directory as a self-contained example.
@@ -68,6 +125,8 @@ that point to the applicable canonical guide.
   and the scripts it describes.
 - Prefer small, explicit scripts over shared abstractions unless the repo
   already has a local utility module for that example.
+- Prefer direct, readable scripts that mirror the tutorial text instead of
+  introducing shared library-style abstractions.
 - Treat direct `qbruntime` examples and `mblt-model-zoo` wrapper examples as
   distinct flows; do not rewrite one style into the other unless the tutorial
   already does that.
@@ -85,10 +144,15 @@ that point to the applicable canonical guide.
   directory.
 - Preserve the beginner-friendly, instructional tone of the existing docs.
 - Keep command examples copy-pasteable.
+- Keep README sections ordered around the user workflow: prerequisites,
+  preparation, execution, output.
 - Prefer concrete file names such as `resnet50.onnx` or `resnet50.mxq` over
   abstract placeholders when the example is fixed to one model.
 - If a tutorial depends on an artifact produced by another directory, spell out
   that path exactly as the current docs and scripts expect it.
+- Reflect external constraints explicitly when examples depend on Mobilint
+  proprietary wheels, Mobilint NPU devices, Docker images, Hugging Face
+  authentication, or large downloads.
 
 ### Bilingual Content
 
@@ -172,8 +236,12 @@ Use the smallest validation that meaningfully covers the change.
 - Check formatting visually.
 - Verify referenced paths and filenames exist.
 - Re-read commands to ensure flags and defaults match the scripts.
-- When useful, run `npx markdownlint <file>` on touched Markdown files because
-  the repo includes Markdown lint tooling when `package.json` is present.
+- When useful, run `npx markdownlint-cli --disable MD013 MD033 -- <file>` on
+  touched Markdown files. This matches the `markdownlint-cli` hook in
+  `.pre-commit-config.yaml`, which disables `MD013` and `MD033`, so tutorial
+  READMEs are intentionally not line-wrapped. Note that `package.json` carries
+  the `markdownlint` library rather than a CLI binary, so `npx markdownlint`
+  alone does not run.
 
 ### Python Changes
 
