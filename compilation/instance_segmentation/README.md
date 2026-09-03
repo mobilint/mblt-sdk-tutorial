@@ -141,7 +141,14 @@ preprocess_pipeline = [
         "height": 640,
         "width": 640,
         "padValue": 114,
-    }
+    },
+    {
+        "op": "normalize",
+        "scaleToUint8": True,
+        "mean": [0.0, 0.0, 0.0],
+        "std": [1.0, 1.0, 1.0],
+        "fuseIntoFirstLayer": True,
+    },
 ]
 preprocessing_config = PreprocessingConfig(
     apply=True,
@@ -151,7 +158,7 @@ preprocessing_config = PreprocessingConfig(
 )
 ```
 
-As part of normalization, the `letterbox` step includes `1/255` scaling. You can fuse this preprocessing into the MXQ model with `Uint8InputConfig`.
+The `normalize` operation applies `1/255` scaling and is fused into the first layer through `fuseIntoFirstLayer`. The spatial `letterbox` operation remains a separate preprocessing step.
 
 When preprocessing fusion is enabled, set the MXQ input type to `uint8`:
 

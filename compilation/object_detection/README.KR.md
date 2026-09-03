@@ -136,7 +136,14 @@ preprocess_pipeline = [
         "height": 640,
         "width": 640,
         "padValue": 114,
-    }
+    },
+    {
+        "op": "normalize",
+        "scaleToUint8": True,
+        "mean": [0.0, 0.0, 0.0],
+        "std": [1.0, 1.0, 1.0],
+        "fuseIntoFirstLayer": True,
+    },
 ]
 preprocessing_config = PreprocessingConfig(
     apply=True,

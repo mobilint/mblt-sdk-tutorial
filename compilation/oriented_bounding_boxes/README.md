@@ -142,7 +142,16 @@ The Mobilint compilation API applies this pipeline during calibration. The norma
 In `model_compile.py`, the preprocessing pipeline is defined as follows:
 
 ```python
-preprocess_pipeline = [{"op": "letterbox", "height": 1024, "width": 1024, "padValue": 114}]
+preprocess_pipeline = [
+    {"op": "letterbox", "height": 1024, "width": 1024, "padValue": 114},
+    {
+        "op": "normalize",
+        "scaleToUint8": True,
+        "mean": [0.0, 0.0, 0.0],
+        "std": [1.0, 1.0, 1.0],
+        "fuseIntoFirstLayer": True,
+    },
+]
 preprocessing_config = PreprocessingConfig(
     apply=True,
     auto_convert_format=True,
