@@ -7,15 +7,15 @@ from wrapper.llama_model import LlamaMXQ
 MODEL_NAME = "meta-llama/Llama-3.2-1B-Instruct"
 
 
-def main(mxq_path, embedding_weight_path, prompt, max_new_tokens):
-    device = "cpu"  # Do not use gpu since we are using npu.
+def main(mxq_path, embedding_path, prompt, max_new_tokens):
+    device = "cpu"
 
     config = AutoConfig.from_pretrained(MODEL_NAME)
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, config=config)
     model = LlamaMXQ(
         config=config,
         mxq_path=mxq_path,
-        embedding_weight_path=embedding_weight_path,
+        embedding_path=embedding_path,
         max_sub_seq=192,
     )
 
@@ -54,13 +54,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--mxq-path",
         type=str,
-        default="../../../compilation/llm/Llama-3.2-1B-Instruct.mxq",
+        default="../../../compilation/llm/Llama-3.2-1B-Instruct-W8.mxq",
         help="Path to the compiled MXQ file",
     )
     parser.add_argument(
-        "--embedding-weight-path",
+        "--embedding-path",
         type=str,
-        default="../../../compilation/llm/embedding.pt",
+        default="../../../compilation/llm/llama-mxq-w8/model.safetensors",
         help="Path to the embedding weight file",
     )
     parser.add_argument(
@@ -76,4 +76,4 @@ if __name__ == "__main__":
         help="Maximum number of new tokens to generate",
     )
     args = parser.parse_args()
-    main(args.mxq_path, args.embedding_weight_path, args.prompt, args.max_new_tokens)
+    main(args.mxq_path, args.embedding_path, args.prompt, args.max_new_tokens)

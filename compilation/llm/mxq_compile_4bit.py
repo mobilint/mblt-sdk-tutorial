@@ -1,10 +1,3 @@
-"""Compile LLM to MXQ format with 4-bit quantization.
-
-Uses SpinQuant rotation and weight scale search to compensate for
-aggressive 4-bit quantization loss. Generates spinWeight/ rotation
-matrices required for embedding rotation at inference.
-"""
-
 from argparse import ArgumentParser
 
 import torch
@@ -18,13 +11,12 @@ from qbcompiler import (
 )
 
 
-def get_device_inference_scheme(target_device):
-    # REGULUS only supports the single scheme; ARIES supports all schemes in one model.
+def get_device_inference_scheme(target_device: str) -> str:
     if "regulus" in target_device:
         return "single"
-    elif "aries" in target_device:
+    if "aries" in target_device:
         return "all"
-    raise ValueError(f"{target_device} not supported in current qbcompiler version")
+    raise ValueError(f"Unsupported target device: {target_device}")
 
 
 if __name__ == "__main__":
@@ -33,10 +25,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--calib-data-path",
         type=str,
-        default="./calibration_data/datas/meta-llama-Llama-3.2-1B-Instruct/en",
+        default="./calibration_data/datas/meta-llama-Llama-3.2-1B-Instruct/multilingual",
     )
-    parser.add_argument("--save-path", type=str, default="./Llama-3.2-1B-Instruct.mxq")
-    parser.add_argument("--bit", type=str, default="w4", choices=["w4", "w4v8"])
+    parser.add_argument("--save-path", type=str, default="./Llama-3.2-1B-Instruct-W4V8.mxq")
     parser.add_argument(
         "--target-device",
         type=str,
@@ -49,19 +40,17 @@ if __name__ == "__main__":
     device = "gpu" if torch.cuda.is_available() else "cpu"
 
     calib_config = CalibrationConfig(
-        method=1,  # WChAMulti: weight per-channel, activation multi-layer
-        output=0,  # per-layer output quantization
-        mode=1,  # MaxPercentile
+        method=1,
+        output=0,
+        mode=1,
     )
 
-    # w4: all 4-bit, w4v8: 4-bit except value (kept at 8-bit for accuracy)
-    value_bit = 8 if args.bit == "w4v8" else 4
     bit_config = BitConfig(
         transformer=BitConfig.Transformer(
             weight=BitConfig.Transformer.Weight(
                 query=4,
                 key=4,
-                value=value_bit,
+                value=8,
                 output=4,
                 ffn=4,
                 head=4,
@@ -81,7 +70,6 @@ if __name__ == "__main__":
         ),
     )
 
-    # Learn per-layer weight scales to compensate for 4-bit quantization error
     sws_config = SearchWeightScaleConfig(
         apply=True,
         transformer=SearchWeightScaleConfig.Transformer(
@@ -93,8 +81,6 @@ if __name__ == "__main__":
         ),
     )
 
-    # SpinQuant rotation + equivalent transformations to reduce quantization loss.
-    # Generates spinWeight/ rotation matrices for embedding rotation at inference.
     et_config = EquivalentTransformationConfig(
         norm_conv=EquivalentTransformationConfig.NormConv(apply=True),
         qk=EquivalentTransformationConfig.Qk(apply=True),

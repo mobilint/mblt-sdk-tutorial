@@ -3,6 +3,7 @@ import math
 import numpy as np
 import qbruntime
 import torch
+from safetensors.torch import load_file
 from torch import nn
 from transformers.cache_utils import Cache, StaticCache
 from transformers.generation.utils import GenerationMixin
@@ -18,15 +19,15 @@ class LlamaMXQ(LlamaPreTrainedModel, GenerationMixin):
         self,
         config,
         mxq_path,
-        embedding_weight_path,
+        embedding_path,
         max_sub_seq: int = 192,
     ):
         super().__init__(config)
         self.padding_idx = config.pad_token_id
         self.vocab_size = config.vocab_size
 
-        self.acc = qbruntime.Accelerator(0)  # LLM allows only 1 accelerator
-        mc = qbruntime.ModelConfig()  # LLM allows only 1 core
+        self.acc = qbruntime.Accelerator(0)
+        mc = qbruntime.ModelConfig()
         mc.set_single_core_mode(None, [qbruntime.CoreId(qbruntime.Cluster.Cluster0, qbruntime.Core.Core0)])
         self.mxq_model = qbruntime.Model(mxq_path, mc)
         self.mxq_model.launch(self.acc)
@@ -34,16 +35,13 @@ class LlamaMXQ(LlamaPreTrainedModel, GenerationMixin):
         self.reset_cache()
 
         self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
-        self.embed_tokens.weight.data = torch.load(
-            embedding_weight_path, weights_only=True, map_location=torch.device("cpu")
-        )
+        self.embed_tokens.weight.data = load_file(embedding_path, device="cpu")["model.embed_tokens.weight"]
         self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
         self.lm_head.weight = self.embed_tokens.weight
 
         self.is_mxq = True
 
         assert max_sub_seq > 0, "max_sub_seq should be greater than 0"
-        # assert max_sub_seq % 64 == 0, "max_sub_seq should be multiple of 64"
         self.max_sub_seq = max_sub_seq
 
     def get_cache_position(self):
@@ -334,7 +332,7 @@ def _prepare_4d_causal_attention_mask_with_cache_position(
     return causal_mask
 
 
-def fixed_cross_entropy(source, target, num_items_in_batch: int = None, ignore_index: int = -100, **kwargs):
+def fixed_cross_entropy(source, target, num_items_in_batch: int | None = None, ignore_index: int = -100, **kwargs):
     reduction = "sum" if num_items_in_batch is not None else "mean"
     loss = nn.functional.cross_entropy(source, target, ignore_index=ignore_index, reduction=reduction)
     if reduction == "sum":
@@ -346,7 +344,7 @@ def ForCausalLMLoss(
     logits,
     labels,
     vocab_size: int,
-    num_items_in_batch: int = None,
+    num_items_in_batch: int | None = None,
     ignore_index: int = -100,
     **kwargs,
 ):

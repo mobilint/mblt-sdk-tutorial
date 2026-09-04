@@ -1,21 +1,19 @@
-"""Compile LLM to MXQ format with 8-bit quantization."""
-
 from argparse import ArgumentParser
 
 import torch
 from qbcompiler import (
     BitConfig,
     CalibrationConfig,
+    EquivalentTransformationConfig,
     LlmConfig,
     mxq_compile,
 )
 
 
-def get_device_inference_scheme(target_device):
-    # REGULUS only supports the single scheme; ARIES supports all schemes in one model.
+def get_device_inference_scheme(target_device: str) -> str:
     if "regulus" in target_device:
         return "single"
-    elif "aries" in target_device:
+    if "aries" in target_device:
         return "all"
     raise ValueError(f"{target_device} not supported in current qbcompiler version")
 
@@ -26,13 +24,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--calib-data-path",
         type=str,
-        default="./calibration_data/datas/meta-llama-Llama-3.2-1B-Instruct/en",
+        default="./calibration_data/datas/meta-llama-Llama-3.2-1B-Instruct/multilingual",
     )
-    parser.add_argument("--save-path", type=str, default="./Llama-3.2-1B-Instruct.mxq")
+    parser.add_argument("--save-path", type=str, default="./Llama-3.2-1B-Instruct-W8.mxq")
     parser.add_argument(
         "--target-device",
         type=str,
-        choices=["regulus-ra", "regulus-rb", "aries-rb"],
+        choices=["regulus-rb", "aries-rb"],
         default="aries-rb",
         help="Target NPU (e.g. aries-rb, regulus-rb)",
     )
@@ -41,12 +39,11 @@ if __name__ == "__main__":
     device = "gpu" if torch.cuda.is_available() else "cpu"
 
     calib_config = CalibrationConfig(
-        method=1,  # WChAMulti: weight per-channel, activation multi-layer
-        output=0,  # per-layer output quantization
-        mode=1,  # MaxPercentile
+        method=1,
+        output=0,
+        mode=1,
     )
 
-    # All transformer components quantized to 8-bit
     bit_config = BitConfig(
         transformer=BitConfig.Transformer(
             weight=BitConfig.Transformer.Weight(
@@ -72,6 +69,10 @@ if __name__ == "__main__":
         ),
     )
 
+    et_config = EquivalentTransformationConfig(
+        spin_r1=EquivalentTransformationConfig.SpinR1(apply=True),
+    )
+
     mxq_compile(
         model=args.model_path,
         target_device=args.target_device,
@@ -83,6 +84,7 @@ if __name__ == "__main__":
         calibration_config=calib_config,
         bit_config=bit_config,
         llm_config=llm_config,
+        equivalent_transformation_config=et_config,
         hf_config={
             "library": "transformers",
             "loader": "AutoModelForCausalLM",
