@@ -1,18 +1,8 @@
-# 음성-텍스트 변환(STT) 모델 컴파일
+# 음성-텍스트 변환 모델 컴파일
 
-이 튜토리얼은 Mobilint `qbcompiler`로 Whisper 음성-텍스트 변환 모델을 컴파일하는 방법을 설명합니다. 전체 과정에서는 Whisper 인코더와 디코더를 각각 Mobilint NPU용 최적화 `.mxq` 파일로 변환합니다.
+이 튜토리얼은 [OpenAI Whisper Small](https://huggingface.co/openai/whisper-small)의 인코더와 디코더를 MXQ로 컴파일하고, 실행에 필요한 파일을 하나의 런타임 모델 디렉터리에 준비합니다.
 
-이 튜토리얼에서는 OpenAI가 개발한 다국어 음성 인식 모델 [Whisper Small](https://huggingface.co/openai/whisper-small)을 사용합니다.
-
-## 개요
-
-컴파일 과정은 세 가지 주요 단계로 구성됩니다:
-
-1. **데이터 준비**: FLEURS 데이터셋에서 다국어 오디오 데이터를 다운로드합니다.
-2. **캘리브레이션 데이터 생성**: 인코더와 디코더용 캘리브레이션 데이터셋을 생성합니다.
-3. **모델 컴파일**: 인코더와 디코더를 각각 `.mxq` 형식으로 컴파일합니다.
-
-모든 스크립트는 `stt/` 디렉토리에서 실행합니다.
+모든 명령은 `compilation/stt`에서 실행합니다.
 
 ## 사전 준비
 
@@ -20,165 +10,105 @@
 pip install -r requirements.txt
 ```
 
-## 1단계: 오디오 데이터 준비
+Whisper parser에는 `transformers==4.50.0`이 필요합니다. `requirements.txt`에 해당 버전이 고정되어 있습니다.
 
-Google FLEURS 데이터셋에서 오디오 데이터를 다운로드합니다. 이 다국어 샘플은 캘리브레이션에 사용됩니다.
+## 지원 디바이스
+
+| 디바이스 | 지원 여부 |
+| --- | --- |
+| `aries-rb` | 지원 |
+| `regulus-rb` | 지원 |
+| `regulus-ra` | 미지원 |
+
+## 1. 오디오 데이터 준비
 
 ```bash
 python prepare_audio.py
 ```
 
-**실행 내용:**
+FLEURS 검증 데이터에서 17개 언어별로 20개씩 내려받아 16 kHz PCM WAV와 전사문 340쌍을 `./audio_files`에 저장합니다.
 
-- Google/FLEURS 데이터셋에서 17개 언어의 오디오 샘플 다운로드
-- 오디오 파일을 16 kHz 모노 WAV 형식으로 리샘플링해 저장
+```text
+audio_files/
+├── English/
+│   ├── en_us_0000.wav
+│   └── en_us_0000.txt
+├── Korean/
+└── ...
+```
 
-**지원 언어:**
-
-- 아랍어, 중국어(표준어), 독일어, 그리스어, 영어, 스페인어, 프랑스어
-- 인도네시아어, 이탈리아어, 일본어, 한국어, 포르투갈어, 러시아어
-- 타밀어, 태국어, 우르두어, 베트남어
-
-**출력:**
-
-- `./audio_files/` - WAV 오디오 파일이 포함된 디렉토리
-
-## 2단계: 캘리브레이션 데이터 생성
-
-Whisper 인코더와 디코더 모두에 대한 캘리브레이션 데이터를 생성합니다. 이 데이터는 컴파일 중 양자화에 필수적입니다.
-
-이 단계에서는 내부적으로 **Whisper Small** 모델을 로드해 현실적인 캘리브레이션 입력을 생성합니다. 인코더 캘리브레이션은 오디오에서 멜 스펙트로그램을 추출하고, 디코더 캘리브레이션은 모델로 전사 또는 번역을 생성한 뒤 이를 토큰 임베딩으로 변환합니다.
-
-> **참고:** 이 단계에서는 디코더 캘리브레이션 데이터를 생성하기 위해 Whisper Small 모델로 추론을 수행합니다. GPU(CUDA)가 감지되면 자동으로 사용되어 데이터 생성 속도가 크게 향상됩니다. CPU에서도 정상 동작하지만 처리 시간이 더 오래 걸립니다.
+## 2. 캘리브레이션 데이터 생성
 
 ```bash
 python generate_calibration.py
 ```
 
-**실행 내용:**
+인코더에는 오디오별 log-mel spectrogram을 사용합니다. 디코더에는 다섯 가지 오디오 길이를 사용하고, Whisper 언어·태스크 prefix를 복원한 뒤 마지막 EOS와 8토큰 미만 샘플을 제외합니다.
 
-- Whisper 인코더용 캘리브레이션 데이터 생성 (멜 스펙트로그램 특징)
-- Whisper 디코더용 캘리브레이션 데이터 생성 (인코더 은닉 상태 + 디코더 임베딩)
-- Whisper Small 모델을 로드해 전사와 번역을 실시간으로 생성
-- 다양한 캘리브레이션을 위해 전사(80%)와 번역(20%) 작업을 무작위로 혼합
+결과는 `./calibration_data`에 저장됩니다.
 
-**출력:**
-
-- `./calibration_data/encoder/` - 인코더 캘리브레이션 데이터
-  - `whisper_encoder_cali.txt` - 캘리브레이션 파일 경로 목록
-  - `encoder_calib_*.npy` - 개별 캘리브레이션 샘플
-- `./calibration_data/decoder/` - 디코더 캘리브레이션 데이터
-  - `whisper_decoder_calib.json` - 입력 정보 및 캘리브레이션 경로
-  - `sample_*/encoder_hidden_states.npy` - 인코더 출력
-  - `sample_*/decoder_hidden_states.npy` - 디코더 입력
-
-## 3단계: 모델 컴파일
-
-캘리브레이션 데이터를 사용하여 인코더와 디코더를 `.mxq` 형식으로 컴파일합니다.
-
-### 인코더 컴파일
-
-```bash
-python compile_encoder.py
+```text
+calibration_data/
+├── encoder/
+│   ├── whisper_encoder_cali.txt
+│   └── encoder_calib_*.npy
+└── decoder/
+    ├── whisper_decoder_calib.json
+    └── sample_*/
+        ├── decoder_hidden_states.npy
+        └── encoder_hidden_states.npy
 ```
 
-- HuggingFace에서 Whisper Small 모델 로드
-- 인코더를 MBLT 형식으로 컴파일 후 `all` 추론 방식으로 `.mxq` 변환
+생성하기 전에 출력 디렉터리가 비어 있어야 합니다.
 
-**출력:**
+## 3. MXQ 컴파일
 
-- `./mblt/whisper-small_encoder.mblt` - 중간 MBLT 형식
-- `./mxq/whisper-small_encoder.mxq` - NPU용 최종 양자화 모델
-
-### 디코더 컴파일
+ARIES:
 
 ```bash
-python compile_decoder.py
+python compile_encoder.py --target-device aries-rb
+python compile_decoder.py --target-device aries-rb
 ```
 
-- HuggingFace에서 Whisper Small 모델 로드
-- 디코더를 MBLT 형식으로 컴파일 후 `LlmConfig`로 `.mxq` 변환
-
-**출력:**
-
-- `./mblt/whisper-small_decoder.mblt` - 중간 MBLT 형식
-- `./mxq/whisper-small_decoder.mxq` - NPU용 최종 양자화 모델
-
-### 대상 디바이스 (`--target-device`)
-
-인코더와 디코더 스크립트는 모두 `--target-device`로 대상 NPU를 지정합니다(기본값: `aries-rb`). REGULUS는 `inference_scheme="single"`만 지원하므로 `regulus` 디바이스를 지정하면 자동으로 적용됩니다.
-
-| 사용자 | `--target-device` |
-| --- | --- |
-| ARIES | `aries-rb` (기본값) |
-| REGULUS (2026-06 이후 고객) | `regulus-rb` |
-
-> **참고:** STT 컴파일은 신형 REGULUS(`regulus-rb`, 2026-06 이후 고객)에서 지원됩니다. 구형 REGULUS(`regulus-ra`, 2026-06 이전 고객)는 이 워크플로를 지원하지 않습니다.
+REGULUS:
 
 ```bash
-# REGULUS (2026-06 이후 고객)
 python compile_encoder.py --target-device regulus-rb
 python compile_decoder.py --target-device regulus-rb
 ```
 
-출력 파일은 ARIES와 동일하게 `./mblt/`, `./mxq/` 경로에 저장됩니다.
-
-## 문제 해결
-
-### 메모리 부족 오류
-
-- GPU 사용 시 충분한 VRAM 확인 (8GB 이상 권장)
-- 다른 GPU 집약적인 애플리케이션 종료
-- 필요한 경우 캘리브레이션 샘플 수 감소
-- 또는 CPU에서 캘리브레이션 데이터 생성 실행 (자동 폴백)
-
-### 캘리브레이션 데이터 누락
-
-캘리브레이션 데이터 누락으로 컴파일이 실패하는 경우:
-
-```bash
-ls ./calibration_data/encoder/whisper_encoder_cali.txt
-ls ./calibration_data/decoder/whisper_decoder_calib.json
-```
-
-파일이 없으면 `generate_calibration.py`를 다시 실행하세요.
-
-### 오디오 다운로드 문제
-
-- FLEURS 데이터셋 다운로드를 위한 안정적인 인터넷 연결 확인
-- 다운로드 스크립트는 HuggingFace 데이터셋에 대한 접근이 필요합니다
-
-## 파일 구조
+각 스크립트는 대상 디바이스별 MBLT를 다시 만든 후 MXQ를 컴파일합니다.
 
 ```text
-stt/
-├── prepare_audio.py
-├── generate_calibration.py
-├── compile_encoder.py
-├── compile_decoder.py
-├── README.md
-├── README.KR.md
-├── audio_files/                            # 다운로드된 오디오 샘플
-├── calibration_data/                       # 캘리브레이션 데이터
-│   ├── encoder/
-│   │   ├── whisper_encoder_cali.txt
-│   │   └── encoder_calib_*.npy
-│   └── decoder/
-│       ├── whisper_decoder_calib.json
-│       └── sample_*/
-│           ├── encoder_hidden_states.npy
-│           └── decoder_hidden_states.npy
-├── mblt/                                   # 중간 MBLT 모델
-│   ├── whisper-small_encoder.mblt
-│   └── whisper-small_decoder.mblt
-└── mxq/                                    # 출력 MXQ 모델
-    ├── whisper-small_encoder.mxq
-    └── whisper-small_decoder.mxq
+mblt/<target-device>/whisper-small_{encoder,decoder}.mblt
+mxq/<target-device>/whisper-small_{encoder,decoder}.mxq
 ```
 
-## 참고 자료
+검증된 Whisper 실험의 컴파일 설정은 자동으로 적용됩니다.
 
-- [OpenAI Whisper](https://github.com/openai/whisper)
-- [HuggingFace Whisper](https://huggingface.co/openai/whisper-small)
-- [Google FLEURS 데이터셋](https://huggingface.co/datasets/google/fleurs)
-- [Mobilint 문서](https://docs.mobilint.com)
+- ARIES는 `inference_scheme="all"`, REGULUS는 `inference_scheme="single"`을 사용합니다.
+- 인코더와 디코더에 검증된 equivalent transformation과 mixed-precision activation 설정을 사용합니다.
+- 디코더에는 max calibration, full-sequence LLM calibration, Hessian quantization을 추가로 사용합니다.
+- REGULUS 디코더의 sequence와 cache 길이는 1024로 제한합니다.
+
+## 4. 런타임 모델 준비
+
+인코더와 디코더 MXQ 컴파일이 끝난 뒤 실행합니다.
+
+```bash
+python prepare_model.py --target-device aries-rb
+```
+
+REGULUS:
+
+```bash
+python prepare_model.py --target-device regulus-rb
+```
+
+결과는 `./prepared/<target-device>/whisper-small`에 저장됩니다. 이 디렉터리 하나에 런타임에 필요한 processor, tokenizer, 설정, CPU embedding weight와 두 MXQ 파일이 모두 들어갑니다.
+
+출력 디렉터리가 이미 존재하면 `--force`를 지정해 교체합니다.
+
+## 런타임
+
+[Python STT 런타임 튜토리얼](../../runtime/python/stt/README.KR.md)을 계속 진행합니다.

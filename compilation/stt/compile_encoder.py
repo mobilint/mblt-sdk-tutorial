@@ -1,92 +1,65 @@
-"""Compile Whisper encoder to MXQ format."""
-
-import os
 from argparse import ArgumentParser
+from pathlib import Path
 
 import torch
+from compile_config import (
+    bit_config,
+    equivalent_transformation_config,
+    inference_scheme,
+)
 from qbcompiler import mblt_compile, mxq_compile
-from qbcompiler.configs import EquivalentTransformationConfig
 from transformers import AutoModelForSpeechSeq2Seq
 
-# Paths
-CALIB_PATH = "./calibration_data/encoder/whisper_encoder_cali.txt"
-MBLT_PATH = "./mblt/whisper-small_encoder.mblt"
-MXQ_PATH = "./mxq/whisper-small_encoder.mxq"
+MODEL_ID = "openai/whisper-small"
+TARGET_DEVICES = ("aries-rb", "regulus-rb")
 
 
-def get_device_inference_scheme(target_device):
-    # REGULUS only supports the single scheme; ARIES supports all schemes in one model.
-    if "regulus" in target_device:
-        return "single"
-    elif "aries" in target_device:
-        return "all"
-    raise ValueError(f"{target_device} not supported in current qbcompiler version")
+def compile_encoder(target_device: str) -> Path:
+    calibration_path = Path("calibration_data/encoder/whisper_encoder_cali.txt")
+    mblt_path = Path("mblt") / target_device / "whisper-small_encoder.mblt"
+    mxq_path = Path("mxq") / target_device / "whisper-small_encoder.mxq"
 
+    if not calibration_path.is_file():
+        raise FileNotFoundError(f"Encoder calibration not found: {calibration_path}")
 
-def compile_encoder(calib_path, target_device="aries-rb", mblt_path=MBLT_PATH, mxq_path=MXQ_PATH):
-    """Compile Whisper encoder to MXQ."""
-
-    os.makedirs(os.path.dirname(mblt_path), exist_ok=True)
-    os.makedirs(os.path.dirname(mxq_path), exist_ok=True)
-
-    # Load model
-    print("Loading Whisper model...")
-    model = AutoModelForSpeechSeq2Seq.from_pretrained("openai/whisper-small")
-    model = model.eval().cpu()
-
-    # Sample input for tracing: mel spectrogram [1, 80, 3000]
+    model = AutoModelForSpeechSeq2Seq.from_pretrained(
+        MODEL_ID,
+        torch_dtype=torch.float32,
+        attn_implementation="sdpa",
+    ).eval()
+    model.cpu()
     feed_dict = {"input_features": torch.randn(1, 80, 3000)}
 
-    # MBLT compile
-    print(f"Compiling to MBLT: {mblt_path}")
+    mblt_path.parent.mkdir(parents=True, exist_ok=True)
     mblt_compile(
         model=model,
-        mblt_save_path=mblt_path,
-        backend="hf",
+        mblt_save_path=str(mblt_path),
         target_device=target_device,
+        backend="hf",
         target="encoder",
         feed_dict=feed_dict,
         device="cpu",
     )
 
-    # Equivalent transformations for the Whisper encoder.
-    etc_config = EquivalentTransformationConfig(
-        qk=EquivalentTransformationConfig.Qk(apply=True),
-        ud=EquivalentTransformationConfig.Ud(apply=True),
-        vo=EquivalentTransformationConfig.Vo(apply=True),
-        spin_r2=EquivalentTransformationConfig.SpinR2(apply=True),
-        qk_rotation=EquivalentTransformationConfig.QkRotation(apply=True),
-        optimize_ffn=EquivalentTransformationConfig.OptimizeFfn(apply=True, ch_per_ffn=-1),
+    mxq_path.parent.mkdir(parents=True, exist_ok=True)
+    mxq_compile(
+        model=str(mblt_path),
+        target_device=target_device,
+        calib_data_path=str(calibration_path),
+        save_path=str(mxq_path),
+        device="gpu" if torch.cuda.is_available() else "cpu",
+        inference_scheme=inference_scheme(target_device),
+        equivalent_transformation_config=equivalent_transformation_config(),
+        bit_config=bit_config(),
     )
 
-    # MXQ compile
-    device = "gpu" if torch.cuda.is_available() else "cpu"
-    print(f"Compiling to MXQ: {mxq_path} (device: {device})")
-    mxq_compile(
-        model=mblt_path,
-        target_device=target_device,
-        calib_data_path=calib_path,
-        save_path=mxq_path,
-        device=device,
-        inference_scheme=get_device_inference_scheme(target_device),
-        equivalent_transformation_config=etc_config,
-    )
-    print(f"Encoder compiled: {mxq_path}")
+    print(f"Saved encoder MXQ to {mxq_path}")
+    return mxq_path
 
 
 if __name__ == "__main__":
-    parser = ArgumentParser(description="Compile Whisper encoder to MXQ / MBLT")
-    parser.add_argument(
-        "--target-device",
-        type=str,
-        choices=["regulus-rb", "aries-rb"],
-        default="aries-rb",
-        help="Target NPU (e.g. aries-rb, regulus-rb)",
-    )
+    parser = ArgumentParser()
+    parser.add_argument("--target-device", choices=TARGET_DEVICES, default="aries-rb")
     args = parser.parse_args()
 
-    if not os.path.exists(CALIB_PATH):
-        print(f"Encoder calibration not found: {CALIB_PATH}")
-        print("Please run generate_calibration.py first!")
-    else:
-        compile_encoder(CALIB_PATH, target_device=args.target_device)
+    compile_encoder(args.target_device)

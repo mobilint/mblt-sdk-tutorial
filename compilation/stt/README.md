@@ -1,18 +1,8 @@
-# Speech-to-Text (STT) Model Compilation
+# Speech-to-Text Model Compilation
 
-This tutorial explains how to compile the Whisper speech-to-text model with Mobilint `qbcompiler`. The workflow compiles the Whisper encoder and decoder separately into optimized `.mxq` files for Mobilint NPUs.
+This tutorial compiles the encoder and decoder of [OpenAI Whisper Small](https://huggingface.co/openai/whisper-small) into MXQ models and prepares one self-contained runtime model directory.
 
-This tutorial uses [Whisper Small](https://huggingface.co/openai/whisper-small), a multilingual speech recognition model from OpenAI.
-
-## Overview
-
-The compilation process consists of three main steps:
-
-1. **Data Preparation**: Download multilingual audio data from the FLEURS dataset.
-2. **Calibration Data Generation**: Create calibration datasets for the encoder and decoder.
-3. **Model Compilation**: Compile the encoder and decoder separately to `.mxq` format.
-
-All scripts are run from the `stt/` directory.
+Run all commands from `compilation/stt`.
 
 ## Prerequisites
 
@@ -20,165 +10,105 @@ All scripts are run from the `stt/` directory.
 pip install -r requirements.txt
 ```
 
-## Step 1: Prepare Audio Data
+The Whisper parser requires `transformers==4.50.0`. The version is pinned in `requirements.txt`.
 
-Download audio data from the Google FLEURS dataset. These multilingual samples are used for calibration.
+## Supported Devices
+
+| Device | Support |
+| --- | --- |
+| `aries-rb` | Supported |
+| `regulus-rb` | Supported |
+| `regulus-ra` | Not supported |
+
+## 1. Prepare Audio Data
 
 ```bash
 python prepare_audio.py
 ```
 
-**What this does:**
+The script downloads 20 validation samples for each of 17 FLEURS languages and saves 340 pairs of 16 kHz PCM WAV files and transcripts under `./audio_files`.
 
-- Downloads audio samples from the Google/FLEURS dataset for 17 languages
-- Resamples the audio to 16 kHz mono WAV format
+```text
+audio_files/
+├── English/
+│   ├── en_us_0000.wav
+│   └── en_us_0000.txt
+├── Korean/
+└── ...
+```
 
-**Supported languages:**
-
-- Arabic, Mandarin Chinese, German, Greek, English, Spanish, French
-- Indonesian, Italian, Japanese, Korean, Portuguese, Russian
-- Tamil, Thai, Urdu, Vietnamese
-
-**Output:**
-
-- `./audio_files/` - Directory containing WAV audio files
-
-## Step 2: Generate Calibration Data
-
-Generate calibration data for both the Whisper encoder and decoder. This data is essential for quantization during compilation.
-
-This step loads **Whisper Small** internally to generate realistic calibration inputs. The encoder calibration extracts mel spectrogram features from audio, while the decoder calibration uses the model to produce transcriptions or translations and converts them into token embeddings.
-
-> **Note:** This step uses the Whisper Small model for inference to generate decoder calibration data. GPU (CUDA) is automatically detected and used if available, significantly speeding up the data generation process. CPU is also fully supported but takes longer.
+## 2. Generate Calibration Data
 
 ```bash
 python generate_calibration.py
 ```
 
-**What this does:**
+The encoder receives one log-mel spectrogram per audio file. The decoder uses five audio-length fractions, restores the Whisper language/task prefix, removes terminal EOS, and excludes samples shorter than eight tokens.
 
-- Generates calibration data for the Whisper encoder (mel spectrogram features)
-- Generates calibration data for the Whisper decoder (encoder hidden states + decoder embeddings)
-- Loads the Whisper Small model to generate transcriptions and translations on the fly
-- Randomly mixes transcription (80%) and translation (20%) tasks for diverse calibration
+The output is written to `./calibration_data`.
 
-**Output:**
-
-- `./calibration_data/encoder/` - Encoder calibration data
-  - `whisper_encoder_cali.txt` - List of calibration file paths
-  - `encoder_calib_*.npy` - Individual calibration samples
-- `./calibration_data/decoder/` - Decoder calibration data
-  - `whisper_decoder_calib.json` - Input info and calibration paths
-  - `sample_*/encoder_hidden_states.npy` - Encoder outputs
-  - `sample_*/decoder_hidden_states.npy` - Decoder inputs
-
-## Step 3: Compile Models
-
-Compile both the encoder and decoder to `.mxq` format using the calibration data.
-
-### Compile Encoder
-
-```bash
-python compile_encoder.py
+```text
+calibration_data/
+├── encoder/
+│   ├── whisper_encoder_cali.txt
+│   └── encoder_calib_*.npy
+└── decoder/
+    ├── whisper_decoder_calib.json
+    └── sample_*/
+        ├── decoder_hidden_states.npy
+        └── encoder_hidden_states.npy
 ```
 
-- Loads Whisper Small model from HuggingFace
-- Compiles encoder to MBLT format, then to `.mxq` using `all` inference scheme
+The output directory must be empty before generation.
 
-**Output:**
+## 3. Compile MXQ Models
 
-- `./mblt/whisper-small_encoder.mblt` - Intermediate MBLT format
-- `./mxq/whisper-small_encoder.mxq` - Final quantized model for NPU
-
-### Compile Decoder
+For ARIES:
 
 ```bash
-python compile_decoder.py
+python compile_encoder.py --target-device aries-rb
+python compile_decoder.py --target-device aries-rb
 ```
 
-- Loads Whisper Small model from HuggingFace
-- Compiles decoder to MBLT format, then to `.mxq` with `LlmConfig`
-
-**Output:**
-
-- `./mblt/whisper-small_decoder.mblt` - Intermediate MBLT format
-- `./mxq/whisper-small_decoder.mxq` - Final quantized model for NPU
-
-### Target device (`--target-device`)
-
-Both the encoder and decoder scripts use `--target-device` to select the target NPU (default: `aries-rb`). REGULUS supports only `inference_scheme="single"`, which is selected automatically when a `regulus` device is specified.
-
-| User | `--target-device` |
-| --- | --- |
-| ARIES | `aries-rb` (default) |
-| REGULUS (customers from 2026-06) | `regulus-rb` |
-
-> **Note:** STT compilation is supported on newer REGULUS (`regulus-rb`, customers from 2026-06). Older REGULUS (`regulus-ra`, customers before 2026-06) does not support this workflow.
+For REGULUS:
 
 ```bash
-# REGULUS (customers from 2026-06)
 python compile_encoder.py --target-device regulus-rb
 python compile_decoder.py --target-device regulus-rb
 ```
 
-The outputs are written to the same `./mblt/` and `./mxq/` paths as in the ARIES flow.
-
-## Troubleshooting
-
-### Out of Memory Errors
-
-- If using GPU, ensure sufficient VRAM (8GB+ recommended)
-- Close other GPU-intensive applications
-- Reduce the number of calibration samples if needed
-- Alternatively, run calibration data generation on CPU (automatic fallback)
-
-### Missing Calibration Data
-
-If compilation fails due to missing calibration data:
-
-```bash
-ls ./calibration_data/encoder/whisper_encoder_cali.txt
-ls ./calibration_data/decoder/whisper_decoder_calib.json
-```
-
-If files are missing, re-run `generate_calibration.py`.
-
-### Audio Download Issues
-
-- Ensure stable internet connection for FLEURS dataset download
-- The download script requires access to HuggingFace datasets
-
-## File Structure
+The scripts always rebuild the target-specific MBLT before compiling MXQ.
 
 ```text
-stt/
-├── prepare_audio.py
-├── generate_calibration.py
-├── compile_encoder.py
-├── compile_decoder.py
-├── README.md
-├── README.KR.md
-├── audio_files/                            # Downloaded audio samples
-├── calibration_data/                       # Calibration data
-│   ├── encoder/
-│   │   ├── whisper_encoder_cali.txt
-│   │   └── encoder_calib_*.npy
-│   └── decoder/
-│       ├── whisper_decoder_calib.json
-│       └── sample_*/
-│           ├── encoder_hidden_states.npy
-│           └── decoder_hidden_states.npy
-├── mblt/                                   # Intermediate MBLT models
-│   ├── whisper-small_encoder.mblt
-│   └── whisper-small_decoder.mblt
-└── mxq/                                    # Output MXQ models
-    ├── whisper-small_encoder.mxq
-    └── whisper-small_decoder.mxq
+mblt/<target-device>/whisper-small_{encoder,decoder}.mblt
+mxq/<target-device>/whisper-small_{encoder,decoder}.mxq
 ```
 
-## References
+The compiler configuration from the validated Whisper experiments is applied automatically.
 
-- [OpenAI Whisper](https://github.com/openai/whisper)
-- [HuggingFace Whisper](https://huggingface.co/openai/whisper-small)
-- [Google FLEURS Dataset](https://huggingface.co/datasets/google/fleurs)
-- [Mobilint Documentation](https://docs.mobilint.com)
+- ARIES uses `inference_scheme="all"`; REGULUS uses `inference_scheme="single"`.
+- Encoder and decoder use the validated equivalent transformations and mixed-precision activation configuration.
+- Decoder additionally uses max calibration, full-sequence LLM calibration, and Hessian quantization.
+- REGULUS decoder sequence and cache lengths are limited to 1024.
+
+## 4. Prepare the Runtime Model
+
+Run this after both MXQ files have been compiled.
+
+```bash
+python prepare_model.py --target-device aries-rb
+```
+
+For REGULUS:
+
+```bash
+python prepare_model.py --target-device regulus-rb
+```
+
+The output is written to `./prepared/<target-device>/whisper-small`. It contains the processor, tokenizer, configuration, CPU embedding weights, and both compiled MXQ files required by the runtime.
+
+If the output directory already exists, pass `--force` to replace it.
+
+## Runtime
+
+Continue with the [Python STT runtime tutorial](../../runtime/python/stt/README.md).
