@@ -1,11 +1,10 @@
-import argparse
+from argparse import ArgumentParser
 
 import mblt_model_zoo.hf_transformers.models.llama.modeling_llama  # noqa: F401
 from transformers import AutoModelForCausalLM, AutoTokenizer, TextStreamer
 
-
-def main():
-    parser = argparse.ArgumentParser(description="LLM Inference using mblt-model-zoo")
+if __name__ == "__main__":
+    parser = ArgumentParser(description="LLM Inference using mblt-model-zoo")
     parser.add_argument(
         "--model-folder",
         type=str,
@@ -52,7 +51,3 @@ def main():
     )
 
     model.dispose()
-
-
-if __name__ == "__main__":
-    main()

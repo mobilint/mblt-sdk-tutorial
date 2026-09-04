@@ -1,5 +1,3 @@
-import os
-import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from itertools import islice
 from pathlib import Path
@@ -9,9 +7,6 @@ import soundfile as sf
 from datasets import load_dataset
 from huggingface_hub import constants as hf_constants
 from tqdm import tqdm
-
-hf_constants.HF_HUB_DOWNLOAD_TIMEOUT = 60
-hf_constants.HF_HUB_ETAG_TIMEOUT = 30
 
 FLEURS_LANGUAGES = {
     "ar_eg": "Arabic",
@@ -100,7 +95,8 @@ def prepare_audio(output_dir: Path, samples_per_language: int, workers: int) -> 
 
 
 if __name__ == "__main__":
+    hf_constants.HF_HUB_DOWNLOAD_TIMEOUT = 60
+    hf_constants.HF_HUB_ETAG_TIMEOUT = 30
+
     audio_dir = prepare_audio(Path("."), samples_per_language=20, workers=4)
     print(f"Prepared audio data in {audio_dir}")
-    sys.stdout.flush()
-    os._exit(0)

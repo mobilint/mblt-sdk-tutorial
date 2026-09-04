@@ -26,7 +26,7 @@ def prepare_model(target_device: str, output_dir: Path, force: bool) -> None:
         local_dir=output_dir,
         ignore_patterns=["*.mxq"],
     )
-    shutil.rmtree(output_dir / ".cache", ignore_errors=True)
+    shutil.rmtree(output_dir / ".cache")
 
     encoder_name = encoder_mxq.name
     decoder_name = decoder_mxq.name

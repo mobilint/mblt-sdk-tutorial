@@ -26,12 +26,13 @@ python generate_calib.py \
 The script selects 256 sentences from the STS Benchmark validation split, applies the original BERT embedding layer, and saves the results to `./calibration_data`.
 The output directory must be empty.
 
-## 2. Compile the MXQ Model
+## 2. Compile the Model
 
 ```bash
-python mxq_compile.py \
+python compile_model.py \
   --model-id sentence-transformers-testing/stsb-bert-tiny-safetensors \
   --calib-data-path ./calibration_data \
+  --mblt-path ./mblt/stsb-bert-tiny-safetensors.mblt \
   --save-path ./mxq/stsb-bert-tiny-safetensors.mxq \
   --target-device aries-rb
 ```
@@ -39,10 +40,11 @@ python mxq_compile.py \
 For REGULUS, run:
 
 ```bash
-python mxq_compile.py --target-device regulus-rb
+python compile_model.py --target-device regulus-rb
 ```
 
-The output is saved to `./mxq/stsb-bert-tiny-safetensors.mxq`.
+The MBLT output is saved to `./mblt/stsb-bert-tiny-safetensors.mblt`.
+The MXQ output is saved to `./mxq/stsb-bert-tiny-safetensors.mxq`.
 
 ### Supported Devices
 
@@ -51,24 +53,6 @@ The output is saved to `./mxq/stsb-bert-tiny-safetensors.mxq`.
 | `aries-rb` | Supported |
 | `regulus-rb` | Supported |
 | `regulus-ra` | Not supported |
-
-## Generate an MBLT Model
-
-Run this only when you need to inspect the intermediate model.
-
-For ARIES, run:
-
-```bash
-python mblt_compile.py --target-device aries-rb
-```
-
-For REGULUS, run:
-
-```bash
-python mblt_compile.py --target-device regulus-rb
-```
-
-The output is saved to `./mblt/stsb-bert-tiny-safetensors.mblt`. The MBLT file is not required for MXQ compilation.
 
 ## 3. Prepare the Runtime Model
 
@@ -88,9 +72,8 @@ The `./bert-mxq` directory contains the model weights, configuration, tokenizer,
 
 ```text
 bert/
+├── compile_model.py
 ├── generate_calib.py
-├── mblt_compile.py
-├── mxq_compile.py
 ├── prepare_model.py
 ├── requirements.txt
 ├── README.md

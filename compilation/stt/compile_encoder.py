@@ -2,11 +2,7 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 import torch
-from compile_config import (
-    bit_config,
-    equivalent_transformation_config,
-    inference_scheme,
-)
+from compile_config import encoder_compile_config
 from qbcompiler import mblt_compile, mxq_compile
 from transformers import AutoModelForSpeechSeq2Seq
 
@@ -48,9 +44,7 @@ def compile_encoder(target_device: str) -> Path:
         calib_data_path=str(calibration_path),
         save_path=str(mxq_path),
         device="gpu" if torch.cuda.is_available() else "cpu",
-        inference_scheme=inference_scheme(target_device),
-        equivalent_transformation_config=equivalent_transformation_config(),
-        bit_config=bit_config(),
+        **encoder_compile_config(target_device),
     )
 
     print(f"Saved encoder MXQ to {mxq_path}")

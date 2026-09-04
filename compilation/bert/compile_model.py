@@ -2,7 +2,7 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 import torch
-from qbcompiler import CalibrationConfig, mxq_compile
+from qbcompiler import CalibrationConfig, mblt_compile, mxq_compile
 from transformers import BertModel, BertTokenizer
 
 
@@ -26,6 +26,11 @@ if __name__ == "__main__":
         "--target-device",
         choices=["regulus-rb", "aries-rb"],
         default="aries-rb",
+    )
+    parser.add_argument(
+        "--mblt-path",
+        type=Path,
+        default=Path("./mblt/stsb-bert-tiny-safetensors.mblt"),
     )
     parser.add_argument(
         "--save-path",
@@ -55,6 +60,16 @@ if __name__ == "__main__":
     )
     inference_scheme = "single" if args.target_device == "regulus-rb" else "all"
 
+    args.mblt_path.parent.mkdir(parents=True, exist_ok=True)
+    mblt_compile(
+        model=model,
+        mblt_save_path=str(args.mblt_path),
+        target_device=args.target_device,
+        backend="torch",
+        feed_dict={"hidden_states": hidden_states},
+        dynamic_axes={"hidden_states": [1]},
+    )
+
     args.save_path.parent.mkdir(parents=True, exist_ok=True)
     mxq_compile(
         model=model,
@@ -68,4 +83,5 @@ if __name__ == "__main__":
         calibration_config=calibration_config,
     )
 
+    print(f"Saved MBLT model to {args.mblt_path}")
     print(f"Saved MXQ model to {args.save_path}")

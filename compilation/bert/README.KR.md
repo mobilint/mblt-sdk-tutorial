@@ -26,12 +26,13 @@ python generate_calib.py \
 STS Benchmark 검증 세트에서 256개 문장을 선택하고, 원본 BERT 임베딩 레이어로 변환해 `./calibration_data`에 저장합니다.
 출력 디렉토리는 비어 있어야 합니다.
 
-## 2. MXQ 컴파일
+## 2. 모델 컴파일
 
 ```bash
-python mxq_compile.py \
+python compile_model.py \
   --model-id sentence-transformers-testing/stsb-bert-tiny-safetensors \
   --calib-data-path ./calibration_data \
+  --mblt-path ./mblt/stsb-bert-tiny-safetensors.mblt \
   --save-path ./mxq/stsb-bert-tiny-safetensors.mxq \
   --target-device aries-rb
 ```
@@ -39,10 +40,11 @@ python mxq_compile.py \
 REGULUS용으로 컴파일하려면 다음과 같이 실행합니다.
 
 ```bash
-python mxq_compile.py --target-device regulus-rb
+python compile_model.py --target-device regulus-rb
 ```
 
-출력은 `./mxq/stsb-bert-tiny-safetensors.mxq`에 저장됩니다.
+MBLT 출력은 `./mblt/stsb-bert-tiny-safetensors.mblt`에 저장됩니다.
+MXQ 출력은 `./mxq/stsb-bert-tiny-safetensors.mxq`에 저장됩니다.
 
 ### 지원 디바이스
 
@@ -51,24 +53,6 @@ python mxq_compile.py --target-device regulus-rb
 | `aries-rb` | 지원 |
 | `regulus-rb` | 지원 |
 | `regulus-ra` | 미지원 |
-
-## MBLT 생성
-
-중간 모델을 확인해야 할 때만 실행합니다.
-
-ARIES용으로 컴파일하려면 다음과 같이 실행합니다.
-
-```bash
-python mblt_compile.py --target-device aries-rb
-```
-
-REGULUS용으로 컴파일하려면 다음과 같이 실행합니다.
-
-```bash
-python mblt_compile.py --target-device regulus-rb
-```
-
-출력은 `./mblt/stsb-bert-tiny-safetensors.mblt`에 저장됩니다. MXQ 컴파일에 이 파일은 필요하지 않습니다.
 
 ## 3. 런타임 모델 준비
 
@@ -88,9 +72,8 @@ python prepare_model.py \
 
 ```text
 bert/
+├── compile_model.py
 ├── generate_calib.py
-├── mblt_compile.py
-├── mxq_compile.py
 ├── prepare_model.py
 ├── requirements.txt
 ├── README.md

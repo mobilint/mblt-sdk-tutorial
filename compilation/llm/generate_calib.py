@@ -117,5 +117,3 @@ if __name__ == "__main__":
         max_seqlen=args.max_seqlen,
         max_calib=args.max_calib,
     )
-
-    os._exit(0)
