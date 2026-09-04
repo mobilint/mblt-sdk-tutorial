@@ -36,23 +36,15 @@ python mxq_compile.py \
   --target-device aries-rb
 ```
 
-`--target-device`는 `aries-rb`와 `regulus-rb`를 지원합니다.
-REGULUS에서는 `regulus-rb`만 지원하며 `regulus-ra`는 지원하지 않습니다.
+### 지원 디바이스
 
-## 3. 런타임 모델 준비
+| 디바이스 | 지원 여부 |
+| --- | --- |
+| `aries-rb` | 지원 |
+| `regulus-rb` | 지원 |
+| `regulus-ra` | 미지원 |
 
-`prepare_models.py`는 Mobilint Hugging Face 저장소에서 런타임 파일을 받고 MXQ 파일과 `config.json`의 MXQ 경로만 교체합니다.
-
-```bash
-python prepare_models.py \
-  --mxq-path ./Llama-3.2-1B-Instruct-W8.mxq \
-  --output-folder ./llama-mxq-w8 \
-  --revision W8
-```
-
-이후 [LLM 런타임 튜토리얼](../../runtime/python/llm/README.KR.md)을 진행합니다.
-
-## 선택 사항: W4V8
+## 선택 사항: W4V8 컴파일
 
 ```bash
 python mxq_compile_4bit.py \
@@ -60,9 +52,28 @@ python mxq_compile_4bit.py \
   --calib-data-path ./calibration_data/datas/meta-llama-Llama-3.2-1B-Instruct/multilingual \
   --save-path ./Llama-3.2-1B-Instruct-W4V8.mxq \
   --target-device aries-rb
+```
 
-python prepare_models.py \
+## 3. 런타임 모델 준비
+
+`prepare_model.py`는 Mobilint Hugging Face 저장소에서 런타임 파일을 받고, `--mxq-path`로 지정한 컴파일된 MXQ로 모델 저장소의 MXQ를 교체한 뒤 `config.json`의 경로를 갱신합니다.
+
+W8은 다음과 같이 실행합니다.
+
+```bash
+python prepare_model.py \
+  --mxq-path ./Llama-3.2-1B-Instruct-W8.mxq \
+  --output-folder ./llama-mxq-w8 \
+  --revision W8
+```
+
+W4V8은 다음과 같이 실행합니다.
+
+```bash
+python prepare_model.py \
   --mxq-path ./Llama-3.2-1B-Instruct-W4V8.mxq \
   --output-folder ./llama-mxq-w4v8 \
   --revision W4V8
 ```
+
+이후 [LLM 런타임 튜토리얼](../../runtime/python/llm/README.KR.md)을 진행합니다.

@@ -1,84 +1,49 @@
-# BERT Runtime
+# BERT Python Runtime
 
-This tutorial explains how to run the compiled BERT sentence-similarity model with Mobilint `qbruntime`.
+Complete the [BERT compilation tutorial](../../../compilation/bert/README.md) first.
 
-Before starting, complete the compilation flow in [../../../compilation/bert/README.md](../../../compilation/bert/README.md). The runtime examples in this directory expect the following files:
+The runtime uses the single model directory created by `compilation/bert/prepare_model.py`.
 
-- `../../../compilation/bert/mxq/stsb-bert-tiny-safetensors.mxq`
-- `../../../compilation/bert/weights/weight_dict.pth`
+- `../../../compilation/bert/bert-mxq`
+
+Run all commands from this directory.
 
 ## Prerequisites
 
-Make sure the required Python packages are available. The scripts in this directory use `torch`, `transformers`, `datasets`, `scipy`, and `tqdm`.
+```bash
+pip install -r requirements.txt
+```
 
-## Overview
-
-This tutorial includes two kinds of runtime tasks:
-
-1. Run example sentence-pair inference and print cosine similarities.
-2. Benchmark the compiled model on the STS Benchmark test split.
-
-For both tasks, the embedding stage runs on the host CPU and the transformer body runs on the Mobilint NPU through the local `BertMXQ` wrapper.
-
-## Files in This Tutorial
-
-- `inference_mxq.py`: Runs sample sentence-pair inference on the compiled MXQ model.
-- `inference_original.py`: Runs the same sample inference on the original Hugging Face model for comparison.
-- `benchmark_mxq.py`: Evaluates the compiled MXQ model on the STS Benchmark test split.
-- `benchmark_original.py`: Evaluates the original model on the same dataset.
-- `wrapper/bert_model.py`: Implements the `BertMXQ` wrapper used by the MXQ scripts.
-
-## Run Example Inference
-
-Run the MXQ version:
+## MXQ Inference
 
 ```bash
 python inference_mxq.py \
-    --mxq_path ../../../compilation/bert/mxq/stsb-bert-tiny-safetensors.mxq \
-    --weight_path ../../../compilation/bert/weights/weight_dict.pth
+  --model-folder ../../../compilation/bert/bert-mxq
 ```
 
-This script tokenizes a few fixed sentence pairs, runs them through `BertMXQ`, and prints cosine similarity scores in the range `-1` to `1`.
+The CPU computes input embeddings from the downloaded original `model.safetensors`.
+The NPU runs the BERT encoder, and the CPU applies Sentence-BERT mean pooling.
+The current MXQ runtime supports one unpadded sentence at a time.
 
-Run the reference CPU version:
+## Original Model Inference
 
 ```bash
-python inference_original.py
+python inference_original.py \
+  --model-folder ../../../compilation/bert/bert-mxq
 ```
 
-## Run Benchmark Evaluation
-
-Run the MXQ benchmark:
+## MXQ Benchmark
 
 ```bash
 python benchmark_mxq.py \
-    --mxq_path ../../../compilation/bert/mxq/stsb-bert-tiny-safetensors.mxq \
-    --weight_path ../../../compilation/bert/weights/weight_dict.pth
+  --model-folder ../../../compilation/bert/bert-mxq
 ```
 
-This script downloads the [STS Benchmark](https://huggingface.co/datasets/mteb/stsbenchmark-sts) test split, computes sentence similarities, and reports Pearson and Spearman correlation against the ground-truth scores.
-
-Run the reference CPU benchmark:
+## Original Model Benchmark
 
 ```bash
-python benchmark_original.py
+python benchmark_original.py \
+  --model-folder ../../../compilation/bert/bert-mxq
 ```
 
-## Parameters
-
-### `inference_mxq.py`
-
-- `--mxq_path`: Path to the compiled `.mxq` file.
-- `--weight_path`: Path to the embedding weight file.
-
-### `benchmark_mxq.py`
-
-- `--mxq_path`: Path to the compiled `.mxq` file.
-- `--weight_path`: Path to the embedding weight file.
-
-## Expected Output
-
-- `inference_mxq.py`: Prints cosine similarity scores for the built-in example sentence pairs.
-- `benchmark_mxq.py`: Prints Pearson and Spearman correlation for the STS Benchmark test split.
-
-Compare the MXQ results with the original-model scripts to estimate the impact of quantization and runtime execution.
+Both benchmark scripts report Pearson and Spearman correlations on the STS Benchmark test split.

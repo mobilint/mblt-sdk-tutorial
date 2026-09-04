@@ -36,23 +36,15 @@ python mxq_compile.py \
   --target-device aries-rb
 ```
 
-`--target-device` accepts `aries-rb` and `regulus-rb`.
-For REGULUS, only `regulus-rb` is supported; `regulus-ra` is not supported.
+### Supported Devices
 
-## 3. Prepare the Runtime Model
+| Device | Support |
+| --- | --- |
+| `aries-rb` | Supported |
+| `regulus-rb` | Supported |
+| `regulus-ra` | Not supported |
 
-`prepare_models.py` downloads the runtime files from the Mobilint Hugging Face repository and replaces only the MXQ file and its path in `config.json`.
-
-```bash
-python prepare_models.py \
-  --mxq-path ./Llama-3.2-1B-Instruct-W8.mxq \
-  --output-folder ./llama-mxq-w8 \
-  --revision W8
-```
-
-Continue with the [LLM runtime tutorial](../../runtime/python/llm/README.md).
-
-## Optional: W4V8
+## Optional: Compile W4V8
 
 ```bash
 python mxq_compile_4bit.py \
@@ -60,9 +52,28 @@ python mxq_compile_4bit.py \
   --calib-data-path ./calibration_data/datas/meta-llama-Llama-3.2-1B-Instruct/multilingual \
   --save-path ./Llama-3.2-1B-Instruct-W4V8.mxq \
   --target-device aries-rb
+```
 
-python prepare_models.py \
+## 3. Prepare the Runtime Model
+
+`prepare_model.py` downloads the runtime files from the Mobilint Hugging Face repository, replaces the model-zoo MXQ with the compiled MXQ specified by `--mxq-path`, and updates its path in `config.json`.
+
+For W8, run:
+
+```bash
+python prepare_model.py \
+  --mxq-path ./Llama-3.2-1B-Instruct-W8.mxq \
+  --output-folder ./llama-mxq-w8 \
+  --revision W8
+```
+
+For W4V8, run:
+
+```bash
+python prepare_model.py \
   --mxq-path ./Llama-3.2-1B-Instruct-W4V8.mxq \
   --output-folder ./llama-mxq-w4v8 \
   --revision W4V8
 ```
+
+Continue with the [LLM runtime tutorial](../../runtime/python/llm/README.md).

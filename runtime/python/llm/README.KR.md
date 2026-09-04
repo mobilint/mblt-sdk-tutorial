@@ -10,7 +10,7 @@ pip install -r requirements.txt
 
 ## `mblt-model-zoo` 추론
 
-`compilation/llm/prepare_models.py`가 생성한 모델 폴더를 사용합니다.
+`compilation/llm/prepare_model.py`가 생성한 모델 폴더를 사용합니다.
 
 ```bash
 python inference_mblt_model_zoo.py \

@@ -10,7 +10,7 @@ pip install -r requirements.txt
 
 ## `mblt-model-zoo` Inference
 
-Use a model folder created by `compilation/llm/prepare_models.py`.
+Use a model folder created by `compilation/llm/prepare_model.py`.
 
 ```bash
 python inference_mblt_model_zoo.py \
