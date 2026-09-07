@@ -101,9 +101,9 @@ structure changes can stay aligned.
   `coco.py` or `dota.py`.
 - `runtime/python/bert/` and `runtime/python/llm/` keep local `wrapper/`
   modules instead of a single direct `qbruntime` script.
-- Runtime STT and VLM Python tutorials center on `mblt-model-zoo` style flows
-  through `prepare_model.py` and `inference_mblt_model_zoo.py` rather than a
-  direct local `qbruntime` inference script.
+- The STT and VLM compilation tutorials create self-contained runtime models
+  with their local `prepare_model.py`; both Python runtimes use
+  `mblt-model-zoo` rather than direct local `qbruntime` scripts.
 - Runtime C++ tutorials include local `utils/inference/` and
   `utils/postprocess/` helpers, so README changes there often need code checks
   beyond the top-level `infer_*.cc`.
