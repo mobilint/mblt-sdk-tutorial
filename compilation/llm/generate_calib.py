@@ -1,13 +1,39 @@
+import json
 import os
 from argparse import ArgumentParser
+from urllib.parse import urlencode
+from urllib.request import urlopen
 
 import numpy as np
 import torch
-from datasets import load_dataset
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 SUPPORTED_LANGUAGES = ("en", "de", "fr", "it", "pt", "hi", "es", "th")
+
+
+def wikipedia_rows(language: str):
+    offset = 0
+    while True:
+        query = urlencode(
+            {
+                "dataset": "wikimedia/wikipedia",
+                "config": f"20231101.{language}",
+                "split": "train",
+                "offset": offset,
+                "length": 100,
+            }
+        )
+        with urlopen(f"https://datasets-server.huggingface.co/rows?{query}", timeout=60) as response:
+            rows = json.load(response)["rows"]
+
+        if not rows:
+            return
+
+        for item in rows:
+            yield item["row"]
+
+        offset += len(rows)
 
 
 def generate_calibration(
@@ -47,16 +73,10 @@ def generate_calibration(
     with torch.inference_mode(), tqdm(total=max_calib, desc="Calibrating") as progress:
         for index, language in enumerate(languages):
             target_count = samples_per_language + (index < remainder)
-            dataset = load_dataset(
-                "wikimedia/wikipedia",
-                f"20231101.{language}",
-                split="train",
-                streaming=True,
-            )
             language_count = 0
             progress.set_description(f"Calibrating ({language})")
 
-            for row in dataset:
+            for row in wikipedia_rows(language):
                 token_ids = tokenizer(row["text"], return_tensors="pt")["input_ids"].squeeze(0).to(device)
                 if token_ids.shape[0] < min_seqlen:
                     continue
