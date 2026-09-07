@@ -78,7 +78,7 @@ calibration_config = CalibrationConfig(
 **Usage examples**:
 
 - `image_classification/model_compile.py`
-- `llm/generate_mxq.py`
+- `llm/mxq_compile.py`
 - `bert/compile_mxq.py`
 
 ---
@@ -111,8 +111,8 @@ bit_config = BitConfig(
 
 **Usage examples**:
 
-- `llm/generate_mxq.py` - 8bit
-- `llm/generate_mxq_4bit.py` - 4bit (w4, w4v8)
+- `llm/mxq_compile.py` - 8bit
+- `llm/mxq_compile_4bit.py` - W4V8
 
 ---
 
@@ -158,7 +158,7 @@ llm_config = LlmConfig(
 
 **Usage examples**:
 
-- `llm/generate_mxq.py` - Sequence/cache length settings for LLM compilation
+- `llm/mxq_compile.py` - Sequence/cache length settings for LLM compilation
 - `stt/compile_decoder.py` - Whisper decoder (requires LlmConfig due to autoregressive structure)
 
 ---
@@ -219,9 +219,9 @@ et_config = EquivalentTransformationConfig(
 
 **Usage examples**:
 
-- `llm/generate_mxq_4bit.py` - LLM 4bit SpinQuant application
-- `vlm/mxq_compile_language.py` - VLM language model equivalent transformation
-- `vlm/mxq_compile_vision.py` - VLM vision encoder R1 rotation matrix reference (`HeadOutChRotation`)
+- `llm/mxq_compile_4bit.py` - LLM 4bit SpinQuant application
+- `vlm/compile_decoder.py` - VLM decoder equivalent transformation
+- `vlm/compile_encoder.py` - VLM encoder R1 rotation matrix reference (`HeadOutChRotation`)
 
 ### SpinQuant (R1/R2) Details
 
@@ -239,43 +239,29 @@ spinWeight/{model_name}/
 ```
 
 **R1 (Global Rotation)** transforms the entire model's weight space with a single rotation matrix.
-This rotation is already reflected inside the compiled MXQ model, but since
-**the embedding layer is not included in MXQ and runs on CPU**,
-the same R1 rotation must be manually applied to embedding weights before inference.
+This rotation is already reflected inside the compiled MXQ model. Since
+**the embedding layer is not included in MXQ and runs on CPU**, inference must use matching R1-rotated embedding weights.
 
 - When not using SpinQuant(R1): Embedding rotation not needed
 - When using SpinQuant(R1): R1 rotation on embeddings is required
 
-LLM embedding rotation example (`llm/get_rotation_emb.py`):
+The LLM tutorial reuses the pre-rotated `model.safetensors` from the Mobilint Hugging Face repository.
 
-```python
-# Load original embedding weights [vocab_size, embed_dim]
-emb = torch.load("embedding.pt")
-
-# Load R1 rotation matrix generated during compilation
-rot = torch.jit.load("spinWeight/model/R1/global_rotation.pth")
-rot_matrix = next(rot.parameters())
-
-# Apply R1 rotation to embeddings (maintain precision in float64, then convert to bfloat16)
-emb = (emb.double() @ rot_matrix.double()).bfloat16()
-torch.save(emb, "embedding_rot.pt")
-```
-
-VLM text embedding rotation example (`vlm/get_safetensors.py`):
+VLM text embedding rotation example (`vlm/prepare_model.py`):
 
 ```python
 # Extract text embedding from HuggingFace safetensors
 with safe_open(SOURCE_FILE, framework="pt") as f:
-    tensor = f.get_tensor("model.embed_tokens.weight")
+    tensor = f.get_tensor("model.language_model.embed_tokens.weight")
 
 # Load R1 rotation matrix generated during language model compilation
 rot_matrix = torch.jit.load(
-    "spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth"
+    "spinWeight/aries-rb/global_rotation.pth"
 ).state_dict()["0"]
 
 # Apply R1 rotation to text embedding
 embedding = tensor.double() @ rot_matrix
-save_file({"model.embed_tokens.weight": embedding.float()}, "mxq/model.safetensors")
+save_file({"model.language_model.embed_tokens.weight": embedding.float()}, "prepared/model.safetensors")
 ```
 
 **R2 (Per-layer Rotation)** applies individual rotations to each transformer layer
@@ -285,19 +271,19 @@ R2 is absorbed into the model during MXQ compilation, so no separate post-proces
 **R1 Usage in VLM**:
 For VLM, the R1 generated during language model compilation is used in two places.
 
-1. **Text embedding rotation** — Apply R1 to embedding weights, same as LLM (`vlm/get_safetensors.py`)
+1. **Text embedding rotation** — Apply R1 to embedding weights, same as LLM (`vlm/prepare_model.py`)
 2. **Vision encoder alignment** — Since the vision encoder's output must match the rotated language model's input space,
-   R1 is referenced at compile time via `HeadOutChRotation` (`vlm/mxq_compile_vision.py`)
+   R1 is referenced at compile time via `HeadOutChRotation` (`vlm/compile_encoder.py`)
 
 No separate rotation is applied to vision embeddings.
 
 **Usage examples**:
 
-- `llm/generate_mxq_4bit.py` - LLM 4bit SpinQuant application
-- `llm/get_rotation_emb.py` - LLM embedding R1 rotation
-- `vlm/mxq_compile_language.py` - VLM language model equivalent transformation
-- `vlm/mxq_compile_vision.py` - VLM vision encoder R1 rotation matrix reference
-- `vlm/get_safetensors.py` - VLM text embedding R1 rotation
+- `llm/mxq_compile_4bit.py` - LLM 4bit SpinQuant application
+- `llm/prepare_models.py` - LLM rotated embedding reuse
+- `vlm/compile_decoder.py` - VLM decoder equivalent transformation
+- `vlm/compile_encoder.py` - VLM encoder R1 rotation matrix reference
+- `vlm/prepare_model.py` - VLM text embedding R1 rotation and runtime packaging
 
 ---
 
@@ -331,7 +317,7 @@ sws_config = SearchWeightScaleConfig(
 
 **Usage examples**:
 
-- `llm/generate_mxq_4bit.py`
+- `llm/mxq_compile_4bit.py`
 
 ---
 

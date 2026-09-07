@@ -78,7 +78,7 @@ calibration_config = CalibrationConfig(
 **실제 사용 예시**:
 
 - `image_classification/model_compile.py`
-- `llm/generate_mxq.py`
+- `llm/mxq_compile.py`
 - `bert/compile_mxq.py`
 
 ---
@@ -111,8 +111,8 @@ bit_config = BitConfig(
 
 **실제 사용 예시**:
 
-- `llm/generate_mxq.py` - 8bit
-- `llm/generate_mxq_4bit.py` - 4bit (w4, w4v8)
+- `llm/mxq_compile.py` - 8bit
+- `llm/mxq_compile_4bit.py` - W4V8
 
 ---
 
@@ -158,7 +158,7 @@ llm_config = LlmConfig(
 
 **실제 사용 예시**:
 
-- `llm/generate_mxq.py` - LLM 컴파일 시 시퀀스/캐시 길이 설정
+- `llm/mxq_compile.py` - LLM 컴파일 시 시퀀스/캐시 길이 설정
 - `stt/compile_decoder.py` - Whisper decoder (autoregressive 구조이므로 LlmConfig 필요)
 
 ---
@@ -219,9 +219,9 @@ et_config = EquivalentTransformationConfig(
 
 **실제 사용 예시**:
 
-- `llm/generate_mxq_4bit.py` - LLM 4bit SpinQuant 적용
-- `vlm/mxq_compile_language.py` - VLM language 모델의 등가 변환
-- `vlm/mxq_compile_vision.py` - VLM vision encoder에서 R1 회전 행렬 참조 (`HeadOutChRotation`)
+- `llm/mxq_compile_4bit.py` - LLM 4bit SpinQuant 적용
+- `vlm/compile_decoder.py` - VLM decoder의 등가 변환
+- `vlm/compile_encoder.py` - VLM encoder에서 R1 회전 행렬 참조 (`HeadOutChRotation`)
 
 ### SpinQuant (R1/R2) 상세 설명
 
@@ -239,43 +239,28 @@ spinWeight/{model_name}/
 ```
 
 **R1 (전역 회전)** 은 모델의 전체 가중치 공간을 하나의 회전 행렬로 변환합니다.
-이 회전은 컴파일된 MXQ 모델 내부에 이미 반영되지만,
-**임베딩 레이어는 MXQ에 포함되지 않고 CPU에서 실행**되므로
-추론 전에 임베딩 가중치에 동일한 R1 회전을 수동으로 적용해야 합니다.
+이 회전은 컴파일된 MXQ 모델 내부에 이미 반영됩니다. **임베딩 레이어는 MXQ에 포함되지 않고 CPU에서 실행**되므로 추론에는 동일하게 R1 회전된 임베딩 가중치가 필요합니다.
 
 - SpinQuant(R1)를 사용하지 않는 경우: 임베딩 회전 불필요
 - SpinQuant(R1)를 사용하는 경우: 임베딩에 R1 회전 필수
 
-LLM 임베딩 회전 예시 (`llm/get_rotation_emb.py`):
+LLM 튜토리얼은 Mobilint Hugging Face 저장소에 있는 회전 완료된 `model.safetensors`를 재사용합니다.
 
-```python
-# 원본 임베딩 가중치 로드 [vocab_size, embed_dim]
-emb = torch.load("embedding.pt")
-
-# 컴파일 시 생성된 R1 회전 행렬 로드
-rot = torch.jit.load("spinWeight/model/R1/global_rotation.pth")
-rot_matrix = next(rot.parameters())
-
-# 임베딩에 R1 회전 적용 (float64로 정밀도 유지 후 bfloat16으로 변환)
-emb = (emb.double() @ rot_matrix.double()).bfloat16()
-torch.save(emb, "embedding_rot.pt")
-```
-
-VLM 텍스트 임베딩 회전 예시 (`vlm/get_safetensors.py`):
+VLM 텍스트 임베딩 회전 예시 (`vlm/prepare_model.py`):
 
 ```python
 # HuggingFace safetensors에서 텍스트 임베딩 추출
 with safe_open(SOURCE_FILE, framework="pt") as f:
-    tensor = f.get_tensor("model.embed_tokens.weight")
+    tensor = f.get_tensor("model.language_model.embed_tokens.weight")
 
 # language 모델 컴파일 시 생성된 R1 회전 행렬 로드
 rot_matrix = torch.jit.load(
-    "spinWeight/Qwen2-VL-2B-Instruct_text_model/R1/global_rotation.pth"
+    "spinWeight/aries-rb/global_rotation.pth"
 ).state_dict()["0"]
 
 # 텍스트 임베딩에 R1 회전 적용
 embedding = tensor.double() @ rot_matrix
-save_file({"model.embed_tokens.weight": embedding.float()}, "mxq/model.safetensors")
+save_file({"model.language_model.embed_tokens.weight": embedding.float()}, "prepared/model.safetensors")
 ```
 
 **R2 (레이어별 회전)** 는 각 트랜스포머 레이어에 개별 회전을 적용하여
@@ -285,19 +270,19 @@ R2는 MXQ 컴파일 과정에서 모델 내부에 흡수되므로 별도 후처�
 **VLM에서의 R1 활용**:
 VLM의 경우 language 모델 컴파일 시 생성된 R1이 두 곳에서 사용됩니다.
 
-1. **텍스트 임베딩 회전** — LLM과 동일하게 임베딩 가중치에 R1을 적용 (`vlm/get_safetensors.py`)
+1. **텍스트 임베딩 회전** — LLM과 동일하게 임베딩 가중치에 R1을 적용 (`vlm/prepare_model.py`)
 2. **비전 인코더 정렬** — vision encoder의 출력이 회전된 language 모델의 입력 공간과 일치해야 하므로,
-   `HeadOutChRotation`으로 컴파일 시점에 R1을 참조 (`vlm/mxq_compile_vision.py`)
+   `HeadOutChRotation`으로 컴파일 시점에 R1을 참조 (`vlm/compile_encoder.py`)
 
 비전 임베딩 자체에는 별도 회전을 적용하지 않습니다.
 
 **실제 사용 예시**:
 
-- `llm/generate_mxq_4bit.py` - LLM 4bit SpinQuant 적용
-- `llm/get_rotation_emb.py` - LLM 임베딩 R1 회전
-- `vlm/mxq_compile_language.py` - VLM language 모델의 등가 변환
-- `vlm/mxq_compile_vision.py` - VLM vision encoder에서 R1 회전 행렬 참조
-- `vlm/get_safetensors.py` - VLM 텍스트 임베딩 R1 회전
+- `llm/mxq_compile_4bit.py` - LLM 4bit SpinQuant 적용
+- `llm/prepare_models.py` - LLM 회전 임베딩 재사용
+- `vlm/compile_decoder.py` - VLM decoder의 등가 변환
+- `vlm/compile_encoder.py` - VLM encoder에서 R1 회전 행렬 참조
+- `vlm/prepare_model.py` - VLM 텍스트 임베딩 R1 회전 및 런타임 패키징
 
 ---
 
@@ -331,7 +316,7 @@ sws_config = SearchWeightScaleConfig(
 
 **실제 사용 예시**:
 
-- `llm/generate_mxq_4bit.py`
+- `llm/mxq_compile_4bit.py`
 
 ---
 

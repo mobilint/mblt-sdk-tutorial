@@ -1,28 +1,28 @@
 # 모델 준비 가이드
 
 `mblt-model-zoo` API를 사용하려면 컴파일 결과물을 모델 폴더로 구성해야 합니다.
-이 문서는 `prepare_model.py`가 수행하는 작업과 `config.json`의 구조를 설명합니다.
+이 문서는 모델 준비 스크립트가 수행하는 작업과 `config.json`의 구조를 설명합니다.
 
 > 단순 모델(Image Classification, Object Detection 등)은
 > `.mxq` 파일을 `qbruntime`에 직접 넘기므로 이 준비 과정이 필요 없습니다.
 
 ---
 
-## prepare_model.py가 하는 일
+## 모델 준비 스크립트가 하는 일
 
-각 튜토리얼 디렉토리에 제공되는 `prepare_model.py`는
-컴파일 결과물을 `mblt-model-zoo`가 인식하는 폴더 구조로 변환합니다.
+모델 준비 스크립트는 컴파일 결과물을 `mblt-model-zoo`가 인식하는 폴더 구조로 변환합니다.
+컴파일 튜토리얼에서 완성된 배포 모델 폴더를 만드는 경우 해당 컴파일 디렉토리에서 실행합니다.
 
 수행 작업:
 
 1. **`.mxq` 파일 복사** — 컴파일 결과물을 출력 폴더로 복사
-2. **임베딩 가중치 변환** — `.pt` → safetensors 형식으로 변환 (모델에 따라)
-3. **config.json 구성** — `mxq_path`, `_name_or_path`, `target_cores` 등 NPU 설정 추가
-4. **tokenizer 다운로드** — HuggingFace에서 tokenizer 파일 다운로드 (텍스트 모델의 경우)
+2. **모델 가중치 추가** — 런타임에서 CPU로 실행할 가중치 포함
+3. **config.json 구성** — `mxq_path`, NPU 코어 할당 등의 필드 설정
+4. **tokenizer 파일 추가** — 텍스트 모델의 tokenizer 파일 포함
 
 **실제 사용 예시**:
 
-- `llm/prepare_model.py`
+- `compilation/llm/prepare_models.py`
 - `vlm/prepare_model.py`
 - `stt/prepare_model.py`
 

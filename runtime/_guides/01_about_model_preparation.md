@@ -1,28 +1,28 @@
 # Model Preparation Guide
 
 To use the `mblt-model-zoo` API, compilation outputs must be organized into a model folder.
-This document describes what `prepare_model.py` does and the structure of `config.json`.
+This document describes model preparation scripts and the structure of `config.json`.
 
 > Simple models (Image Classification, Object Detection, etc.)
 > pass `.mxq` files directly to `qbruntime`, so this preparation step is not needed.
 
 ---
 
-## What prepare_model.py Does
+## What Model Preparation Scripts Do
 
-The `prepare_model.py` provided in each tutorial directory
-converts compilation outputs into a folder structure recognized by `mblt-model-zoo`.
+Model preparation scripts convert compilation outputs into a folder structure recognized by `mblt-model-zoo`.
+Run it from the compilation tutorial when that tutorial produces the complete deployable model folder.
 
 Tasks performed:
 
 1. **Copy `.mxq` files** — Copy compilation outputs to the output folder
-2. **Convert embedding weights** — Convert `.pt` to safetensors format (model-dependent)
-3. **Configure config.json** — Add NPU settings such as `mxq_path`, `_name_or_path`, `target_cores`
-4. **Download tokenizer** — Download tokenizer files from HuggingFace (for text models)
+2. **Add model weights** — Include CPU-side weights required by the runtime
+3. **Configure config.json** — Set fields such as `mxq_path` and NPU core allocation
+4. **Add tokenizer files** — Include tokenizer files for text models
 
 **Usage examples**:
 
-- `llm/prepare_model.py`
+- `compilation/llm/prepare_models.py`
 - `vlm/prepare_model.py`
 - `stt/prepare_model.py`
 

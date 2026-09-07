@@ -132,8 +132,8 @@ mxq_compile(
 이 방법은 low-level API이므로 직접 사용하기보다는
 각 튜토리얼에서 제공하는 high-level 함수를 참고하세요.
 
-> 예: `vlm/mblt_compile_language.py`의 `compile_language_model()`,
-> `vlm/mblt_compile_vision.py`의 `compile_vision_encoder()`
+> 예: `vlm/compile_decoder.py`의 디코더 파서와
+> `vlm/compile_encoder.py`의 인코더 파서
 > 멀티 컴포넌트 모델의 분리 컴파일에 대해서는
 > [멀티 컴포넌트 모델 가이드](./03_about_multi_component.KR.md)를 참조하세요.
 
@@ -147,7 +147,7 @@ mxq_compile(
 | LLM | `torch` | 자동 (mxq_compile 내부) | 4bit 시 SpinQuant 추가 |
 | BERT | `torch` | 자동 (mxq_compile 내부) | |
 | STT (Whisper) | `hf` | 명시적 (mblt_compile) | encoder/decoder 분리 |
-| VLM (Qwen2-VL) | `torch` | 명시적 (ModelParser) | vision/language 분리 |
+| VLM (Qwen3-VL) | `torch` | 명시적 (ModelParser) | encoder/decoder 분리 |
 
 ## 다음 문서
 
