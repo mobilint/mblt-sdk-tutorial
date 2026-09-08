@@ -9,11 +9,9 @@ from qbcompiler.configs import (
 )
 
 TARGET_DEVICES = ("aries-rb", "regulus-rb")
-DECODER_INPUT_NAMES = [
+DECODER_16BIT_ACTIVATIONS = [
     "inputs_embeds/reshape",
-    "deepstack_visual_embeds/reshape/slice",
-    "deepstack_visual_embeds/reshape/slice_0",
-    "deepstack_visual_embeds/reshape/slice_1",
+    "deepstack_visual_embeds_0",
 ]
 ENCODER_16BIT_ACTIVATIONS = [
     "model_merger_fc2_conv_channel_last",
@@ -29,7 +27,7 @@ def decoder_compile_config(target_device: str) -> dict:
             "inference_scheme": "single",
             "calibration_config": CalibrationConfig(output=0, mode=0),
             "bit_config": BitConfig(
-                layer_overrides=BitConfig.LayerOverrides(activation_16bits=DECODER_INPUT_NAMES),
+                layer_overrides=BitConfig.LayerOverrides(activation_16bits=DECODER_16BIT_ACTIVATIONS),
             ),
             "resource_management_config": ResourceManagementConfig(
                 weight_dtype="float32",
@@ -76,7 +74,7 @@ def decoder_compile_config(target_device: str) -> dict:
             "inference_scheme": "all",
             "calibration_config": CalibrationConfig(output=0, mode=0),
             "bit_config": BitConfig(
-                layer_overrides=BitConfig.LayerOverrides(activation_16bits=DECODER_INPUT_NAMES),
+                layer_overrides=BitConfig.LayerOverrides(activation_16bits=DECODER_16BIT_ACTIVATIONS),
             ),
             "resource_management_config": ResourceManagementConfig(
                 weight_dtype="float32",

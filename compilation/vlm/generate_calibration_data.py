@@ -8,10 +8,11 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from compile_config import DECODER_INPUT_NAMES
 from PIL import Image
 from qbcompiler.calibration.utils_calib import list_calib_files_in_json
-from qbcompiler.model_dict_new.parser.patcher.models.hf_models.qwen3vl import fold_pixel_values
+from qbcompiler.model_dict.parser.backend.fx_hf_extensions.transformers.models.qwen3vl import (
+    repreprocess_pixel_values,
+)
 from transformers import AutoProcessor, Qwen3VLForConditionalGeneration
 
 MODEL_ID = "Qwen/Qwen3-VL-2B-Instruct"
@@ -42,11 +43,10 @@ def set_seed() -> None:
     torch.backends.cuda.matmul.allow_tf32 = False
 
 
-def save_language_sample(sample_dir: Path, inputs_embeds: np.ndarray, deepstack: Sequence[np.ndarray]) -> None:
+def save_language_sample(sample_dir: Path, inputs_embeds: np.ndarray, deepstack: np.ndarray) -> None:
     sample_dir.mkdir(parents=True)
     np.save(sample_dir / "inputs_embeds.npy", inputs_embeds)
-    for index, tensor in enumerate(deepstack):
-        np.save(sample_dir / f"deepstack_visual_embeds_{index}.npy", tensor)
+    np.save(sample_dir / "deepstack_visual_embeds.npy", deepstack)
 
 
 def tokens_to_embeddings(token_ids: Sequence[int], embedding_layer, device) -> np.ndarray:
@@ -67,8 +67,8 @@ def create_language_manifest(stage_dir: Path, hidden_size: int) -> None:
     list_calib_files_in_json(
         str(stage_dir),
         str(stage_dir / "npy_files.json"),
-        input_names=DECODER_INPUT_NAMES,
-        input_shapes=[[1, -1, hidden_size]] * len(DECODER_INPUT_NAMES),
+        input_names=["inputs_embeds", "deepstack_visual_embeds"],
+        input_shapes=[[1, -1, hidden_size], [3, -1, hidden_size]],
     )
 
 
@@ -245,7 +245,7 @@ if __name__ == "__main__":
                 print(f"  {image_path.name}: skipped because no token was generated before EOS")
                 continue
 
-            images = fold_pixel_values(pixel_values.float())
+            images = repreprocess_pixel_values(pixel_values.float(), grid_thw)
             image_array = images.squeeze(0).permute(1, 2, 0).cpu().numpy()
             vision_dir = directories["vision"] / f"sample_{counts['vision']:03d}"
             vision_dir.mkdir()
@@ -267,14 +267,14 @@ if __name__ == "__main__":
             save_language_sample(
                 directories["prefill"] / f"sample_{counts['prefill']:03d}",
                 prefill_embeddings.numpy(),
-                deepstack_arrays,
+                np.concatenate(deepstack_arrays, axis=0),
             )
             counts["prefill"] += 1
 
             for ratio in ratios:
                 token_count = max(1, int(len(decode_ids) * ratio))
                 decode_embeddings = tokens_to_embeddings(decode_ids[:token_count], embedding_layer, model.device)
-                decode_deepstack = [np.zeros((1, token_count, hidden_size), dtype=np.float32) for _ in range(3)]
+                decode_deepstack = np.zeros((3, token_count, hidden_size), dtype=np.float32)
                 save_language_sample(
                     directories["decode"] / f"sample_{counts['decode']:03d}",
                     decode_embeddings,

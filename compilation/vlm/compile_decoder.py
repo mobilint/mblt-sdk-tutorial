@@ -5,10 +5,18 @@ from pathlib import Path
 import torch
 from compile_config import TARGET_DEVICES, decoder_compile_config
 from PIL import Image
-from qbcompiler import mblt_compile, mxq_compile
+from qbcompiler.model_dict.parser.backend.fx_hf_extensions.transformers.models.qwen3vl import (
+    Projection,
+)
+from qbcompiler.model_dict.parser.backend.torch.object_wrapper import set_attention_mask
+from qbcompiler.model_dict.parser.backend.torch.util import wrap_tensor
+from qbcompiler.model_dict.parser.parser import ModelParser
+from qbcompiler.model_dict.serialize import ChainedByteObj, SerializeMeta
 from qbcompiler.model_dict_new.parser.backend.torch.input_capture import capture_forward_inputs
 from qbcompiler.model_dict_new.parser.patcher.models.hf_models import qwen3vl
 from transformers import AutoProcessor
+
+from qbcompiler import mxq_compile
 
 MODEL_ID = "Qwen/Qwen3-VL-2B-Instruct"
 MODEL_NAME = "Qwen3-VL-2B-Instruct"
@@ -29,7 +37,7 @@ def load_model(device: str):
         model.language_model,
         type(model.language_model),
     )
-    model.projection = qwen3vl.Projection(model.language_model, model.lm_head)
+    model.projection = Projection(model.language_model, model.lm_head)
     model.model.get_image_feature_class = qwen3vl.Qwen3VLModel_get_image_feature(model.model)
     model.model.get_image_features = qwen3vl.Qwen3VL_get_image_features.__get__(model.model, type(model.model))
     return processor, model
@@ -70,21 +78,38 @@ def build_mblt(target_device: str, device: str, output_path: Path) -> None:
         feed_dict["visual_pos_masks"],
     )
 
+    for name, value in list(feed_dict.items()):
+        if not isinstance(value, torch.Tensor):
+            continue
+        value = wrap_tensor(name, value.to(model.device))
+        if name in {"input_ids", "position_ids", "attention_mask", "cache_position", "visual_pos_masks"}:
+            value.src_shape[-1].set_dynamic(True)
+        elif name in {"inputs_embeds", "deepstack_visual_embeds"}:
+            value.src_shape[-2].set_dynamic(True)
+        feed_dict[name] = value
+
+    feed_dict["logits_to_keep"] = 1
+    set_attention_mask(feed_dict["attention_mask"], "causal_mask")
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    mblt_compile(
+    parser = ModelParser(
         model=model.projection,
-        mblt_save_path=str(output_path),
-        target_device=target_device,
         backend="torch",
-        device="gpu" if torch.device(device).type == "cuda" else "cpu",
-        feed_dict=dict(feed_dict),
-        dynamic_axes={
-            "inputs_embeds": [-2],
-            "cache_position": [-1],
-            "rope_deltas": [-1],
-            "deepstack_visual_embeds": [-2],
-        },
+        target_device=target_device,
     )
+    parser.cfg.allocate_to_devices = True
+    parser.cfg.split_supported_concat = True
+    parser.parse(
+        feed_dict=feed_dict,
+        output_meta={"type": "list", "keys": [0]},
+    )
+    model_dict, weight_dict = parser.get_md_wd(body_only=True)
+    data = SerializeMeta().serialize(model_dict, weight_dict, ignore_weight=False)
+    with output_path.open("wb") as output_file:
+        if isinstance(data, ChainedByteObj):
+            data.write(output_file)
+        else:
+            output_file.write(data)
     print(f"Saved MBLT: {output_path}")
 
 

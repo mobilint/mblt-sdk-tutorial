@@ -4,9 +4,18 @@ from pathlib import Path
 import torch
 from compile_config import TARGET_DEVICES, encoder_compile_config
 from PIL import Image
-from qbcompiler import mblt_compile, mxq_compile
-from qbcompiler.model_dict_new.parser.patcher.models.hf_models import qwen3vl
+from qbcompiler.model_dict.common import DataFormat, LayerType
+from qbcompiler.model_dict.parser.backend.fx_hf_extensions.transformers.models.qwen3vl import (
+    Qwen3VLForConditionalGenerationWrapper,
+    VisionModelForQwen3VL,
+    repreprocess_pixel_values,
+)
+from qbcompiler.model_dict.parser.backend.torch.util import wrap_tensor
+from qbcompiler.model_dict.parser.parser import ModelParser
+from qbcompiler.model_dict.serialize import ChainedByteObj, SerializeMeta
 from transformers import AutoProcessor
+
+from qbcompiler import mxq_compile
 
 MODEL_ID = "Qwen/Qwen3-VL-2B-Instruct"
 MODEL_NAME = "Qwen3-VL-2B-Instruct"
@@ -14,9 +23,8 @@ COMPILER_NAME = "Qwen_Qwen3-VL-2B-Instruct"
 
 
 def load_model(device: str):
-    wrapper = qwen3vl.ensure_qwen3vl_classes_loaded()
     processor = AutoProcessor.from_pretrained(MODEL_ID)
-    model = wrapper.from_pretrained(
+    model = Qwen3VLForConditionalGenerationWrapper.from_pretrained(
         MODEL_ID,
         device_map=device,
         dtype=torch.float32,
@@ -48,19 +56,34 @@ def build_inputs(processor, device):
 def build_mblt(target_device: str, device: str, output_path: Path) -> None:
     processor, model = load_model(device)
     inputs = build_inputs(processor, model.device)
-    images = qwen3vl.fold_pixel_values(inputs["pixel_values"])
-    vision_model = qwen3vl.VisionModelForQwen3VL(model).to(model.device).eval()
+    images = repreprocess_pixel_values(inputs["pixel_values"], inputs["image_grid_thw"][0])
+    vision_model = VisionModelForQwen3VL(model.model).to(model.device).eval()
     vision_model.set_grid_thw(inputs["image_grid_thw"].to(model.device))
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    mblt_compile(
+    parser = ModelParser(
         model=vision_model,
-        mblt_save_path=str(output_path),
-        target_device=target_device,
         backend="torch",
-        device="gpu" if torch.device(device).type == "cuda" else "cpu",
-        feed_dict={"images": images},
+        target_device=target_device,
     )
+    parser.cfg.allocate_to_devices = True
+    parser.cfg.split_supported_concat = True
+    parser.parse(
+        feed_dict={"images": wrap_tensor("images", images.to(model.device))},
+        save_subgraph_type=1,
+    )
+    model_dict, weight_dict = parser.get_md_wd(body_only=False)
+    for subgraph in model_dict.subgraphs:
+        for operator in subgraph.operators:
+            if operator.layertype == LayerType.InputConstant:
+                subgraph.activations[operator.options.outputs[0]].dataformat = DataFormat.NHWC
+
+    data = SerializeMeta().serialize(model_dict, weight_dict, ignore_weight=False)
+    with output_path.open("wb") as output_file:
+        if isinstance(data, ChainedByteObj):
+            data.write(output_file)
+        else:
+            output_file.write(data)
     print(f"Saved MBLT: {output_path}")
 
 

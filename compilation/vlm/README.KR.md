@@ -33,8 +33,9 @@ python download_images.py
 python generate_calibration_data.py --batch-size 4
 ```
 
-비전 인코더 데이터와 디코더의 prefill/decode 데이터를 `./calibration_data`에 생성합니다. 기본 배치 크기는 4이고
-`cuda:0`을 사용하며, 24 GiB GPU에서 실행할 수 있도록 설정되어 있습니다. 다른 GPU는 `--device`로 지정합니다.
+비전 인코더 데이터와 디코더의 prefill/decode 데이터를 `./calibration_data`에 생성합니다. 기본 배치 크기는 4이며
+`cuda:0`을 사용합니다. 사용 중인 GPU 메모리에 맞춰 `--batch-size`를 조절하고, 다른 GPU를 사용하려면
+`--device`로 지정합니다.
 
 ```text
 calibration_data/
@@ -47,6 +48,10 @@ calibration_data/
 └── language/
     └── npy_files.json
 ```
+
+각 비전 샘플은 `[1024, 64, 6]` 크기의 `images.npy`를 포함합니다. 각 디코더 샘플은
+`[1, T, 2048]` 크기의 `inputs_embeds.npy`와 DeepStack 3개를 하나로 묶은
+`[3, T, 2048]` 크기의 `deepstack_visual_embeds.npy`를 포함합니다.
 
 데이터셋 리비전, 난수 시드, 이미지 순서, 프롬프트 순서를 고정합니다. 같은 옵션, GPU, 소프트웨어 환경에서
 반복 실행하면 동일한 캘리브레이션 파일을 생성합니다. EOS까지 생성된 결과만 캘리브레이션 데이터에 포함합니다.

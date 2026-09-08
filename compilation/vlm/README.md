@@ -34,7 +34,8 @@ python generate_calibration_data.py --batch-size 4
 ```
 
 The script creates vision encoder samples and decoder prefill/decode samples under `./calibration_data`. The default
-batch size is 4 on `cuda:0`, which is sized for a 24 GiB GPU. Use `--device` to select another GPU.
+batch size is 4 on `cuda:0`. Adjust `--batch-size` for the available GPU memory, and use `--device` to select another
+GPU.
 
 ```text
 calibration_data/
@@ -47,6 +48,10 @@ calibration_data/
 └── language/
     └── npy_files.json
 ```
+
+Each vision sample contains `images.npy` with shape `[1024, 64, 6]`. Each decoder sample contains
+`inputs_embeds.npy` with shape `[1, T, 2048]` and one packed
+`deepstack_visual_embeds.npy` with shape `[3, T, 2048]`.
 
 The dataset revision, random seed, image order, and prompt order are fixed. Repeated runs with the same options,
 GPU, and software environment produce identical calibration files. Only generations that reach EOS are included. If
