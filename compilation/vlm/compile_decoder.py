@@ -27,8 +27,8 @@ LANGUAGE_DYNAMIC_AXES = {
 
 
 def build_inputs(processor, device):
-    with Image.open(BASE_DIR / "images/image_0000.jpg") as source:
-        image = source.convert("RGB").resize((224, 224), Image.Resampling.LANCZOS)
+    generator = torch.Generator().manual_seed(42)
+    image = Image.fromarray(torch.randint(256, (224, 224, 3), generator=generator, dtype=torch.uint8).numpy())
     messages = [
         {
             "role": "user",
