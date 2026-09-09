@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from PIL import Image
 from qbcompiler.calibration.utils_calib import list_calib_files_in_json
-from qbcompiler.model_dict.parser.backend.fx_hf_extensions.transformers.models.qwen3vl import (
+from qbcompiler.model_dict_legacy.parser.backend.fx_hf_extensions.transformers.models.qwen3vl import (
     repreprocess_pixel_values,
 )
 from transformers import AutoProcessor, Qwen3VLForConditionalGeneration

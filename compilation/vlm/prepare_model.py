@@ -42,7 +42,10 @@ def patch_config(config_path: Path, target_device: str, encoder_name: str, decod
     config = json.loads(config_path.read_text(encoding="utf-8"))
     config.pop("mxq_path", None)
 
-    for section_name, mxq_name in (("vision_config", encoder_name), ("text_config", decoder_name)):
+    for section_name, mxq_name in (
+        ("vision_config", encoder_name),
+        ("text_config", decoder_name),
+    ):
         section = config[section_name]
         section["mxq_path"] = mxq_name
         section["target_device"] = target_device

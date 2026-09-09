@@ -8,7 +8,6 @@ from qbcompiler.configs import (
     SearchWeightScaleConfig,
 )
 
-TARGET_DEVICES = ("aries-rb", "regulus-rb")
 DECODER_16BIT_ACTIVATIONS = [
     "inputs_embeds/reshape",
     "deepstack_visual_embeds_0",
