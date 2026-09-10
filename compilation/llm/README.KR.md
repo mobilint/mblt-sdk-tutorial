@@ -28,9 +28,12 @@ python generate_calib.py \
 
 ## 2. W8 컴파일
 
+`compile_model.py`는 MBLT를 생성한 뒤 생성된 MBLT를 MXQ로 컴파일합니다.
+
 ```bash
-python mxq_compile.py \
+python compile_model.py \
   --model-path meta-llama/Llama-3.2-1B-Instruct \
+  --mblt-path ./Llama-3.2-1B-Instruct.mblt \
   --calib-data-path ./calibration_data/datas/meta-llama-Llama-3.2-1B-Instruct/multilingual \
   --save-path ./Llama-3.2-1B-Instruct-W8.mxq \
   --target-device aries-rb
@@ -47,8 +50,9 @@ python mxq_compile.py \
 ## 선택 사항: W4V8 컴파일
 
 ```bash
-python mxq_compile_4bit.py \
+python compile_model_4bit.py \
   --model-path meta-llama/Llama-3.2-1B-Instruct \
+  --mblt-path ./Llama-3.2-1B-Instruct.mblt \
   --calib-data-path ./calibration_data/datas/meta-llama-Llama-3.2-1B-Instruct/multilingual \
   --save-path ./Llama-3.2-1B-Instruct-W4V8.mxq \
   --target-device aries-rb
