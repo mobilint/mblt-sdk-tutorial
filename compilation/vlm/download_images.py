@@ -14,6 +14,12 @@ if __name__ == "__main__":
     parser.add_argument("--num-images", type=int, default=300)
     parser.add_argument("--output-dir", type=Path, default=Path("images"))
     parser.add_argument("--size", type=int, default=224)
+    parser.add_argument(
+        "--dynamic",
+        action="store_true",
+        help="Keep original COCO resolution. Required for dynamic vision calibration so the "
+        "sample set spans a range of patch counts N.",
+    )
     args = parser.parse_args()
     if args.num_images <= 0:
         raise ValueError("--num-images must be positive")
@@ -28,7 +34,8 @@ if __name__ == "__main__":
         if saved == args.num_images:
             break
         image = example["image"].convert("RGB")
-        image = image.resize((args.size, args.size), Image.Resampling.LANCZOS)
+        if not args.dynamic:
+            image = image.resize((args.size, args.size), Image.Resampling.LANCZOS)
         image.save(args.output_dir / f"image_{saved:04d}.jpg", "JPEG", quality=95)
         saved += 1
 
