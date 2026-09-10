@@ -12,6 +12,11 @@ DECODER_16BIT_ACTIVATIONS = [
     "inputs_embeds/reshape",
     "deepstack_visual_embeds_0",
 ]
+# Vision encoder graph-derived operator names. The three ``add/reshape_<N>/...``
+# entries were observed in the static Qwen3-VL-2B .mblt; a different model size
+# or the dynamic parsing path can emit different ``<N>`` values. Mismatched
+# entries are silently ignored by the quantizer, so wrong names cost a small
+# amount of vision SQNR but do not break the build.
 ENCODER_16BIT_ACTIVATIONS = [
     "model_merger_fc2_conv_channel_last",
     "add/reshape_49/reshape/gelu/conv2d",
@@ -20,7 +25,19 @@ ENCODER_16BIT_ACTIVATIONS = [
 ]
 
 
-def decoder_compile_config(target_device: str) -> dict:
+def _llm_runtime(dynamic: bool) -> LlmConfig.Attributes.Runtime:
+    """Runtime knobs for the decoder LlmConfig.
+
+    ``dynamic_rope=True`` promotes the InputConstant cos/sin tables in the
+    parsed .mblt to graph inputs, turning the decoder into a 3-input MXQ that
+    consumes a per-image rope tensor. The mblt-model-zoo runtime enforces a
+    bundled pairing: a dynamic vision MXQ must be loaded with a dynamic text
+    MXQ, so this flag flips together with the vision encoder mode.
+    """
+    return LlmConfig.Attributes.Runtime(dynamic_rope=dynamic)
+
+
+def decoder_compile_config(target_device: str, dynamic: bool = False) -> dict:
     if target_device == "regulus-rb":
         return {
             "inference_scheme": "single",
@@ -39,6 +56,7 @@ def decoder_compile_config(target_device: str) -> dict:
                     max_sequence_length=1024,
                     max_cache_length=1024,
                     calibration=LlmConfig.Attributes.Calibration(use_full_seq_length=True),
+                    runtime=_llm_runtime(dynamic),
                 ),
             ),
             "equivalent_transformation_config": EquivalentTransformationConfig(
@@ -84,6 +102,7 @@ def decoder_compile_config(target_device: str) -> dict:
                 apply=True,
                 attributes=LlmConfig.Attributes(
                     calibration=LlmConfig.Attributes.Calibration(use_full_seq_length=True),
+                    runtime=_llm_runtime(dynamic),
                 ),
             ),
             "equivalent_transformation_config": EquivalentTransformationConfig(
@@ -110,7 +129,11 @@ def decoder_compile_config(target_device: str) -> dict:
         raise ValueError(f"Unsupported target device: {target_device}")
 
 
-def encoder_compile_config(target_device: str) -> dict:
+def encoder_compile_config(target_device: str, dynamic: bool = False) -> dict:
+    # Static and dynamic parsing produce different graphs but the same
+    # quantization knobs are valid for both. The activation_16bits list is a
+    # best-effort optimization; see the comment on ENCODER_16BIT_ACTIVATIONS.
+    del dynamic  # currently no per-mode knob divergence; kept for API symmetry
     if target_device == "regulus-rb":
         return {
             "inference_scheme": "single",
