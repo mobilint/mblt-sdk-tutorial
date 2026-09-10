@@ -8,6 +8,7 @@ from qbcompiler import mblt_compile, mxq_compile
 from qbcompiler.model_dict.parser.patcher.models.hf_models.qwen3vl import (
     VisionModelForQwen3VL as DynamicVisionModelForQwen3VL,
 )
+from torch import nn
 from qbcompiler.model_dict_legacy.parser.backend.fx_hf_extensions.transformers.models.qwen3vl import (
     Qwen3VLForConditionalGenerationWrapper,
     VisionModelForQwen3VL,
@@ -21,12 +22,32 @@ TARGET_DEVICES = ("aries-rb", "regulus-rb")
 
 # Vision N-axis (patch count) marked dynamic per graph input. The V2 dispatch
 # is the path where dynamic_axes actually flows through to the compiled MXQ.
+# Keys must match the wrapper's forward signature order so the compiled MXQ's
+# input contract matches mblt-model-zoo's expected [rope, pos, folded] order.
 VISION_DYNAMIC_AXES = {
-    "images": [-1],
-    "pos_embeds": [0],
     "cos": [-2],
     "sin": [-2],
+    "pos_embeds": [0],
+    "images": [-1],
 }
+
+
+class ReorderedDynamicVisionModel(nn.Module):
+    """Reorder VisionModelForQwen3VL's forward args to (cos, sin, pos_embeds, images).
+
+    mblt_compile traces the module through the forward signature and preserves
+    positional order in the compiled MXQ. mblt-model-zoo's runtime feeds
+    ``[rope, pos, folded]``, so we reorder here to match. cos/sin get merged
+    into a single rope input at quantization, yielding the 3-input MXQ that
+    the runtime detects as dynamic.
+    """
+
+    def __init__(self, wrapped: DynamicVisionModelForQwen3VL) -> None:
+        super().__init__()
+        self.wrapped = wrapped
+
+    def forward(self, cos, sin, pos_embeds, images):
+        return self.wrapped(images, pos_embeds, cos, sin)
 
 
 def resolve_names(model_id: str) -> tuple[str, str]:
@@ -120,13 +141,10 @@ def compile_dynamic(args, model_name: str, compiler_name: str, torch_device: tor
     inputs = build_inputs(processor, torch_device)
     grid_thw = inputs["image_grid_thw"].to(torch_device)
 
-    encoder = DynamicVisionModelForQwen3VL(model).to(torch_device).eval()
-    pos_embeds, cos, sin = encoder.compute_side_inputs(grid_thw)
+    inner_encoder = DynamicVisionModelForQwen3VL(model).to(torch_device).eval()
+    pos_embeds, cos, sin = inner_encoder.compute_side_inputs(grid_thw)
     folded = fold_pixel_values(inputs["pixel_values"].to(torch_device).to(torch.float32))
-    # Input order matches mblt-model-zoo's _prepare_dynamic_npu_inputs:
-    # [rope (cos+sin merged), pos_embeds, folded images]. Reordering the
-    # feed_dict here reorders inputs in the compiled MXQ; feeding in a
-    # different order at runtime trips qbruntime's variant-matching guard.
+    encoder = ReorderedDynamicVisionModel(inner_encoder).to(torch_device).eval()
     feed_dict = {"cos": cos, "sin": sin, "pos_embeds": pos_embeds, "images": folded}
 
     mblt_path = BASE_DIR / "mblt" / args.target_device / f"{compiler_name}_encoder_dynamic.mblt"
