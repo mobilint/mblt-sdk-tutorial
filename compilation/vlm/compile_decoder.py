@@ -57,6 +57,12 @@ if __name__ == "__main__":
     parser.add_argument("--target-device", choices=TARGET_DEVICES, default="aries-rb")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--model-id", default=DEFAULT_MODEL_ID)
+    parser.add_argument(
+        "--dynamic",
+        action="store_true",
+        help="Enable dynamic RoPE. Promotes the cos/sin InputConstants to a runtime rope "
+        "input, producing the 3-input text MXQ that pairs with a --dynamic vision encoder.",
+    )
     args = parser.parse_args()
 
     model_name, compiler_name = resolve_names(args.model_id)
@@ -69,10 +75,11 @@ if __name__ == "__main__":
     feed_dict = dict(feed_dict)
     dynamic_axes = {name: axes for name, axes in LANGUAGE_DYNAMIC_AXES.items() if name in feed_dict}
 
-    mblt_path = BASE_DIR / "mblt" / args.target_device / f"{compiler_name}_decoder.mblt"
-    mxq_path = BASE_DIR / "mxq" / args.target_device / f"{model_name}_decoder.mxq"
+    suffix = "_decoder_dynamic" if args.dynamic else "_decoder"
+    mblt_path = BASE_DIR / "mblt" / args.target_device / f"{compiler_name}{suffix}.mblt"
+    mxq_path = BASE_DIR / "mxq" / args.target_device / f"{model_name}{suffix}.mxq"
     rotation_path = BASE_DIR / "spinWeight" / args.target_device / "global_rotation.pth"
-    generated_rotation_path = BASE_DIR / "spinWeight" / f"{compiler_name}_decoder" / "R1" / "global_rotation.pth"
+    generated_rotation_path = BASE_DIR / "spinWeight" / f"{compiler_name}{suffix}" / "R1" / "global_rotation.pth"
 
     mblt_path.parent.mkdir(parents=True, exist_ok=True)
     mblt_compile(
@@ -94,7 +101,7 @@ if __name__ == "__main__":
         calib_data_path=str(BASE_DIR / "calibration_data/language/npy_files.json"),
         device="gpu" if torch_device.type == "cuda" else "cpu",
         cpu_offload=True,
-        **decoder_compile_config(args.target_device),
+        **decoder_compile_config(args.target_device, dynamic=args.dynamic),
     )
 
     rotation_path.parent.mkdir(parents=True, exist_ok=True)
