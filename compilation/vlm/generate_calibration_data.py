@@ -15,7 +15,7 @@ from qbcompiler.model_dict_legacy.parser.backend.fx_hf_extensions.transformers.m
 )
 from transformers import AutoProcessor, Qwen3VLForConditionalGeneration
 
-MODEL_ID = "Qwen/Qwen3-VL-2B-Instruct"
+DEFAULT_MODEL_ID = "Qwen/Qwen3-VL-2B-Instruct"
 SEED = 42
 PROMPTS = (
     "Describe this image.",
@@ -157,6 +157,7 @@ if __name__ == "__main__":
     parser.add_argument("--max-new-tokens", type=int, default=512)
     parser.add_argument("--intermediate-ratios", type=float, nargs="*", default=(0.25, 0.5, 0.75))
     parser.add_argument("--device", default="cuda:0")
+    parser.add_argument("--model-id", default=DEFAULT_MODEL_ID)
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
     if args.num_samples <= 0:
@@ -177,12 +178,12 @@ if __name__ == "__main__":
 
     set_seed()
     model = Qwen3VLForConditionalGeneration.from_pretrained(
-        MODEL_ID,
+        args.model_id,
         dtype=torch.float32,
         device_map=args.device,
     )
     model.eval()
-    processor = AutoProcessor.from_pretrained(MODEL_ID)
+    processor = AutoProcessor.from_pretrained(args.model_id)
     processor.tokenizer.padding_side = "left"
 
     directories = {name: args.output_dir / name for name in ("vision", "prefill", "decode", "language")}

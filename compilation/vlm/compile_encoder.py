@@ -12,11 +12,17 @@ from qbcompiler.model_dict_legacy.parser.backend.fx_hf_extensions.transformers.m
 )
 from transformers import AutoProcessor
 
-MODEL_ID = "Qwen/Qwen3-VL-2B-Instruct"
-MODEL_NAME = "Qwen3-VL-2B-Instruct"
-COMPILER_NAME = "Qwen_Qwen3-VL-2B-Instruct"
+DEFAULT_MODEL_ID = "Qwen/Qwen3-VL-2B-Instruct"
 BASE_DIR = Path(__file__).resolve().parent
 TARGET_DEVICES = ("aries-rb", "regulus-rb")
+
+
+def resolve_names(model_id: str) -> tuple[str, str]:
+    """Derive (MODEL_NAME, COMPILER_NAME) from a Hugging Face model id."""
+    if "/" not in model_id:
+        raise ValueError(f"--model-id must include a namespace, got {model_id!r}")
+    namespace, name = model_id.split("/", 1)
+    return name, f"{namespace}_{name}"
 
 
 def build_inputs(processor, device):
@@ -44,12 +50,14 @@ if __name__ == "__main__":
     parser = ArgumentParser(description="Compile the Qwen3-VL encoder")
     parser.add_argument("--target-device", choices=TARGET_DEVICES, default="aries-rb")
     parser.add_argument("--device", default="cuda")
+    parser.add_argument("--model-id", default=DEFAULT_MODEL_ID)
     args = parser.parse_args()
 
+    model_name, compiler_name = resolve_names(args.model_id)
     torch_device = torch.device(args.device)
-    processor = AutoProcessor.from_pretrained(MODEL_ID)
+    processor = AutoProcessor.from_pretrained(args.model_id)
     model = Qwen3VLForConditionalGenerationWrapper.from_pretrained(
-        MODEL_ID,
+        args.model_id,
         device_map=torch_device,
         dtype=torch.float32,
     ).eval()
@@ -58,8 +66,8 @@ if __name__ == "__main__":
     encoder = VisionModelForQwen3VL(model.model).to(model.device).eval()
     encoder.set_grid_thw(inputs["image_grid_thw"].to(model.device))
 
-    mblt_path = BASE_DIR / "mblt" / args.target_device / f"{COMPILER_NAME}_encoder.mblt"
-    mxq_path = BASE_DIR / "mxq" / args.target_device / f"{MODEL_NAME}_encoder.mxq"
+    mblt_path = BASE_DIR / "mblt" / args.target_device / f"{compiler_name}_encoder.mblt"
+    mxq_path = BASE_DIR / "mxq" / args.target_device / f"{model_name}_encoder.mxq"
 
     mblt_path.parent.mkdir(parents=True, exist_ok=True)
     mblt_compile(
