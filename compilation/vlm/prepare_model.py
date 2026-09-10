@@ -15,6 +15,51 @@ EMBEDDING_KEY = "model.language_model.embed_tokens.weight"
 VISION_POS_EMBED_KEY = "model.visual.pos_embed.weight"
 TARGET_DEVICES = ("aries-rb", "regulus-rb")
 
+# mblt-model-zoo hardcodes the 3-input dynamic vision contract as
+# [rope, pos, folded], but qbcompiler emits inputs in graph dataflow order,
+# which for VisionModelForQwen3VL is [folded, pos, rope]. Ship a proxy that
+# subclasses the vision model and swaps the tuple back before infer(). This
+# keeps the tutorial's prepared folder loadable with the stock model-zoo
+# runtime; if a future model-zoo release adds an explicit input-order
+# override the swap becomes a no-op we can remove.
+DYNAMIC_PROXY_SOURCE = '''\
+try:
+    from mblt_model_zoo.hf_transformers.models.qwen3_vl.configuration_qwen3_vl import (
+        MobilintQwen3VLConfig,
+    )
+    from mblt_model_zoo.hf_transformers.models.qwen3_vl.modeling_qwen3_vl import (
+        MobilintQwen3VLForConditionalGeneration,
+        MobilintQwen3VLVisionModel,
+    )
+    from mblt_model_zoo.hf_transformers.models.qwen3_vl.processing_qwen3_vl import (
+        MobilintQwen3VLProcessor,
+    )
+except ImportError:
+    raise ImportError(
+        "This model requires 'mblt_model_zoo' to be installed. Please run: pip install mblt_model_zoo[transformers]"
+    )
+
+
+_ORIG_PREPARE = MobilintQwen3VLVisionModel._prepare_dynamic_npu_inputs
+
+
+def _prepare_dynamic_npu_inputs_swapped(self, hidden_states, grid):
+    """Return [folded, pos, rope] to match this tutorial's compiled MXQ.
+
+    The tutorial's compile_encoder.py --dynamic emits inputs in graph
+    dataflow order, which places folded pixel values first and rope last.
+    Stock mblt-model-zoo feeds [rope, pos, folded]; we swap here so the
+    order matches the compiled variant.
+    """
+    rope, pos, folded = _ORIG_PREPARE(self, hidden_states, grid)
+    return [folded, pos, rope]
+
+
+MobilintQwen3VLVisionModel._prepare_dynamic_npu_inputs = _prepare_dynamic_npu_inputs_swapped
+
+__all__ = ["MobilintQwen3VLConfig", "MobilintQwen3VLForConditionalGeneration", "MobilintQwen3VLProcessor"]
+'''
+
 
 def resolve_model_ids(base_model_id: str) -> tuple[str, str]:
     """Return (RUNTIME_MODEL_ID, MODEL_NAME) derived from the base HF model id.
@@ -138,6 +183,8 @@ def prepare_model(
         shutil.copy2(decoder_mxq, staging_dir / decoder_name)
         save_runtime_weights(base_model_id, rotation_path, staging_dir / "model.safetensors", dynamic)
         patch_config(staging_dir / "config.json", target_device, encoder_name, decoder_name, dynamic)
+        if dynamic:
+            (staging_dir / "proxy_qwen3_vl.py").write_text(DYNAMIC_PROXY_SOURCE, encoding="utf-8")
 
         if output_dir.exists():
             shutil.rmtree(output_dir)
