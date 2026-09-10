@@ -87,7 +87,7 @@ def decoder_embeddings(model, tokens: torch.Tensor) -> np.ndarray:
     decoder = model.model.decoder
     token_ids = tokens.unsqueeze(0)
     with torch.inference_mode():
-        embeddings = decoder.embed_tokens(token_ids) + decoder.embed_positions(token_ids)
+        embeddings = decoder.embed_tokens(token_ids)
     return embeddings.cpu().numpy().astype(np.float32)
 
 
@@ -138,7 +138,7 @@ def generate_decoder_calibration(
             sample_dir = (output_dir / f"sample_{len(calibration_paths):04d}").resolve()
             sample_dir.mkdir(parents=True, exist_ok=True)
             encoder_path = sample_dir / "encoder_hidden_states.npy"
-            decoder_path = sample_dir / "decoder_hidden_states.npy"
+            decoder_path = sample_dir / "inputs_embeds.npy"
             np.save(encoder_path, encoder_hidden_states)
             np.save(decoder_path, decoder_embeddings(model, tokens))
             calibration_paths.append([str(decoder_path), str(encoder_path)])
@@ -149,7 +149,7 @@ def generate_decoder_calibration(
     d_model = model.config.d_model
     manifest = {
         "info": {
-            "input names": ["decoder_hidden_states", "encoder_hidden_states"],
+            "input names": ["inputs_embeds", "encoder_hidden_states"],
             "input shapes": [[1, -1, d_model], [1, 1500, d_model]],
         },
         "calib paths": calibration_paths,

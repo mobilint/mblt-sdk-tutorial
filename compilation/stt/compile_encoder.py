@@ -4,7 +4,7 @@ from pathlib import Path
 import torch
 from compile_config import encoder_compile_config
 from qbcompiler import mblt_compile, mxq_compile
-from transformers import AutoModelForSpeechSeq2Seq
+from qbcompiler.model_dict.parser.patcher.parts import load_for_part
 
 MODEL_ID = "openai/whisper-small"
 TARGET_DEVICES = ("aries-rb", "regulus-rb")
@@ -18,23 +18,22 @@ def compile_encoder(target_device: str) -> Path:
     if not calibration_path.is_file():
         raise FileNotFoundError(f"Encoder calibration not found: {calibration_path}")
 
-    model = AutoModelForSpeechSeq2Seq.from_pretrained(
+    model = load_for_part(
         MODEL_ID,
-        torch_dtype=torch.float32,
-        attn_implementation="sdpa",
-    ).eval()
-    model.cpu()
+        "encoder",
+        dtype=torch.float32,
+        device=torch.device("cpu"),
+    )
     feed_dict = {"input_features": torch.randn(1, 80, 3000)}
 
     mblt_path.parent.mkdir(parents=True, exist_ok=True)
     mblt_compile(
         model=model,
+        model_part="encoder",
         mblt_save_path=str(mblt_path),
         target_device=target_device,
-        backend="hf",
-        target="encoder",
+        backend="torch",
         feed_dict=feed_dict,
-        device="cpu",
     )
 
     mxq_path.parent.mkdir(parents=True, exist_ok=True)
