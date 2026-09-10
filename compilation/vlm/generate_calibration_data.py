@@ -30,7 +30,9 @@ PROMPTS = (
     "What small or easily overlooked details can you spot?",
 )
 
-VISION_DYNAMIC_INPUT_NAMES = ["float_1_channel_last", "pos_embeds/reshape", "cos"]
+# Order matches mblt-model-zoo's _prepare_dynamic_npu_inputs: [rope, pos, folded].
+# Must match the feed_dict order in compile_encoder.py --dynamic.
+VISION_DYNAMIC_INPUT_NAMES = ["cos", "pos_embeds/reshape", "float_1_channel_last"]
 LANGUAGE_DYNAMIC_INPUT_NAMES = ["inputs_embeds", "deepstack_visual_embeds", "cos"]
 
 
@@ -271,9 +273,9 @@ def save_vision_sample_dynamic(
     vision_dir.mkdir()
     paths = []
     for key, tensor in (
-        ("float_1_channel_last", folded_cl),
-        ("pos_embeds", pos_cl),
         ("cos", rt_cl),
+        ("pos_embeds", pos_cl),
+        ("float_1_channel_last", folded_cl),
     ):
         path = vision_dir / f"{key}.npy"
         np.save(path, tensor.cpu().numpy())
@@ -466,9 +468,9 @@ if __name__ == "__main__":
             "info": {
                 "input names": VISION_DYNAMIC_INPUT_NAMES,
                 "input shapes": [
-                    [1, 1, -1, fold_in],
-                    [1, 1, -1, vision_hidden],
                     [1, 1, -1, 2 * vision_head_dim],
+                    [1, 1, -1, vision_hidden],
+                    [1, 1, -1, fold_in],
                 ],
             },
             "calib paths": vision_calib_paths,
