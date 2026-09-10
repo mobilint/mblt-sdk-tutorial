@@ -12,6 +12,7 @@ from safetensors.torch import save_file
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_BASE_MODEL_ID = "Qwen/Qwen3-VL-2B-Instruct"
 EMBEDDING_KEY = "model.language_model.embed_tokens.weight"
+VISION_POS_EMBED_KEY = "model.visual.pos_embed.weight"
 TARGET_DEVICES = ("aries-rb", "regulus-rb")
 
 
@@ -33,22 +34,45 @@ def load_rotation_matrix(path: Path) -> torch.Tensor:
     return matrix.detach().to(torch.float32).contiguous()
 
 
-def load_embedding(base_model_id: str) -> torch.Tensor:
+def load_hf_tensor(base_model_id: str, key_suffix: str) -> torch.Tensor:
+    """Return a float32 copy of the first tensor whose name ends with key_suffix."""
     tensor_path = hf_hub_download(base_model_id, "model.safetensors")
     with safe_open(tensor_path, framework="pt") as tensors:
-        key = next(name for name in tensors.keys() if name.endswith("embed_tokens.weight"))
+        key = next(name for name in tensors.keys() if name.endswith(key_suffix))
         return tensors.get_tensor(key).to(torch.float32)
 
 
-def save_rotated_embedding(base_model_id: str, rotation_path: Path, output_path: Path) -> None:
-    embedding = load_embedding(base_model_id)
+def save_runtime_weights(
+    base_model_id: str,
+    rotation_path: Path,
+    output_path: Path,
+    dynamic: bool,
+) -> None:
+    """Write model.safetensors: rotated embed_tokens plus visual.pos_embed if dynamic.
+
+    mblt-model-zoo only allocates ``visual.pos_embed`` for the dynamic vision
+    path, so bundling this weight into a static release would trigger a
+    spurious "unused weight" warning; conversely, omitting it on a dynamic
+    release yields a "MISSING: newly initialized" warning and wrong outputs.
+    """
+    embedding = load_hf_tensor(base_model_id, "embed_tokens.weight")
     rotation = load_rotation_matrix(rotation_path)
     if rotation.shape != (embedding.shape[1], embedding.shape[1]):
         raise ValueError(f"Rotation shape {tuple(rotation.shape)} does not match embedding width {embedding.shape[1]}")
-    save_file({EMBEDDING_KEY: (embedding @ rotation).contiguous()}, output_path)
+
+    tensors: dict[str, torch.Tensor] = {EMBEDDING_KEY: (embedding @ rotation).contiguous()}
+    if dynamic:
+        tensors[VISION_POS_EMBED_KEY] = load_hf_tensor(base_model_id, "visual.pos_embed.weight").contiguous()
+    save_file(tensors, output_path)
 
 
-def patch_config(config_path: Path, target_device: str, encoder_name: str, decoder_name: str) -> None:
+def patch_config(
+    config_path: Path,
+    target_device: str,
+    encoder_name: str,
+    decoder_name: str,
+    dynamic: bool,
+) -> None:
     config = json.loads(config_path.read_text(encoding="utf-8"))
     config.pop("mxq_path", None)
 
@@ -68,13 +92,28 @@ def patch_config(config_path: Path, target_device: str, encoder_name: str, decod
             section["target_cores"] = ["0:0"]
             section.pop("target_clusters", None)
 
+    # Top-level release-pairing flag that MobilintQwen3VLConfig reads. The
+    # runtime reconciles it against the MXQ input counts (1/3 for vision,
+    # 2/3 for text) and warns if they disagree; keeping it accurate silences
+    # that warning and lets the vision submodule allocate visual.pos_embed
+    # from the safetensors we shipped above.
+    config["dynamic_vision"] = dynamic
+
     config_path.write_text(json.dumps(config, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def prepare_model(base_model_id: str, target_device: str, output_dir: Path, force: bool) -> None:
+def prepare_model(
+    base_model_id: str,
+    target_device: str,
+    output_dir: Path,
+    force: bool,
+    dynamic: bool,
+) -> None:
     runtime_model_id, model_name = resolve_model_ids(base_model_id)
-    encoder_mxq = BASE_DIR / "mxq" / target_device / f"{model_name}_encoder.mxq"
-    decoder_mxq = BASE_DIR / "mxq" / target_device / f"{model_name}_decoder.mxq"
+    encoder_suffix = "_encoder_dynamic" if dynamic else "_encoder"
+    decoder_suffix = "_decoder_dynamic" if dynamic else "_decoder"
+    encoder_mxq = BASE_DIR / "mxq" / target_device / f"{model_name}{encoder_suffix}.mxq"
+    decoder_mxq = BASE_DIR / "mxq" / target_device / f"{model_name}{decoder_suffix}.mxq"
     rotation_path = BASE_DIR / "spinWeight" / target_device / "global_rotation.pth"
     missing = [path for path in (encoder_mxq, decoder_mxq, rotation_path) if not path.is_file()]
     if missing:
@@ -97,8 +136,8 @@ def prepare_model(base_model_id: str, target_device: str, output_dir: Path, forc
         decoder_name = decoder_mxq.name
         shutil.copy2(encoder_mxq, staging_dir / encoder_name)
         shutil.copy2(decoder_mxq, staging_dir / decoder_name)
-        save_rotated_embedding(base_model_id, rotation_path, staging_dir / "model.safetensors")
-        patch_config(staging_dir / "config.json", target_device, encoder_name, decoder_name)
+        save_runtime_weights(base_model_id, rotation_path, staging_dir / "model.safetensors", dynamic)
+        patch_config(staging_dir / "config.json", target_device, encoder_name, decoder_name, dynamic)
 
         if output_dir.exists():
             shutil.rmtree(output_dir)
@@ -112,9 +151,16 @@ if __name__ == "__main__":
     parser.add_argument("--target-device", choices=TARGET_DEVICES, default="aries-rb")
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--model-id", default=DEFAULT_BASE_MODEL_ID)
+    parser.add_argument(
+        "--dynamic",
+        action="store_true",
+        help="Package the dynamic MXQ pair. Reads *_encoder_dynamic.mxq / *_decoder_dynamic.mxq, "
+        "bundles visual.pos_embed.weight, and sets top-level dynamic_vision=true in config.json.",
+    )
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
 
     _, model_name = resolve_model_ids(args.model_id)
-    output_dir = args.output_dir or BASE_DIR / "prepared" / args.target_device / model_name
-    prepare_model(args.model_id, args.target_device, output_dir, args.force)
+    folder_name = f"{model_name}-dynamic" if args.dynamic else model_name
+    output_dir = args.output_dir or BASE_DIR / "prepared" / args.target_device / folder_name
+    prepare_model(args.model_id, args.target_device, output_dir, args.force, args.dynamic)
