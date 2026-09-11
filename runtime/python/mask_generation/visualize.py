@@ -1,5 +1,3 @@
-"""Mask overlay rendering for the SAM2 runtime tutorial."""
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -30,7 +28,6 @@ def save_mask_overlays(
         rendered = Image.fromarray(np.clip(canvas, 0, 255).astype(np.uint8))
         draw = ImageDraw.Draw(rendered)
         for (x, y), label in zip(points, labels):
-            # Positive prompts are green, negative prompts are red.
             fill = "lime" if int(label) == 1 else "red"
             radius = 6
             draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=fill)

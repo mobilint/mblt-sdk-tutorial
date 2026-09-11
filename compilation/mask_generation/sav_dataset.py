@@ -1,20 +1,3 @@
-"""SA-V sampling helpers used to build SAM2 calibration data.
-
-Encoder calibration only needs frames, while decoder calibration also needs a
-ground-truth mask so a point prompt can be placed inside the object.
-
-SA-V ships its splits in two different layouts, and both are supported here:
-
-* **train** -- `{video}.mp4` beside `{video}_manual.json`, masks as RLE inside
-  the json. This is what `sav_train` distributes.
-* **vos** -- `JPEGImages_24fps/{video}/{frame}.jpg` beside
-  `Annotations_6fps/{video}/{object}/{frame}.png`, one binary PNG per object
-  per annotated frame. This is what `sav_val` and `sav_test` distribute.
-
-`detect_layout` picks between them, so `--sav-root` accepts either and the
-calibration scripts do not care which split the user obtained.
-"""
-
 from __future__ import annotations
 
 import json
@@ -28,10 +11,8 @@ import cv2
 import numpy as np
 import pycocotools.mask as mask_util
 
-# Mask-area fractions used to balance decoder calibration across object sizes.
 AREA_BINS = ((0.0, 0.005), (0.005, 0.02), (0.02, 0.08), (0.08, 1.01))
 
-# Directory names the SA-V val/test archives use.
 VOS_FRAME_DIR = "JPEGImages_24fps"
 VOS_MASK_DIR = "Annotations_6fps"
 
@@ -83,10 +64,6 @@ def detect_layout(sav_root: str | Path) -> str:
     has_vos = next(sav_root.rglob(VOS_FRAME_DIR), None) is not None
     has_train = next(sav_root.rglob("*_manual.json"), None) is not None
     if has_vos and has_train:
-        # Every consumer -- video_ids() and both iterator families -- dispatches on
-        # this single answer, so one layout would silently swallow the other's
-        # videos: the reported budget would be smaller than what was extracted and
-        # calibration could run short despite enough combined data. Refuse instead.
         raise ValueError(
             f"{sav_root} holds both SA-V layouts: mp4 + *_manual.json (train) and "
             f"{VOS_FRAME_DIR} (val/test). Extract each split into its own --output-dir "
@@ -397,11 +374,6 @@ def _iter_frame_samples_vos(
         }
         for frame_index in sorted(indices):
             frame_path = frames[frame_index]
-            # Report the frame number encoded in the filename, not the position in
-            # the stride-subsampled list, so a calibration sample recorded in
-            # encoder_calib_samples.json can be traced back to its source frame.
-            # The mask iterator already records `int(mask_path.stem)` for the same
-            # reason, so both stages report comparable numbers.
             yield SavFrameSample(video_dir.name, int(frame_path.stem), _read_rgb(frame_path))
 
 
@@ -454,9 +426,7 @@ def _iter_mask_samples_vos(
             if not remaining:
                 break
             target_bin = min({item[3] for item in remaining}, key=lambda value: bins[value])
-            frame_index, object_index, mask, bin_index = next(
-                item for item in remaining if item[3] == target_bin
-            )
+            frame_index, object_index, mask, bin_index = next(item for item in remaining if item[3] == target_bin)
             used.add((frame_index, object_index))
             bins[bin_index] += 1
             selected += 1
@@ -464,7 +434,6 @@ def _iter_mask_samples_vos(
             if mask.shape != frame.shape[:2]:
                 continue
             yield SavMaskSample(video_dir.name, frame_index, object_index, frame, mask)
-
 
 
 def iter_frame_samples(sav_root: str | Path, *, max_videos: int | None = None, **kwargs):

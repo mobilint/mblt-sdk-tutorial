@@ -1,8 +1,8 @@
 {
-  "image_embeddings": "image_embeddings",
-  "dense_prompt_embeddings": "dense_prompt_embeddings",
-  "image_pe": "image_pe",
-  "sparse_prompt_embeddings_0": "sparse_prompt_embeddings",
-  "high_res_features0_0": "hrf0_nhwc",
-  "high_res_features1_0": "hrf1_nhwc"
+  "tokens/reshape": "tokens",
+  "add/transpose": "src_plus_pos",
+  "flatten/reshape/transpose": "src",
+  "flatten_1/reshape/transpose": "pos_src",
+  "high_res_features_1/transpose": "hrf1_nhwc",
+  "high_res_features_0/transpose": "hrf0_nhwc"
 }

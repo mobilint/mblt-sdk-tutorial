@@ -1,17 +1,3 @@
-"""Generate SAM2 encoder and decoder calibration data from the SA-V dataset.
-
-Encoder calibration is a plain list of preprocessed NHWC tensors. Decoder
-calibration is a manifest that records the model input names, the semantic role
-of each slot, and the per-slot tensor paths, because several decoder inputs
-share the same shape.
-
-The manifest is keyed by the input names the quantizer sees, which are the
-POST-PARSE names read from the decoder ``.mblt`` that ``sam2_decoder_to_mblt.py``
-produces. Decoder tensor generation does not need the model at all, so
-``--defer-manifest`` saves the tensors now and ``--stage manifest`` emits the
-manifest later, once the decoder model exists.
-"""
-
 import json
 import random
 from argparse import ArgumentParser
@@ -29,14 +15,11 @@ from sav_dataset import build_prompt, detect_layout, iter_frame_samples, iter_ma
 
 ENCODER_INPUT_SHAPE = (1, 1024, 1024, 3)
 
-# Calibration tensors are written next to this script, not into the current working
-# directory, so a run from anywhere still fills the tutorial's own calib/ tree.
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_ENCODER_OUTPUT_DIR = SCRIPT_DIR / "calib" / "encoder"
 DEFAULT_DECODER_OUTPUT_DIR = SCRIPT_DIR / "calib" / "decoder"
 DEFAULT_SAV_ROOT = SCRIPT_DIR / "data" / "sav"
-# These ranges match prepare_sav.py's default 120-video sav_val subset.  The
-# hard maximums prevent either calibration set from spilling into the other.
+# Disjoint ranges within prepare_sav.py's default 120-video subset.
 DEFAULT_ENCODER_SKIP_VIDEOS = 0
 DEFAULT_ENCODER_MAX_VIDEOS = 32
 DEFAULT_DECODER_SKIP_VIDEOS = 36
@@ -106,31 +89,8 @@ def generate_encoder_calibration(args, predictor) -> Path:
     return listing
 
 
-def read_decoder_input_names(args) -> tuple[Path, list[str]]:
-    """Read the input names the decoder MBLT reports.
-
-    Calibration must be keyed by the names the quantizer sees. Three decoder
-    inputs share the shape ``(1, 256, 64, 64)``, so a positional guess would swap
-    them silently; the binding map turns each name into a semantic role instead.
-    """
-    decoder_model = Path(args.decoder_model).resolve()
-    if not decoder_model.is_file():
-        raise FileNotFoundError(
-            f"decoder model not found: {decoder_model}. Produce it with sam2_decoder_to_mblt.py."
-        )
-    try:
-        return decoder_model, read_mblt_input_names(decoder_model)
-    except Exception as error:
-        raise RuntimeError(f"could not read the input contract from {decoder_model}: {error}") from error
-
-
 def generate_decoder_tensors(args, predictor) -> Path:
-    """Save the six decoder input tensors per sample plus the metadata the manifest needs.
-
-    This half never touches the decoder model: the tensors are produced by the
-    official FP32 host path and keyed by semantic role, so they can be generated
-    before a parseable decoder model exists and reused for any input naming.
-    """
+    """Save six decoder tensors per sample and their semantic metadata."""
     points_per_sample = parse_point_mix(args.point_mix)
 
     output_dir = Path(args.decoder_output_dir).resolve()
@@ -160,15 +120,12 @@ def generate_decoder_tensors(args, predictor) -> Path:
             tensors = prepare_decoder_tensors(predictor, points, labels)
         for role in tensors:
             (tensor_root / role).mkdir(parents=True, exist_ok=True)
-        # The prompt encoder emits one embedding per point plus one padding entry.
-        # The 6 output tokens SAM2 prepends are concatenated inside the decoder graph
-        # now, so they no longer appear in what the host hands over.
         expected_prompts = num_points + 1
-        if tensors["sparse_prompt_embeddings"].shape != (1, 1, expected_prompts, 256):
-            raise ValueError(
-                f"unexpected sparse_prompt_embeddings for {num_points} points: "
-                f"{tensors['sparse_prompt_embeddings'].shape}"
-            )
+        decoder = predictor.model.sam_mask_decoder
+        output_tokens = decoder.num_mask_tokens + 1 + int(decoder.pred_obj_scores)
+        expected_tokens = expected_prompts + output_tokens
+        if tensors["tokens"].shape != (1, 1, expected_tokens, 256):
+            raise ValueError(f"unexpected tokens for {num_points} points: {tensors['tokens'].shape}")
 
         tag = f"{len(records):05d}"
         paths: dict[str, str] = {}
@@ -186,19 +143,19 @@ def generate_decoder_tensors(args, predictor) -> Path:
                 "mask_area": int(sample.mask.sum()),
                 "num_points": num_points,
                 "prompt_length": expected_prompts,
+                "token_length": expected_tokens,
                 "paths": paths,
             }
         )
         print(
             f"[decoder {len(records)}/{args.decoder_samples}] {sample.video}:{sample.frame_index} "
-            f"points={num_points} prompts={expected_prompts}"
+            f"points={num_points} tokens={expected_tokens}"
         )
     if len(records) != args.decoder_samples:
         raise RuntimeError(f"requested {args.decoder_samples} decoder samples, wrote {len(records)}")
 
-    # Mark the prompt axis dynamic so the compiled decoder accepts 1-3 points.
     if len(set(points_per_sample)) > 1:
-        shapes_by_role["sparse_prompt_embeddings"][2] = -1
+        shapes_by_role["tokens"][2] = -1
 
     meta = output_dir / "decoder_tensor_meta.json"
     meta.write_text(
@@ -219,21 +176,23 @@ def generate_decoder_tensors(args, predictor) -> Path:
     return meta
 
 
-def write_decoder_manifest(args) -> Path:
-    """Resolve the decoder input contract and emit the calibration manifest.
-
-    Requires the tensors and metadata written by :func:`generate_decoder_tensors`.
-    The token length fed to an ONNX contract parse comes from the recorded point
-    mix, so the manifest step stays consistent with the tensors it describes.
-    """
-    output_dir = Path(args.decoder_output_dir).resolve()
+def write_decoder_manifest(
+    decoder_model: str | Path,
+    decoder_output_dir: str | Path = DEFAULT_DECODER_OUTPUT_DIR,
+    decoder_input_bindings: str | Path | None = None,
+) -> Path:
+    """Write a calibration manifest in the generated MBLT input order."""
+    output_dir = Path(decoder_output_dir).resolve()
     meta_path = output_dir / "decoder_tensor_meta.json"
     if not meta_path.is_file():
         raise FileNotFoundError(f"{meta_path} not found; generate decoder tensors first (--stage decoder)")
     meta = json.loads(meta_path.read_text())
 
-    decoder_model, input_names = read_decoder_input_names(args)
-    roles = resolve_decoder_bindings(input_names, load_binding_map(args.decoder_input_bindings))
+    decoder_model = Path(decoder_model).resolve()
+    if not decoder_model.is_file():
+        raise FileNotFoundError(f"Decoder MBLT not found: {decoder_model}")
+    input_names = read_mblt_input_names(decoder_model)
+    roles = resolve_decoder_bindings(input_names, load_binding_map(decoder_input_bindings))
     shapes_by_role = meta["shapes_by_role"]
 
     manifest = output_dir / "decoder_calib.json"
@@ -263,9 +222,9 @@ if __name__ == "__main__":
     parser = ArgumentParser(description="Generate SAM2 encoder and decoder calibration data from SA-V")
     parser.add_argument(
         "--stage",
-        choices=["encoder", "decoder", "both", "manifest"],
+        choices=["encoder", "decoder", "both"],
         default="both",
-        help="Which calibration set to generate; `manifest` re-emits the decoder manifest from saved tensors",
+        help="Which calibration set to generate",
     )
     parser.add_argument(
         "--sav-root",
@@ -273,7 +232,6 @@ if __name__ == "__main__":
         default=str(DEFAULT_SAV_ROOT),
         help="Extracted SA-V val/test or train root. Default: data/sav next to this script",
     )
-    parser.add_argument("--sam2-root", type=str, default=None, help="Local facebookresearch/sam2 checkout")
     parser.add_argument("--model-id", type=str, default="facebook/sam2-hiera-large", help="SAM2 model id")
     parser.add_argument("--torch-device", type=str, default="cuda", help="Torch device for the host SAM2 model")
     parser.add_argument("--seed", type=int, default=1234, help="Shuffle seed for video selection")
@@ -288,7 +246,10 @@ if __name__ == "__main__":
     )
     parser.add_argument("--encoder-samples", type=int, default=32, help="Number of encoder samples")
     parser.add_argument(
-        "--encoder-skip-videos", type=int, default=DEFAULT_ENCODER_SKIP_VIDEOS, help="Videos to skip for the encoder set"
+        "--encoder-skip-videos",
+        type=int,
+        default=DEFAULT_ENCODER_SKIP_VIDEOS,
+        help="Videos to skip for the encoder set",
     )
     parser.add_argument("--encoder-per-video", type=int, default=2, help="Encoder frames per video")
     parser.add_argument(
@@ -304,9 +265,14 @@ if __name__ == "__main__":
         default=str(DEFAULT_DECODER_OUTPUT_DIR),
         help="Decoder output directory. Default: calib/decoder next to this script",
     )
-    parser.add_argument("--decoder-samples", type=int, default=DEFAULT_DECODER_SAMPLES, help="Number of decoder samples")
     parser.add_argument(
-        "--decoder-skip-videos", type=int, default=DEFAULT_DECODER_SKIP_VIDEOS, help="Videos to skip for the decoder set"
+        "--decoder-samples", type=int, default=DEFAULT_DECODER_SAMPLES, help="Number of decoder samples"
+    )
+    parser.add_argument(
+        "--decoder-skip-videos",
+        type=int,
+        default=DEFAULT_DECODER_SKIP_VIDEOS,
+        help="Videos to skip for the decoder set",
     )
     parser.add_argument("--decoder-per-video", type=int, default=4, help="Decoder masks per video")
     parser.add_argument(
@@ -316,44 +282,18 @@ if __name__ == "__main__":
         help="Hard cap on videos the decoder set may span, keeping it inside its range",
     )
     parser.add_argument("--point-mix", type=str, default="1,2,3", help="Point counts cycled across decoder samples")
-    parser.add_argument(
-        "--decoder-model",
-        type=str,
-        default=str(SCRIPT_DIR / "sam2_hiera_large_decoder.mblt"),
-        help="Decoder MBLT whose post-parse input names the manifest must match, "
-        "as produced by sam2_decoder_to_mblt.py",
-    )
-    parser.add_argument(
-        "--defer-manifest",
-        action="store_true",
-        help="Generate decoder tensors without emitting the manifest, for when no parseable decoder "
-        "model exists yet; emit it later with --stage manifest",
-    )
-    parser.add_argument(
-        "--decoder-input-bindings",
-        type=str,
-        default=str(SCRIPT_DIR / "decoder_input_bindings.json"),
-        help="MBLT input name to semantic role map",
-    )
     args = parser.parse_args()
 
-    if args.stage != "manifest":
-        # Fail before the model load: scanning a missing or empty tree yields
-        # nothing silently, which would surface only as "wrote 0 samples" at the end.
-        if not Path(args.sav_root).is_dir():
-            parser.error(f"--sav-root does not exist: {Path(args.sav_root).resolve()}")
-        found = video_ids(args.sav_root, args.seed)
-        if not found:
-            parser.error(
-                f"no SA-V videos under {Path(args.sav_root).resolve()}. Expected either the train layout "
-                "(*_manual.json beside a matching .mp4) or the val/test layout (JPEGImages_24fps beside "
-                "Annotations_6fps). Run prepare_sav.py on the archive you downloaded."
-            )
-        print(f"SA-V layout: {detect_layout(args.sav_root)} ({len(found)} videos)")
-
-    if args.stage == "manifest":
-        print(f"wrote {write_decoder_manifest(args)}")
-        raise SystemExit(0)
+    if not Path(args.sav_root).is_dir():
+        parser.error(f"--sav-root does not exist: {Path(args.sav_root).resolve()}")
+    found = video_ids(args.sav_root, args.seed)
+    if not found:
+        parser.error(
+            f"no SA-V videos under {Path(args.sav_root).resolve()}. Expected either the train layout "
+            "(*_manual.json beside a matching .mp4) or the val/test layout (JPEGImages_24fps beside "
+            "Annotations_6fps). Run prepare_sav.py on the archive you downloaded."
+        )
+    print(f"SA-V layout: {detect_layout(args.sav_root)} ({len(found)} videos)")
 
     if args.stage in ("encoder", "both"):
         (Path(args.encoder_output_dir) / "encoder_calib.txt").unlink(missing_ok=True)
@@ -362,12 +302,8 @@ if __name__ == "__main__":
         (decoder_output_dir / "decoder_calib.json").unlink(missing_ok=True)
         (decoder_output_dir / "decoder_tensor_meta.json").unlink(missing_ok=True)
 
-    predictor = build_predictor(args.model_id, args.sam2_root, args.torch_device)
+    predictor = build_predictor(args.model_id, args.torch_device)
     if args.stage in ("encoder", "both"):
         print(f"wrote {generate_encoder_calibration(args, predictor)}")
     if args.stage in ("decoder", "both"):
         print(f"wrote {generate_decoder_tensors(args, predictor)}")
-        if args.defer_manifest:
-            print("manifest deferred; emit it later with --stage manifest --decoder-model <model>")
-        else:
-            print(f"wrote {write_decoder_manifest(args)}")
