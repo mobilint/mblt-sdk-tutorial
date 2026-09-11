@@ -1,25 +1,19 @@
-"""Decoder input-name bindings for the SAM2 Hiera decoder.
-
-The decoder MBLT has several inputs with identical shapes, so calibration must
-never rely on array position alone. Every MBLT input name is mapped to a
-semantic role, and the generated calibration manifest records both the names
-and the roles so `model_compile.py` can reject a mismatched pair.
-"""
-
 from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
+from mblt.serialize import SerializeMeta
+
 # MBLT input name -> semantic role, in the order the decoder MBLT reports.
 DEFAULT_DECODER_MBLT_BINDINGS: dict[str, str] = {
-    "image_embeddings": "image_embeddings",
-    "dense_prompt_embeddings": "dense_prompt_embeddings",
-    "image_pe": "image_pe",
-    "sparse_prompt_embeddings_0": "sparse_prompt_embeddings",
-    "high_res_features0_0": "hrf0_nhwc",
-    "high_res_features1_0": "hrf1_nhwc",
+    "tokens/reshape": "tokens",
+    "add/transpose": "src_plus_pos",
+    "flatten/reshape/transpose": "src",
+    "flatten_1/reshape/transpose": "pos_src",
+    "high_res_features_1/transpose": "hrf1_nhwc",
+    "high_res_features_0/transpose": "hrf0_nhwc",
 }
 
 DECODER_ROLES = frozenset(DEFAULT_DECODER_MBLT_BINDINGS.values())
@@ -36,17 +30,7 @@ def load_binding_map(path: str | Path | None) -> dict[str, str]:
 
 def read_mblt_input_names(path: str | Path) -> list[str]:
     """Read top-level MBLT input names without loading weight buffers."""
-    from mblt.serialize import SerializeMeta as MbltSerializeMeta
-
-    path = str(path)
-    header = MbltSerializeMeta.read_header(path)
-    if header.is_legacy:
-        from qbcompiler.model_dict.serialize import SerializeMeta
-
-        legacy_header = SerializeMeta.get_header(path)
-        model_dict = SerializeMeta.get_model_dict(path, header=legacy_header)
-    else:
-        model_dict = MbltSerializeMeta.get_model_dict(path)
+    model_dict = SerializeMeta.get_model_dict(str(path))
     return list(model_dict.inputs)
 
 

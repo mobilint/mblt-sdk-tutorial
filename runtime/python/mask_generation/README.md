@@ -2,7 +2,7 @@
 
 This tutorial explains how to run the compiled `SAM2 Hiera large` MXQ models with Mobilint `qbruntime`.
 
-Before starting, complete the compilation flow in [../../../compilation/mask_generation/README.md](../../../compilation/mask_generation/README.md). The runtime example in this directory expects the compiled models at `../../../compilation/mask_generation/sam2_hiera_large_encoder.mxq` and `../../../compilation/mask_generation/sam2_hiera_large_decoder.mxq`.
+Before starting, complete the compilation flow in [../../../compilation/mask_generation/README.md](../../../compilation/mask_generation/README.md). The default command uses the ARIES models generated under `../../../compilation/mask_generation/mxq/aries-rb`.
 
 ## Prerequisites
 
@@ -19,20 +19,12 @@ If the Python packages are not already installed in your environment, install th
 pip install -r requirements.txt
 ```
 
-SAM2 itself is not on PyPI, so install it from the official repository:
+Install SAM2 from its official repository:
 
 ```bash
 git clone https://github.com/facebookresearch/sam2.git /workspace/sam2
 pip install -e /workspace/sam2
 ```
-
-If you prefer not to install the package itself, clone it anywhere and pass the path with `--sam2-root`. That only puts the checkout on `sys.path`, so SAM2's own dependencies still have to be present. It declares them in its package metadata rather than a `requirements.txt`, so install them explicitly:
-
-```bash
-pip install 'torch>=2.5.1' 'torchvision>=0.20.1' 'numpy>=1.24.4' 'pillow>=9.4.0' 'hydra-core>=1.3.2' 'iopath>=0.1.10' 'tqdm>=4.66.1'
-```
-
-Without them, importing `sam2.sam2_image_predictor` fails even though the tutorial's own `requirements.txt` is satisfied.
 
 The SAM2 checkpoint is downloaded from Hugging Face on first use, so the runtime host needs network access or a warm Hugging Face cache.
 
@@ -46,15 +38,15 @@ The runtime flow is implemented in `inference_mxq.py` and follows these steps:
 2. Apply the official SAM2 image transform to produce a `[1024, 1024, 3]` float32 input.
 3. Run the encoder MXQ on the Mobilint NPU to obtain three FPN feature levels.
 4. Install those features into the host predictor and run the prompt encoder.
-5. Feed the six raw decoder inputs (image features plus prompt-encoder outputs) to the decoder MXQ.
+5. Prepare the six decoder tensors and run the decoder MXQ.
 6. Upscale mask logits to the original image size and render overlays.
 
 ```text
 image
   -> SAM2 image transform                     host
   -> image encoder                            encoder MXQ
-  -> prompt encoder                           host
-  -> decoder host bridge and mask decoder body decoder MXQ
+  -> prompt encoder and decoder input prep    host
+  -> mask decoder                             decoder MXQ
   -> mask upscaling                           host
 ```
 
@@ -125,25 +117,25 @@ The three levels are then installed into the host predictor, which skips its own
 
 ### Decoder Input Ordering
 
-This is the easiest part of the pipeline to get wrong. The decoder has six inputs and three of them share the shape `(1, 256, 64, 64)`, so position alone cannot tell them apart.
+The decoder has six inputs. Three image sequences share the same shape, so position alone cannot identify them.
 
 Runtime positional order, used here:
 
 ```text
-image_embeddings, dense_prompt_embeddings, image_pe, sparse_prompt_embeddings, hrf0_nhwc, hrf1_nhwc
+tokens, src_plus_pos, src, pos_src, hrf1_nhwc, hrf0_nhwc
 ```
 
 This matches the MBLT input-name order used during calibration and compilation, so there is only one order to keep straight. Confirm it against your own artifact without an NPU:
 
 ```bash
-python -c "import qbruntime; print(qbruntime.get_model_summary('../../../compilation/mask_generation/sam2_hiera_large_decoder.mxq'))"
+python -c "import qbruntime; print(qbruntime.get_model_summary('../../../compilation/mask_generation/mxq/aries-rb/sam2_hiera_large_decoder.mxq'))"
 ```
 
 which reports:
 
 ```text
-Input - Shapes: [(256, 64, 64), (256, 64, 64), (256, 64, 64), (1, -1, 256),
-                 (256, 256, 32), (128, 128, 64)]
+Input - Shapes: [(1, -1, 256), (1, 4096, 256), (1, 4096, 256),
+                 (1, 4096, 256), (128, 128, 64), (256, 256, 32)]
 ```
 
 The `-1` is the prompt axis, so the compiled decoder is not fixed to one prompt size. This tutorial supports 1-3 points; `inference_mxq.py` rejects anything outside that range before inference. Feeding the tensors in the wrong order produces plausible but wrong masks rather than an error, so `contracts.py` builds the feed by semantic role and then shape-checks it against the runtime:
@@ -153,7 +145,7 @@ decoder_feed = build_decoder_runtime_feed(decoder_tensors, args.decoder_runtime_
 validate_runtime_shapes(decoder_feed, decoder.get_model_input_shape(), "decoder")
 ```
 
-If you recompile with a different decoder MBLT, do **not** try to recover the semantic order from `get_model_summary`. It prints shapes only, and the first three inputs are all `(256, 64, 64)`, so guessing among them can swap `image_embeddings`, `dense_prompt_embeddings`, and `image_pe` while passing every shape check and producing plausible but wrong masks.
+If you recompile with a different decoder MBLT, do **not** recover the semantic order from `get_model_summary`. It prints shapes only, so the three `(1, 4096, 256)` inputs remain ambiguous.
 
 Read the ordered `slot roles` from the calibration manifest that was generated against that exact MBLT instead, then pass them through `--decoder-runtime-order`:
 
@@ -163,7 +155,7 @@ python -c "import json; print(json.load(open('../../../compilation/mask_generati
 
 ### Decoder Outputs
 
-The decoder is parsed with `output_meta=lambda x: x[0][:2]`, so it exposes two outputs: masks and IoU. Older wrapper-traced decoders also emitted SAM tokens and an object score, and those are still accepted when present.
+The current decoder exposes masks, IoU, SAM tokens, and an object score. The runtime also accepts a decoder that exposes only masks and IoU.
 
 qbruntime does not guarantee that the runtime output order matches the compiled graph's declared order, so outputs are identified by element count instead of position: the mask output is a multiple of `256 x 256`, the IoU scores match the mask count, the SAM tokens are `num_masks x 256`, and the object score is a single value. Every output is also checked for NaN and infinity, because a non-finite value would otherwise pass silently through the IoU `argmax` and the `> 0` mask threshold and corrupt the prediction rather than report a failure.
 
@@ -179,16 +171,18 @@ python inference_mxq.py --point 500,580,1
 
 This command uses the following defaults:
 
-- Encoder model: `../../../compilation/mask_generation/sam2_hiera_large_encoder.mxq`
-- Decoder model: `../../../compilation/mask_generation/sam2_hiera_large_decoder.mxq`
+- Encoder model: `../../../compilation/mask_generation/mxq/aries-rb/sam2_hiera_large_encoder.mxq`
+- Decoder model: `../../../compilation/mask_generation/mxq/aries-rb/sam2_hiera_large_decoder.mxq`
 - Input image: `../rc/bus.jpg`
 - Output directory: `./tmp/demo`
 
 To pass the paths explicitly, or to combine positive and negative points, run:
 
 ```bash
-python inference_mxq.py --encoder-mxq ../../../compilation/mask_generation/sam2_hiera_large_encoder.mxq --decoder-mxq ../../../compilation/mask_generation/sam2_hiera_large_decoder.mxq --image-path ../rc/bus.jpg --output-dir ./tmp/custom --point 500,580,1 --point 400,120,0
+python inference_mxq.py --encoder-mxq ../../../compilation/mask_generation/mxq/aries-rb/sam2_hiera_large_encoder.mxq --decoder-mxq ../../../compilation/mask_generation/mxq/aries-rb/sam2_hiera_large_decoder.mxq --image-path ../rc/bus.jpg --output-dir ./tmp/custom --point 500,580,1 --point 400,120,0
 ```
+
+For REGULUS models, replace `aries-rb` with `regulus-rb` in both model paths.
 
 The decoder accepts one to three points. The compiled model supports this range because calibration used a mixed point count, which marks the token axis as dynamic.
 
@@ -199,10 +193,9 @@ The decoder accepts one to three points. The compiled model supports this range 
 - `--image-path`: Path to the input image. Default: `../rc/bus.jpg`.
 - `--point`: Prompt point as `X,Y,LABEL` in original image coordinates. Repeat for up to three points. Required.
 - `--output-dir`: Directory for overlays and raw outputs. Default: `./tmp/demo`.
-- `--sam2-root`: Local `facebookresearch/sam2` checkout.
 - `--model-id`: SAM2 model id. Default: `facebook/sam2-hiera-large`.
 - `--torch-device`: Torch device for the host SAM2 code. Defaults to `cuda` when available, otherwise `cpu`.
-- `--decoder-runtime-order`: Comma-separated semantic input order. For a rebuilt decoder, read it from the calibration manifest's `info['slot roles']`; a shapes-only runtime summary cannot tell the three `(256, 64, 64)` inputs apart.
+- `--decoder-runtime-order`: Comma-separated semantic input order. For a rebuilt decoder, read it from the calibration manifest's `info['slot roles']`; a shapes-only runtime summary cannot distinguish the three equal-shape sequence inputs.
 
 ## Expected Output
 

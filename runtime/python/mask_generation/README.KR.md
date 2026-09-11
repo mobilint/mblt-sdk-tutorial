@@ -2,7 +2,7 @@
 
 이 튜토리얼은 컴파일된 `SAM2 Hiera large` MXQ 모델을 Mobilint `qbruntime`으로 실행하는 방법을 설명합니다.
 
-시작하기 전에 [../../../compilation/mask_generation/README.KR.md](../../../compilation/mask_generation/README.KR.md)의 컴파일 과정을 먼저 완료하세요. 이 디렉토리의 런타임 예제는 컴파일된 모델이 `../../../compilation/mask_generation/sam2_hiera_large_encoder.mxq`와 `../../../compilation/mask_generation/sam2_hiera_large_decoder.mxq`에 있다고 가정합니다.
+시작하기 전에 [../../../compilation/mask_generation/README.KR.md](../../../compilation/mask_generation/README.KR.md)의 컴파일 과정을 먼저 완료하세요. 기본 명령은 `../../../compilation/mask_generation/mxq/aries-rb`에 생성된 ARIES 모델을 사용합니다.
 
 ## 사전 준비
 
@@ -19,20 +19,12 @@ Python 패키지가 설치되어 있지 않다면 다음과 같이 설치합니�
 pip install -r requirements.txt
 ```
 
-SAM2는 PyPI에 없으므로 공식 저장소에서 설치합니다:
+SAM2는 공식 저장소에서 설치합니다:
 
 ```bash
 git clone https://github.com/facebookresearch/sam2.git /workspace/sam2
 pip install -e /workspace/sam2
 ```
-
-패키지 자체를 설치하지 않으려면 원하는 위치에 clone한 뒤 `--sam2-root`로 경로를 전달하십시오. 이 옵션은 checkout을 `sys.path`에 추가할 뿐이므로 SAM2 자체의 의존성은 별도로 설치해야 합니다. SAM2는 `requirements.txt`가 아니라 패키지 메타데이터로 의존성을 선언하므로 직접 설치하십시오:
-
-```bash
-pip install 'torch>=2.5.1' 'torchvision>=0.20.1' 'numpy>=1.24.4' 'pillow>=9.4.0' 'hydra-core>=1.3.2' 'iopath>=0.1.10' 'tqdm>=4.66.1'
-```
-
-설치하지 않으면 이 튜토리얼의 `requirements.txt`를 모두 만족하더라도 `sam2.sam2_image_predictor` import가 실패합니다.
 
 SAM2 체크포인트는 최초 실행 시 Hugging Face에서 다운로드되므로, 런타임 호스트에는 네트워크 접근 또는 미리 준비된 Hugging Face 캐시가 필요합니다.
 
@@ -46,15 +38,15 @@ SAM2는 프롬프트 기반 모델입니다. 이미지 인코더는 이미지당
 2. 공식 SAM2 이미지 변환을 적용해 `[1024, 1024, 3]` float32 입력을 만듭니다.
 3. 인코더 MXQ를 Mobilint NPU에서 실행해 FPN 특징 3개를 얻습니다.
 4. 해당 특징을 호스트 predictor에 설치하고 프롬프트 인코더를 실행합니다.
-5. 이미지 특징과 프롬프트 인코더 출력을 포함한 raw 디코더 입력 6개를 디코더 MXQ에 전달합니다.
+5. 디코더 입력 텐서 6개를 준비하고 디코더 MXQ를 실행합니다.
 6. 마스크 logit을 원본 이미지 크기로 업스케일하고 오버레이를 렌더링합니다.
 
 ```text
 image
   -> SAM2 이미지 변환                          호스트
   -> 이미지 인코더                             인코더 MXQ
-  -> 프롬프트 인코더                           호스트
-  -> 디코더 host bridge 및 마스크 디코더 본체    디코더 MXQ
+  -> 프롬프트 인코더와 디코더 입력 준비          호스트
+  -> 마스크 디코더                             디코더 MXQ
   -> 마스크 업스케일링                         호스트
 ```
 
@@ -125,25 +117,25 @@ elif shape in nhwc:
 
 ### 디코더 입력 순서
 
-파이프라인에서 가장 실수하기 쉬운 부분입니다. 디코더에는 입력이 6개 있고 그중 3개가 `(1, 256, 64, 64)`로 같은 shape이므로 위치만으로는 구분할 수 없습니다.
+디코더에는 입력이 6개 있습니다. 이미지 시퀀스 3개가 같은 shape이므로 위치만으로는 구분할 수 없습니다.
 
 여기서 사용하는 런타임 위치 순서:
 
 ```text
-image_embeddings, dense_prompt_embeddings, image_pe, sparse_prompt_embeddings, hrf0_nhwc, hrf1_nhwc
+tokens, src_plus_pos, src, pos_src, hrf1_nhwc, hrf0_nhwc
 ```
 
 이는 캘리브레이션과 컴파일에 사용하는 MBLT input name 순서와 동일하므로, 기억해야 할 순서는 하나뿐입니다. NPU 없이도 자신의 아티팩트에서 확인할 수 있습니다:
 
 ```bash
-python -c "import qbruntime; print(qbruntime.get_model_summary('../../../compilation/mask_generation/sam2_hiera_large_decoder.mxq'))"
+python -c "import qbruntime; print(qbruntime.get_model_summary('../../../compilation/mask_generation/mxq/aries-rb/sam2_hiera_large_decoder.mxq'))"
 ```
 
 출력:
 
 ```text
-Input - Shapes: [(256, 64, 64), (256, 64, 64), (256, 64, 64), (1, -1, 256),
-                 (256, 256, 32), (128, 128, 64)]
+Input - Shapes: [(1, -1, 256), (1, 4096, 256), (1, 4096, 256),
+                 (1, 4096, 256), (128, 128, 64), (256, 256, 32)]
 ```
 
 `-1`이 프롬프트 축이므로 컴파일된 디코더가 하나의 프롬프트 크기에 고정되지 않습니다. 이 튜토리얼이 지원하는 범위는 1~3 포인트이며, `inference_mxq.py`는 그 범위를 벗어나면 추론 전에 거부합니다. 순서를 잘못 전달하면 오류가 아니라 그럴듯하지만 잘못된 마스크가 나오므로, `contracts.py`는 semantic role로 입력을 구성한 뒤 런타임 shape과 대조합니다:
@@ -153,7 +145,7 @@ decoder_feed = build_decoder_runtime_feed(decoder_tensors, args.decoder_runtime_
 validate_runtime_shapes(decoder_feed, decoder.get_model_input_shape(), "decoder")
 ```
 
-다른 디코더 MBLT로 다시 컴파일한 경우 `get_model_summary`로 semantic 순서를 복원하려 하지 **마십시오**. shape만 출력되는데 앞의 세 입력이 모두 `(256, 64, 64)`이므로, 그 셋 사이에서 추측하면 `image_embeddings`, `dense_prompt_embeddings`, `image_pe`가 서로 뒤바뀐 채 모든 shape 검사를 통과하고 그럴듯하지만 잘못된 마스크가 나옵니다.
+다른 디코더 MBLT로 다시 컴파일한 경우 `get_model_summary`로 semantic 순서를 복원하려 하지 **마십시오**. shape만 출력되므로 `(1, 4096, 256)` 입력 3개의 의미는 구분할 수 없습니다.
 
 대신 해당 MBLT로 생성한 캘리브레이션 manifest의 `slot roles` 순서를 읽어 `--decoder-runtime-order`로 전달하십시오:
 
@@ -163,7 +155,7 @@ python -c "import json; print(json.load(open('../../../compilation/mask_generati
 
 ### 디코더 출력
 
-디코더는 `output_meta=lambda x: x[0][:2]`로 파싱되므로 출력은 mask와 IoU 2개입니다. 이전 wrapper 추적 디코더는 SAM 토큰과 object score도 내보냈으며, 존재하는 경우 그대로 처리합니다.
+현재 디코더는 mask, IoU, SAM 토큰, object score를 출력합니다. 런타임은 mask와 IoU만 출력하는 디코더도 처리합니다.
 
 qbruntime은 런타임 출력 순서가 컴파일된 그래프의 선언 순서와 일치한다고 보장하지 않으므로, 출력은 위치가 아니라 원소 개수로 구분합니다. 마스크 출력은 `256 x 256`의 배수이고, IoU 점수는 마스크 개수와 같으며, SAM 토큰은 `num_masks x 256`이고, object score는 값 하나입니다. 모든 출력은 NaN과 무한대 여부도 검사합니다. 비유한 값이 그대로 통과하면 IoU `argmax`와 `> 0` 마스크 임계값을 조용히 지나가 실패를 보고하는 대신 예측을 오염시키기 때문입니다.
 
@@ -179,16 +171,18 @@ python inference_mxq.py --point 500,580,1
 
 이 명령은 다음 기본값을 사용합니다:
 
-- 인코더 모델: `../../../compilation/mask_generation/sam2_hiera_large_encoder.mxq`
-- 디코더 모델: `../../../compilation/mask_generation/sam2_hiera_large_decoder.mxq`
+- 인코더 모델: `../../../compilation/mask_generation/mxq/aries-rb/sam2_hiera_large_encoder.mxq`
+- 디코더 모델: `../../../compilation/mask_generation/mxq/aries-rb/sam2_hiera_large_decoder.mxq`
 - 입력 이미지: `../rc/bus.jpg`
 - 출력 디렉토리: `./tmp/demo`
 
 경로를 명시적으로 전달하거나 positive와 negative 포인트를 함께 사용하려면 다음과 같이 실행합니다:
 
 ```bash
-python inference_mxq.py --encoder-mxq ../../../compilation/mask_generation/sam2_hiera_large_encoder.mxq --decoder-mxq ../../../compilation/mask_generation/sam2_hiera_large_decoder.mxq --image-path ../rc/bus.jpg --output-dir ./tmp/custom --point 500,580,1 --point 400,120,0
+python inference_mxq.py --encoder-mxq ../../../compilation/mask_generation/mxq/aries-rb/sam2_hiera_large_encoder.mxq --decoder-mxq ../../../compilation/mask_generation/mxq/aries-rb/sam2_hiera_large_decoder.mxq --image-path ../rc/bus.jpg --output-dir ./tmp/custom --point 500,580,1 --point 400,120,0
 ```
+
+REGULUS 모델은 두 경로의 `aries-rb`를 `regulus-rb`로 바꾸어 지정합니다.
 
 디코더는 포인트 1~3개를 지원합니다. 캘리브레이션에서 여러 포인트 개수를 혼합해 토큰 축을 동적으로 표시했기 때문에 컴파일된 모델이 이 범위를 지원합니다.
 
@@ -199,10 +193,9 @@ python inference_mxq.py --encoder-mxq ../../../compilation/mask_generation/sam2_
 - `--image-path`: 입력 이미지 경로. 기본값: `../rc/bus.jpg`.
 - `--point`: 원본 이미지 좌표의 `X,Y,LABEL` 프롬프트 포인트. 최대 3개까지 반복 지정. 필수.
 - `--output-dir`: 오버레이와 원시 출력을 저장할 디렉토리. 기본값: `./tmp/demo`.
-- `--sam2-root`: `facebookresearch/sam2` 로컬 checkout.
 - `--model-id`: SAM2 모델 id. 기본값: `facebook/sam2-hiera-large`.
 - `--torch-device`: 호스트 SAM2 코드가 사용할 torch 디바이스. 사용 가능하면 `cuda`, 그렇지 않으면 `cpu`가 기본값입니다.
-- `--decoder-runtime-order`: semantic 입력 순서(쉼표 구분). 다시 빌드한 디코더라면 캘리브레이션 manifest의 `info['slot roles']`에서 읽으십시오. shape만 출력하는 런타임 요약으로는 `(256, 64, 64)` 입력 3개를 구분할 수 없습니다.
+- `--decoder-runtime-order`: semantic 입력 순서(쉼표 구분). 다시 빌드한 디코더라면 캘리브레이션 manifest의 `info['slot roles']`에서 읽으십시오. shape만 출력하는 런타임 요약으로는 같은 shape의 시퀀스 입력 3개를 구분할 수 없습니다.
 
 ## 예상 출력
 

@@ -1,44 +1,22 @@
-"""Input and output contracts for the compiled SAM2 encoder and decoder.
-
-The decoder has six inputs and three of them share the shape `(1, 256, 64, 64)`.
-Feeding those in the wrong order produces plausible but wrong masks rather than
-an error, so every feed is built by semantic role and then shape-checked against
-the runtime.
-"""
-
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
 import numpy as np
 
-# Positional input order reported by the compiled decoder MXQ. It matches the
-# MBLT input-name order used during calibration and compilation, which the
-# earlier wrapper-traced decoder did not.
-#
-# For a rebuilt decoder, recover the order from the calibration manifest's
-# `info['slot roles']`, not from a runtime summary: the summary prints shapes
-# only, and the first three inputs are all (256, 64, 64), so a guess among them
-# passes every shape check and yields wrong masks. The summary is still useful
-# for confirming the shapes themselves, which it prints as:
-#
-#   Input - Shapes: [(256, 64, 64), (256, 64, 64), (256, 64, 64), (1, -1, 256),
-#                    (256, 256, 32), (128, 128, 64)]
-#
-# The `-1` is the prompt axis, so the decoder is not fixed to one prompt size.
-# This tutorial supports 1-3 points; inference_mxq.py enforces that range.
+# The three sequence inputs share one shape, so preserve the semantic order from
+# the decoder calibration manifest.
 DEFAULT_DECODER_RUNTIME_ORDER = (
-    "image_embeddings",
-    "dense_prompt_embeddings",
-    "image_pe",
-    "sparse_prompt_embeddings",
-    "hrf0_nhwc",
+    "tokens",
+    "src_plus_pos",
+    "src",
+    "pos_src",
     "hrf1_nhwc",
+    "hrf0_nhwc",
 )
 
 DECODER_ROLES = frozenset(DEFAULT_DECODER_RUNTIME_ORDER)
 
-# The decoder always emits three mask candidates at 256x256.
 MASK_SIZE = 256
 
 
@@ -54,11 +32,7 @@ def parse_runtime_order(value: str | Sequence[str] | None) -> tuple[str, ...]:
 
 
 def strip_runtime_batch(value: np.ndarray) -> np.ndarray:
-    """Remove the outer model batch that qbruntime omits from buffer shapes.
-
-    This is the opposite of the convention used by the single-input vision
-    tutorials, which add a batch dimension before calling `infer`.
-    """
+    """Remove the outer model batch omitted by qbruntime buffer shapes."""
     value = np.asarray(value)
     if value.ndim >= 4 and value.shape[0] == 1:
         value = value[0]
@@ -88,21 +62,8 @@ def validate_runtime_shapes(actual: Sequence[np.ndarray], expected: Sequence[Seq
 
 
 def classify_decoder_outputs(outputs: Sequence[np.ndarray]) -> dict[str, np.ndarray]:
-    """Name the decoder outputs by their unambiguous element counts.
-
-    qbruntime does not guarantee that the runtime output order matches the
-    compiled graph's declared order, so each output is identified by its size
-    rather than its position: `masks` is the only output whose size is a
-    multiple of `256*256`, and `iou` has one entry per mask.
-
-    The decoder is parsed with `output_meta=lambda x: x[0][:2]`, so it exposes
-    exactly these two. Older wrapper-traced decoders also emitted SAM tokens and
-    an object score; those are accepted when present and omitted when not.
-    """
+    """Identify decoder outputs by element count instead of runtime order."""
     arrays = [np.ascontiguousarray(np.asarray(value), dtype=np.float32) for value in outputs]
-    # A NaN would otherwise reach argmax over the IoU scores, silently selecting the
-    # wrong candidate, and the `> 0` mask threshold, turning non-finite logits into
-    # plausible booleans. Fail instead of corrupting the prediction.
     for index, array in enumerate(arrays):
         if not bool(np.isfinite(array).all()):
             raise ValueError(f"decoder output {index} with shape {array.shape} contains NaN or infinity")

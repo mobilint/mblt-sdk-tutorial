@@ -1,13 +1,3 @@
-"""Run point-prompted SAM2 segmentation with the compiled encoder and decoder MXQ models.
-
-Pipeline:
-    image -> SAM2 transform (host)
-          -> encoder MXQ (NPU)
-          -> prompt encoder (host; decoder host bridge assembles tokens)
-          -> decoder MXQ (NPU)
-          -> mask upscaling and overlay (host)
-"""
-
 import json
 from argparse import ArgumentParser, ArgumentTypeError
 from pathlib import Path
@@ -70,13 +60,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--encoder-mxq",
         type=str,
-        default="../../../compilation/mask_generation/sam2_hiera_large_encoder.mxq",
+        default="../../../compilation/mask_generation/mxq/aries-rb/sam2_hiera_large_encoder.mxq",
         help="Path to the compiled encoder MXQ model",
     )
     parser.add_argument(
         "--decoder-mxq",
         type=str,
-        default="../../../compilation/mask_generation/sam2_hiera_large_decoder.mxq",
+        default="../../../compilation/mask_generation/mxq/aries-rb/sam2_hiera_large_decoder.mxq",
         help="Path to the compiled decoder MXQ model",
     )
     parser.add_argument("--image-path", type=str, default="../rc/bus.jpg", help="Path to the input image")
@@ -89,7 +79,6 @@ if __name__ == "__main__":
         help="Repeat for 1-3 positive(1) or negative(0) point prompts in original image coordinates",
     )
     parser.add_argument("--output-dir", type=str, default="./tmp/demo", help="Directory for overlays and outputs")
-    parser.add_argument("--sam2-root", type=str, default=None, help="Local facebookresearch/sam2 checkout")
     parser.add_argument("--model-id", type=str, default="facebook/sam2-hiera-large", help="SAM2 model id")
     parser.add_argument(
         "--torch-device",
@@ -102,8 +91,8 @@ if __name__ == "__main__":
         type=str,
         default=",".join(DEFAULT_DECODER_RUNTIME_ORDER),
         help="Comma-separated semantic input order. For a rebuilt decoder read it from the "
-        "calibration manifest's info['slot roles']; a shapes-only dump cannot tell the three "
-        "(256, 64, 64) inputs apart",
+        "calibration manifest's info['slot roles']; a shapes-only dump cannot distinguish the "
+        "three equal-shape sequence inputs",
     )
     args = parser.parse_args()
 
@@ -118,13 +107,11 @@ if __name__ == "__main__":
 
     torch_device = args.torch_device or get_torch_device()
     print(f"Using {torch_device.upper()} for the host SAM2 model")
-    predictor = build_predictor(args.model_id, args.sam2_root, torch_device)
-    # One accelerator handle stays in scope until both models are disposed.
+    predictor = build_predictor(args.model_id, torch_device)
     accelerator = qbruntime.Accelerator()
     encoder = launch_model(args.encoder_mxq, accelerator, qbruntime.Core.Core0)
     decoder = launch_model(args.decoder_mxq, accelerator, qbruntime.Core.Core1)
     try:
-        # Encoder: NHWC float32 [1, 1024, 1024, 3] with the batch axis stripped.
         encoder_feed = [strip_runtime_batch(preprocess_encoder_input(predictor, image))]
         validate_runtime_shapes(encoder_feed, encoder.get_model_input_shape(), "encoder")
         encoder_outputs = encoder.infer(encoder_feed)
@@ -134,8 +121,6 @@ if __name__ == "__main__":
         feature_maps = fpn_from_runtime(encoder_outputs, predictor.model.device)
         install_runtime_features(predictor, feature_maps, image.shape[:2])
 
-        # Decoder: six inputs ordered by semantic role. The order matches the MBLT
-        # input-name order, but roles keep the three same-shape inputs unambiguous.
         decoder_tensors = prepare_decoder_tensors(predictor, points, labels)
         decoder_feed = build_decoder_runtime_feed(decoder_tensors, args.decoder_runtime_order)
         validate_runtime_shapes(decoder_feed, decoder.get_model_input_shape(), "decoder")
@@ -158,7 +143,6 @@ if __name__ == "__main__":
         "iou": result["iou"],
         "selected": np.asarray(selected, dtype=np.int64),
     }
-    # Present only on decoders built with the four-output contract.
     for optional in ("sam_tokens", "object_score"):
         if optional in result:
             saved[optional] = result[optional]

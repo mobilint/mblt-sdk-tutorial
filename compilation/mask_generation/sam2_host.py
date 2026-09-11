@@ -1,20 +1,11 @@
-"""Host-side SAM2 helpers shared by calibration generation and compilation.
-
-The compiled encoder and decoder cover only part of SAM2. The image transform,
-the prompt encoder, and the token/embedding assembly in front of the mask
-decoder still run on the host with official `facebookresearch/sam2` code, so
-calibration tensors must be produced by exactly the same host path that the
-runtime tutorial uses.
-"""
-
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import numpy as np
 import torch
 from PIL import Image
+from sam2.sam2_image_predictor import SAM2ImagePredictor
 
 DEFAULT_MODEL_ID = "facebook/sam2-hiera-large"
 DEFAULT_IMAGE = Path(__file__).resolve().parents[2] / "runtime" / "python" / "rc" / "bus.jpg"
@@ -28,7 +19,7 @@ def resolve_device(name: str = "cuda") -> str:
 
 
 def load_image_np(path: str | Path) -> np.ndarray:
-    return np.asarray(Image.open(path).convert("RGB"))
+    return np.array(Image.open(path).convert("RGB"), copy=True)
 
 
 def prompt_arrays() -> tuple[np.ndarray, np.ndarray]:
@@ -43,15 +34,7 @@ def prompt_arrays() -> tuple[np.ndarray, np.ndarray]:
     return points, labels
 
 
-def build_predictor(model_id: str, sam2_root: str | Path | None, device: str):
-    """Load the official SAM2 image predictor from a local `sam2` checkout."""
-    if sam2_root:
-        root = str(Path(sam2_root).resolve())
-        if root not in sys.path:
-            sys.path.insert(0, root)
-    # Imported lazily so `--help` works without the sam2 package installed.
-    from sam2.sam2_image_predictor import SAM2ImagePredictor
-
+def build_predictor(model_id: str, device: str):
     predictor = SAM2ImagePredictor.from_pretrained(model_id, device=device)
     predictor.model.to(torch.device(device)).eval()
     return predictor
@@ -63,20 +46,8 @@ def preprocess_encoder_input(predictor, image: np.ndarray) -> np.ndarray:
     return np.ascontiguousarray(tensor.permute(0, 2, 3, 1).float().cpu().numpy(), dtype=np.float32)
 
 
-
 def prepare_decoder_tensors(predictor, points: np.ndarray, labels: np.ndarray) -> dict[str, np.ndarray]:
-    """Run the host prompt encoder and build the six compiled decoder inputs.
-
-    The compiled decoder is parsed from `sam_mask_decoder` itself, so the output-token
-    concat and the `image_embeddings + dense_prompt_embeddings` sum live inside the
-    graph (its host-bridge subgraph) rather than being assembled here. What the host
-    still owns is the prompt encoder, so these are its raw outputs plus the image
-    features, laid out in the shapes the MBLT reports.
-
-    The dictionary is keyed by semantic role, not by position: `image_embeddings`,
-    `dense_prompt_embeddings`, and `image_pe` all have shape `(1, 256, 64, 64)`, so a
-    positional guess would silently swap them.
-    """
+    """Run the prompt encoder and build the six decoder MBLT inputs."""
     mask_input, coords, point_labels, boxes = predictor._prep_prompts(
         np.asarray(points, dtype=np.float32),
         np.asarray(labels, dtype=np.int64),
@@ -91,13 +62,27 @@ def prepare_decoder_tensors(predictor, points: np.ndarray, labels: np.ndarray) -
     features = predictor._features
     image_embeddings = features["image_embed"][-1].unsqueeze(0)
     high_res = [value[-1].unsqueeze(0) for value in features["high_res_feats"]]
+    decoder = predictor.model.sam_mask_decoder
+
+    if decoder.pred_obj_scores:
+        output_tokens = torch.cat(
+            [decoder.obj_score_token.weight, decoder.iou_token.weight, decoder.mask_tokens.weight], dim=0
+        )
+    else:
+        output_tokens = torch.cat([decoder.iou_token.weight, decoder.mask_tokens.weight], dim=0)
+    output_tokens = output_tokens.unsqueeze(0).expand(sparse.size(0), -1, -1)
+    tokens = torch.cat((output_tokens, sparse), dim=1)
+    src = image_embeddings + dense
+    pos_src = prompt_encoder.get_dense_pe()
+
+    def sequence(value: torch.Tensor) -> torch.Tensor:
+        return value.flatten(2).transpose(1, 2).reshape(1, 1, -1, value.shape[1]).contiguous()
 
     tensors = {
-        "image_embeddings": image_embeddings.float(),
-        "dense_prompt_embeddings": dense.float(),
-        "image_pe": prompt_encoder.get_dense_pe().float(),
-        # (1, N, 256) -> (1, 1, N, 256); axis 2 is the prompt axis the graph keeps dynamic.
-        "sparse_prompt_embeddings": sparse.float().unsqueeze(1).contiguous(),
+        "tokens": tokens.float().unsqueeze(1).contiguous(),
+        "src_plus_pos": sequence(src + pos_src).float(),
+        "src": sequence(src).float(),
+        "pos_src": sequence(pos_src).float(),
         "hrf0_nhwc": high_res[0].permute(0, 2, 3, 1).contiguous(),
         "hrf1_nhwc": high_res[1].permute(0, 2, 3, 1).contiguous(),
     }
