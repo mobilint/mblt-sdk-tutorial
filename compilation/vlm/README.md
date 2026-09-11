@@ -96,8 +96,10 @@ Each script creates its target-specific MBLT and then compiles the MXQ model. Co
 ```text
 mblt/<target-device>/Qwen_Qwen3-VL-2B-Instruct_{decoder,encoder}.mblt
 mxq/<target-device>/Qwen3-VL-2B-Instruct_{decoder,encoder}.mxq
-spinWeight/<target-device>/global_rotation.pth
+spinWeight/<target-device>/Qwen3-VL-2B-Instruct/global_rotation.pth
 ```
+
+Adding `--dynamic` produces `_dynamic`-suffixed peers alongside the static artifacts (e.g. `Qwen3-VL-2B-Instruct_{decoder,encoder}_dynamic.mxq` and `spinWeight/<target-device>/Qwen3-VL-2B-Instruct-dynamic/global_rotation.pth`). The SpinR1 matrix path is scoped by `(target-device, model-name, mode)` so multiple `--model-id` targets compiled against the same device do not overwrite each other.
 
 The validated Qwen3-VL 2B compiler configuration is applied automatically. ARIES uses `inference_scheme="all"`. REGULUS uses `inference_scheme="single"` with a maximum sequence and cache length of 1024.
 

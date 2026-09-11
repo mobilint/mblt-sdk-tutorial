@@ -96,8 +96,10 @@ python compile_encoder.py --target-device regulus-rb
 ```text
 mblt/<target-device>/Qwen_Qwen3-VL-2B-Instruct_{decoder,encoder}.mblt
 mxq/<target-device>/Qwen3-VL-2B-Instruct_{decoder,encoder}.mxq
-spinWeight/<target-device>/global_rotation.pth
+spinWeight/<target-device>/Qwen3-VL-2B-Instruct/global_rotation.pth
 ```
+
+`--dynamic`을 붙이면 static 산출물 옆에 `_dynamic` 접미사가 붙은 짝이 생성됩니다 (예: `Qwen3-VL-2B-Instruct_{decoder,encoder}_dynamic.mxq`, `spinWeight/<target-device>/Qwen3-VL-2B-Instruct-dynamic/global_rotation.pth`). SpinR1 행렬 경로는 `(target-device, model-name, mode)` 단위로 분리되므로 같은 디바이스에서 여러 `--model-id`를 컴파일해도 서로 덮어쓰지 않습니다.
 
 검증된 Qwen3-VL 2B 컴파일 설정은 자동으로 적용됩니다. ARIES는 `inference_scheme="all"`을 사용합니다. REGULUS는 `inference_scheme="single"`을 사용하며 최대 시퀀스 길이와 캐시 길이는 1024입니다.
 
