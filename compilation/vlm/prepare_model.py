@@ -6,6 +6,7 @@ from pathlib import Path
 
 import torch
 from huggingface_hub import hf_hub_download, snapshot_download
+from huggingface_hub.utils import EntryNotFoundError
 from safetensors import safe_open
 from safetensors.torch import save_file
 
@@ -35,8 +36,22 @@ def load_rotation_matrix(path: Path) -> torch.Tensor:
 
 
 def load_hf_tensor(base_model_id: str, key_suffix: str) -> torch.Tensor:
-    """Return a float32 copy of the first tensor whose name ends with key_suffix."""
-    tensor_path = hf_hub_download(base_model_id, "model.safetensors")
+    """Return a float32 copy of the first tensor whose name ends with key_suffix.
+
+    Handles both monolithic (``model.safetensors`` — 2B) and sharded
+    (``model.safetensors.index.json`` + numbered shard files — 4B / 8B)
+    Hugging Face checkpoints. On sharded checkpoints only the shard that
+    contains the requested key is downloaded.
+    """
+    try:
+        tensor_path = hf_hub_download(base_model_id, "model.safetensors")
+    except EntryNotFoundError:
+        index_path = hf_hub_download(base_model_id, "model.safetensors.index.json")
+        weight_map = json.loads(Path(index_path).read_text(encoding="utf-8"))["weight_map"]
+        matches = [name for name in weight_map if name.endswith(key_suffix)]
+        if not matches:
+            raise KeyError(f"No tensor ending with {key_suffix!r} in {base_model_id}")
+        tensor_path = hf_hub_download(base_model_id, weight_map[matches[0]])
     with safe_open(tensor_path, framework="pt") as tensors:
         key = next(name for name in tensors.keys() if name.endswith(key_suffix))
         return tensors.get_tensor(key).to(torch.float32)

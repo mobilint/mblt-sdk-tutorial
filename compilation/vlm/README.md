@@ -69,7 +69,7 @@ For dynamic vision, add `--dynamic` to switch every sample writer:
 python generate_calibration_data.py --batch-size 4 --dynamic
 ```
 
-Vision samples become 3-input (folded pixel values `[1, 1, N, 1176]`, `pos_embeds` `[1, 1, N, 1024]`, packed rope `[1, 1, N, 128]`) with `npy_files.json` marking the N axis dynamic. Decoder samples add a `cos.npy` `[1, T, 256]` rope tensor as third input for the runtime rope slot.
+Vision samples become 3-input (folded pixel values `[1, 1, N, 1536]`, `pos_embeds` `[1, 1, N, 1024]`, packed rope `[1, 1, N, 128]`) with `npy_files.json` marking the N axis dynamic. Decoder samples add a `cos.npy` `[1, T, 256]` rope tensor as third input for the runtime rope slot.
 
 The dataset revision, random seed, image order, and prompt order are fixed. Repeated runs with the same options, GPU, and software environment produce identical calibration files. Only generations that reach EOS are included. If `./calibration_data` already exists, pass `--force` to replace it.
 
