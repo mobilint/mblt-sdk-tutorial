@@ -5,25 +5,22 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 import torch
-from compile_config import spin_rotation_relpath
 from huggingface_hub import hf_hub_download, snapshot_download
 from huggingface_hub.utils import EntryNotFoundError
 from safetensors import safe_open
 from safetensors.torch import save_file
+
+from compile_config import spin_rotation_relpath
 
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_BASE_MODEL_ID = "Qwen/Qwen3-VL-2B-Instruct"
 EMBEDDING_KEY = "model.language_model.embed_tokens.weight"
 VISION_POS_EMBED_KEY = "model.visual.pos_embed.weight"
 TARGET_DEVICES = ("aries-rb", "regulus-rb")
+VISION_OUTPUT_ORDER = [3, 0, 1, 2]
 
 
 def resolve_model_ids(base_model_id: str) -> tuple[str, str]:
-    """Return (RUNTIME_MODEL_ID, MODEL_NAME) derived from the base HF model id.
-
-    Assumes the runtime template lives at ``mobilint/<name>`` for every
-    ``<namespace>/<name>`` base model shipped by Qwen/Mobilint.
-    """
     if "/" not in base_model_id:
         raise ValueError(f"--model-id must include a namespace, got {base_model_id!r}")
     _, name = base_model_id.split("/", 1)
@@ -37,13 +34,6 @@ def load_rotation_matrix(path: Path) -> torch.Tensor:
 
 
 def load_hf_tensor(base_model_id: str, key_suffix: str) -> torch.Tensor:
-    """Return a float32 copy of the first tensor whose name ends with key_suffix.
-
-    Handles both monolithic (``model.safetensors`` — 2B) and sharded
-    (``model.safetensors.index.json`` + numbered shard files — 4B / 8B)
-    Hugging Face checkpoints. On sharded checkpoints only the shard that
-    contains the requested key is downloaded.
-    """
     try:
         tensor_path = hf_hub_download(base_model_id, "model.safetensors")
     except EntryNotFoundError:
@@ -64,13 +54,6 @@ def save_runtime_weights(
     output_path: Path,
     dynamic: bool,
 ) -> None:
-    """Write model.safetensors: rotated embed_tokens plus visual.pos_embed if dynamic.
-
-    mblt-model-zoo only allocates ``visual.pos_embed`` for the dynamic vision
-    path, so bundling this weight into a static release would trigger a
-    spurious "unused weight" warning; conversely, omitting it on a dynamic
-    release yields a "MISSING: newly initialized" warning and wrong outputs.
-    """
     embedding = load_hf_tensor(base_model_id, "embed_tokens.weight")
     rotation = load_rotation_matrix(rotation_path)
     if rotation.shape != (embedding.shape[1], embedding.shape[1]):
@@ -108,11 +91,7 @@ def patch_config(
             section["target_cores"] = ["0:0"]
             section.pop("target_clusters", None)
 
-    # Top-level release-pairing flag that MobilintQwen3VLConfig reads. The
-    # runtime reconciles it against the MXQ input counts (1/3 for vision,
-    # 2/3 for text) and warns if they disagree; keeping it accurate silences
-    # that warning and lets the vision submodule allocate visual.pos_embed
-    # from the safetensors we shipped above.
+    config["vision_config"]["vision_output_order"] = VISION_OUTPUT_ORDER
     config["dynamic_vision"] = dynamic
 
     config_path.write_text(json.dumps(config, indent=2, sort_keys=True) + "\n", encoding="utf-8")

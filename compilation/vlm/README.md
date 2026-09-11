@@ -22,10 +22,15 @@ pip install -r requirements.txt
 
 The pipeline can produce two flavors of the encoder:
 
-- **Static (default)** — the vision graph bakes 224x224 into its position embeddings and rope tables, so every image the runtime sees is first resized to 224x224. Every step below defaults to this mode.
-- **Dynamic** — position embeddings and the rope table become graph inputs so the runtime feeds the encoder images at their original resolution. Compiled artifacts get a `_dynamic` suffix so both variants can live side by side under `mblt/`, `mxq/`, and `prepared/`.
+- **Static (default)** — the vision graph bakes 224x224 into its position embeddings and rope tables, so every image the runtime sees is first resized to 224x224.
+  Every step below defaults to this mode.
+- **Dynamic** — the host computes position embeddings and RoPE for the processed image size and supplies them to the encoder MXQ.
+  Image sizes may vary after processor resizing.
+  MBLT and MXQ filenames use a `_dynamic` suffix; prepared folders use a `-dynamic` suffix.
 
-Dynamic vision is a *bundled release*: the compiled text decoder must also expose a runtime rope input (`--dynamic` on `compile_decoder.py`). `mblt-model-zoo` refuses to load a mismatched pair. If you want the dynamic path, pass `--dynamic` to every step below.
+Dynamic mode requires both the encoder and decoder to be compiled with `--dynamic`.
+The decoder then exposes the runtime rope input required for variable image token counts.
+Pass `--dynamic` to every step below.
 
 ## 1. Download Calibration Images
 
@@ -47,7 +52,9 @@ python download_images.py --dynamic
 python generate_calibration_data.py --batch-size 4
 ```
 
-The script creates vision encoder samples and decoder prefill/decode samples under `./calibration_data`. The default batch size is 4 on `cuda:0`. Adjust `--batch-size` for the available GPU memory, and use `--device` to select another GPU.
+The script creates vision encoder samples and decoder prefill/decode samples under `./calibration_data`.
+The default batch size is 4 on `cuda:0`.
+Adjust `--batch-size` for the available GPU memory, and use `--device` to select another GPU.
 
 ```text
 calibration_data/
@@ -61,7 +68,8 @@ calibration_data/
     └── npy_files.json
 ```
 
-Each vision sample contains `images.npy` with shape `[1024, 64, 6]`. Each decoder sample contains `inputs_embeds.npy` with shape `[1, T, 2048]` and one packed `deepstack_visual_embeds.npy` with shape `[3, T, 2048]`.
+Each vision sample contains `images.npy` with shape `[1024, 64, 6]`.
+Each decoder sample contains `inputs_embeds.npy` with shape `[1, T, 2048]` and one packed `deepstack_visual_embeds.npy` with shape `[3, T, 2048]`.
 
 For dynamic vision, add `--dynamic` to switch every sample writer:
 
@@ -69,13 +77,18 @@ For dynamic vision, add `--dynamic` to switch every sample writer:
 python generate_calibration_data.py --batch-size 4 --dynamic
 ```
 
-Vision samples become 3-input (folded pixel values `[1, 1, N, 1536]`, `pos_embeds` `[1, 1, N, 1024]`, packed rope `[1, 1, N, 128]`) with `npy_files.json` marking the N axis dynamic. Decoder samples add a `cos.npy` `[1, T, 256]` rope tensor as third input for the runtime rope slot.
+Vision samples become 3-input (folded pixel values `[1, 1, N, 1536]`, `pos_embeds` `[1, 1, N, 1024]`, packed rope `[1, 1, N, 128]`) with `npy_files.json` marking the N axis dynamic.
+Decoder samples add a `cos.npy` `[1, T, 256]` rope tensor as third input for the runtime rope slot.
 
-The dataset revision, random seed, image order, and prompt order are fixed. Repeated runs with the same options, GPU, and software environment produce identical calibration files. Only generations that reach EOS are included. If `./calibration_data` already exists, pass `--force` to replace it.
+The dataset revision, random seed, image order, and prompt order are fixed.
+Repeated runs with the same options, GPU, and software environment produce identical calibration files.
+Only generations that reach EOS are included.
+If `./calibration_data` already exists, pass `--force` to replace it.
 
 ## 3. Compile MXQ Models
 
-Compile the decoder first. Decoder compilation produces the SpinR1 matrix required by encoder compilation and runtime model preparation.
+Compile the decoder first.
+Decoder compilation produces the SpinR1 matrix required by encoder compilation and runtime model preparation.
 
 For ARIES:
 
@@ -91,7 +104,8 @@ python compile_decoder.py --target-device regulus-rb
 python compile_encoder.py --target-device regulus-rb
 ```
 
-Each script creates its target-specific MBLT and then compiles the MXQ model. Compiler options for both scripts are defined in `compile_config.py`.
+Each script creates its target-specific MBLT and then compiles the MXQ model.
+Compiler options for both scripts are defined in `compile_config.py`.
 
 ```text
 mblt/<target-device>/Qwen_Qwen3-VL-2B-Instruct_{decoder,encoder}.mblt
@@ -99,9 +113,14 @@ mxq/<target-device>/Qwen3-VL-2B-Instruct_{decoder,encoder}.mxq
 spinWeight/<target-device>/Qwen3-VL-2B-Instruct/global_rotation.pth
 ```
 
-Adding `--dynamic` produces `_dynamic`-suffixed peers alongside the static artifacts (e.g. `Qwen3-VL-2B-Instruct_{decoder,encoder}_dynamic.mxq` and `spinWeight/<target-device>/Qwen3-VL-2B-Instruct-dynamic/global_rotation.pth`). The SpinR1 matrix path is scoped by `(target-device, model-name, mode)` so multiple `--model-id` targets compiled against the same device do not overwrite each other.
+Adding `--dynamic` produces separate MBLT and MXQ files with a `_dynamic` suffix.
+The MXQ filenames are `Qwen3-VL-2B-Instruct_{decoder,encoder}_dynamic.mxq`.
+The SpinR1 matrix is saved to `spinWeight/<target-device>/Qwen3-VL-2B-Instruct-dynamic/global_rotation.pth`.
+The SpinR1 matrix path is scoped by `(target-device, model-name, mode)` so multiple `--model-id` targets compiled against the same device do not overwrite each other.
 
-The validated Qwen3-VL 2B compiler configuration is applied automatically. ARIES uses `inference_scheme="all"`. REGULUS uses `inference_scheme="single"` with a maximum sequence and cache length of 1024.
+The Qwen3-VL 2B compiler configuration is applied automatically.
+ARIES uses `inference_scheme="all"` for both static and dynamic builds.
+REGULUS uses `inference_scheme="single"` with a maximum sequence and cache length of 1024.
 
 For dynamic vision, pass `--dynamic` to both scripts (decoder first, again):
 
@@ -110,9 +129,10 @@ python compile_decoder.py --target-device aries-rb --dynamic
 python compile_encoder.py --target-device aries-rb --dynamic
 ```
 
-The decoder promotes its cos/sin `InputConstant`s to a runtime rope input via `LlmConfig.attributes.runtime.dynamic_rope=True`. The encoder switches to the V2 dispatch (`qbcompiler.model_dict`) that treats `pos_embeds`, `cos`, and `sin` as graph inputs and marks the N axis dynamic. Compiled artifacts land at `mxq/<target-device>/Qwen3-VL-2B-Instruct_{decoder,encoder}_dynamic.mxq`.
-
-`ENCODER_16BIT_ACTIVATIONS` in `compile_config.py` lists graph-derived operator names measured on the static Qwen3-VL-2B build; dynamic parsing (or a different model size) can emit different names. Unmatched entries are silently ignored by the quantizer, so a wrong list costs a small amount of vision SQNR but does not break the build.
+In dynamic mode, the host computes RoPE for the combined image and text sequence and passes it to the decoder MXQ along with embeddings and DeepStack features.
+The encoder MBLT takes pixel data, position embeddings, cosine, and sine as inputs and allows the patch count to vary.
+Compilation packs cosine and sine into one RoPE input, producing a three-input encoder MXQ.
+Both static and dynamic builds use the current `qbcompiler.model_dict` parser.
 
 ## 4. Prepare the Runtime Model
 
@@ -132,7 +152,8 @@ python prepare_model.py --target-device regulus-rb
 
 The script downloads the Mobilint runtime files, applies the decoder SpinR1 matrix to the token embedding, copies both MXQ files, and writes the matching runtime configuration.
 
-The output is written to `./prepared/<target-device>/Qwen3-VL-2B-Instruct`. If that directory already exists, pass `--force` to replace it.
+The output is written to `./prepared/<target-device>/Qwen3-VL-2B-Instruct`.
+If that directory already exists, pass `--force` to replace it.
 
 For dynamic vision:
 
@@ -144,13 +165,17 @@ This picks up the `_dynamic` MXQ pair, additionally bundles `visual.pos_embed.we
 
 ## Other Model Sizes
 
-Every compile / calibration / prepare script accepts `--model-id`. The default is `Qwen/Qwen3-VL-2B-Instruct`; passing another id like `Qwen/Qwen3-VL-4B-Instruct` or `Qwen/Qwen3-VL-8B-Instruct` runs the same pipeline against that base model. The runtime template repo id is derived as `mobilint/<name>` and Mobilint publishes `mobilint/Qwen3-VL-{2B,4B,8B}-Instruct`.
+Every compile / calibration / prepare script accepts `--model-id`.
+The default is `Qwen/Qwen3-VL-2B-Instruct`; passing another id like `Qwen/Qwen3-VL-4B-Instruct` or `Qwen/Qwen3-VL-8B-Instruct` runs the same pipeline against that base model.
+The runtime template repo id is derived as `mobilint/<name>` and Mobilint publishes `mobilint/Qwen3-VL-{2B,4B,8B}-Instruct`.
 
-The compiler configuration in `compile_config.py` is tuned for 2B. Compilation succeeds on other sizes but the `ENCODER_16BIT_ACTIVATIONS` list may not match the new graph, and the ARIES branch's `hessian_quant_config=None` was validated only against 2B. Both are quality knobs, not correctness constraints.
+The compiler configuration in `compile_config.py` is configured for 2B.
+Other model sizes require separate compilation and inference validation, including checking the layer names in `ENCODER_16BIT_ACTIVATIONS`.
 
 ## Runtime
 
-Continue with the [Python VLM runtime tutorial](../../runtime/python/vlm/README.md). Its default `--model-folder` points at the static 2B prepared folder; for a dynamic build or a non-2B `--model-id`, pass the matching folder explicitly:
+Continue with the [Python VLM runtime tutorial](../../runtime/python/vlm/README.md).
+Its default `--model-folder` points at the static 2B prepared folder; for a dynamic build or a non-2B `--model-id`, pass the matching folder explicitly:
 
 ```bash
 # Dynamic 2B

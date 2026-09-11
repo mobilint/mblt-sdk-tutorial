@@ -11,7 +11,7 @@ DATASET_REVISION = "cf0b22332314a937e9dc8a1957b21725430bb41d"
 
 if __name__ == "__main__":
     parser = ArgumentParser(description="Download COCO validation images for VLM calibration")
-    parser.add_argument("--num-images", type=int, default=300)
+    parser.add_argument("-n", "--num-images", type=int, default=300)
     parser.add_argument("--output-dir", type=Path, default=Path("images"))
     parser.add_argument("--size", type=int, default=224)
     parser.add_argument(

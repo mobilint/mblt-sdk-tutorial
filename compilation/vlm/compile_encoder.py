@@ -2,29 +2,24 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 import torch
-from compile_config import encoder_compile_config
 from PIL import Image
 from qbcompiler import mblt_compile, mxq_compile
-from qbcompiler.model_dict.parser.patcher.models.hf_models.qwen3vl import (
-    VisionModelForQwen3VL as DynamicVisionModelForQwen3VL,
-)
-from qbcompiler.model_dict_legacy.parser.backend.fx_hf_extensions.transformers.models.qwen3vl import (
-    Qwen3VLForConditionalGenerationWrapper,
-    VisionModelForQwen3VL,
-    repreprocess_pixel_values,
+from qbcompiler.model_dict.parser.patcher.models.hf_models import qwen3vl
+from qbcompiler.model_dict_legacy.parser.backend.fx_hf_extensions.transformers.models import (
+    qwen3vl as legacy_qwen3vl,
 )
 from transformers import AutoProcessor, Qwen3VLForConditionalGeneration
+from transformers.models.qwen3_vl.modeling_qwen3_vl import (
+    get_vision_interpolation_indices_and_weights,
+    get_vision_position_ids,
+)
+
+from compile_config import encoder_compile_config
 
 DEFAULT_MODEL_ID = "Qwen/Qwen3-VL-2B-Instruct"
 BASE_DIR = Path(__file__).resolve().parent
 TARGET_DEVICES = ("aries-rb", "regulus-rb")
 
-# Vision N-axis (patch count) marked dynamic on each graph input. Only the V2
-# dispatch (qbcompiler.model_dict) propagates dynamic_axes into the compiled
-# MXQ. The compiler places placeholders in graph dataflow order (patch_embed
-# consumes ``images`` first), so the compiled MXQ inputs come out as
-# ``[folded, pos, rope]``; the model-zoo runtime discovers that order from
-# the reported input widths at load time.
 VISION_DYNAMIC_AXES = {
     "images": [-1],
     "pos_embeds": [0],
@@ -33,8 +28,25 @@ VISION_DYNAMIC_AXES = {
 }
 
 
+class StaticVisionBlock(torch.nn.Module):
+    def __init__(self, vision_block: torch.nn.Module) -> None:
+        super().__init__()
+        self.vision_block = vision_block
+
+    def forward(
+        self,
+        hidden_states: torch.Tensor,
+        cu_seqlens: torch.Tensor | None = None,
+        position_embeddings: tuple[torch.Tensor, torch.Tensor] | None = None,
+    ) -> torch.Tensor:
+        return self.vision_block(
+            hidden_states,
+            cu_seqlens=cu_seqlens,
+            position_embeddings=position_embeddings,
+        )
+
+
 def resolve_names(model_id: str) -> tuple[str, str]:
-    """Derive (MODEL_NAME, COMPILER_NAME) from a Hugging Face model id."""
     if "/" not in model_id:
         raise ValueError(f"--model-id must include a namespace, got {model_id!r}")
     namespace, name = model_id.split("/", 1)
@@ -43,7 +55,13 @@ def resolve_names(model_id: str) -> tuple[str, str]:
 
 def build_inputs(processor, device):
     generator = torch.Generator().manual_seed(42)
-    image = Image.fromarray(torch.randint(256, (224, 224, 3), generator=generator, dtype=torch.uint8).numpy())
+    pixels = torch.randint(
+        256,
+        (224, 224, 3),
+        generator=generator,
+        dtype=torch.uint8,
+    ).numpy()
+    image = Image.fromarray(pixels)
     messages = [
         {
             "role": "user",
@@ -63,27 +81,47 @@ def build_inputs(processor, device):
 
 
 def fold_pixel_values(pixel_values: torch.Tensor) -> torch.Tensor:
-    """Fold ``(N, fold_in)`` processor pixel_values into ``(1, fold_in, 1, N)``.
-
-    The dynamic vision graph's patch_embed is a 1x1 conv over this layout, so
-    the trailing N is the only size-varying axis. Must match the fold used by
-    generate_calibration_data.py --dynamic and mblt-model-zoo's runtime.
-    """
     n, fold_in = pixel_values.shape
     return pixel_values.transpose(0, 1).reshape(1, fold_in, 1, n).contiguous()
 
 
-def compile_static(args, model_name: str, compiler_name: str, torch_device: torch.device) -> None:
-    processor = AutoProcessor.from_pretrained(args.model_id)
-    model = Qwen3VLForConditionalGenerationWrapper.from_pretrained(
-        args.model_id,
-        device_map=torch_device,
-        dtype=torch.float32,
-    ).eval()
-    inputs = build_inputs(processor, model.device)
-    images = repreprocess_pixel_values(inputs["pixel_values"], inputs["image_grid_thw"][0])
-    encoder = VisionModelForQwen3VL(model.model).to(model.device).eval()
-    encoder.set_grid_thw(inputs["image_grid_thw"].to(model.device))
+def compute_side_inputs(visual, grid_thw: torch.Tensor):
+    indices, weights = get_vision_interpolation_indices_and_weights(
+        grid_thw,
+        num_grid_per_side=visual.num_grid_per_side,
+        mode=visual.interpolation_mode,
+        align_corners=visual.interpolation_align_corners,
+        spatial_merge_size=visual.spatial_merge_size,
+    )
+    pos_embeds = (visual.pos_embed(indices) * weights[:, :, None]).sum(1)
+    position_ids = get_vision_position_ids(grid_thw, visual.spatial_merge_size)
+    rotary = visual.rotary_pos_emb(position_ids)
+    embedding = torch.cat((rotary, rotary), dim=-1)
+    return pos_embeds, embedding.cos()[None, None], embedding.sin()[None, None]
+
+
+def compile_static(
+    args,
+    model,
+    inputs,
+    model_name: str,
+    compiler_name: str,
+    torch_device: torch.device,
+) -> None:
+    images = legacy_qwen3vl.repreprocess_pixel_values(
+        inputs["pixel_values"],
+        inputs["image_grid_thw"][0],
+    )
+    encoder = legacy_qwen3vl.VisionModelForQwen3VL(model.model)
+    encoder.model.blocks = torch.nn.ModuleList(StaticVisionBlock(block.vision_block) for block in encoder.model.blocks)
+    encoder = encoder.to(torch_device).eval()
+    pos_embeds, cos, sin = compute_side_inputs(
+        encoder.model,
+        inputs["image_grid_thw"].to(torch_device),
+    )
+    encoder.register_buffer("pos_embeds", pos_embeds, persistent=False)
+    encoder.register_buffer("cos", cos, persistent=False)
+    encoder.register_buffer("sin", sin, persistent=False)
 
     mblt_path = BASE_DIR / "mblt" / args.target_device / f"{compiler_name}_encoder.mblt"
     mxq_path = BASE_DIR / "mxq" / args.target_device / f"{model_name}_encoder.mxq"
@@ -108,24 +146,18 @@ def compile_static(args, model_name: str, compiler_name: str, torch_device: torc
     )
 
 
-def compile_dynamic(args, model_name: str, compiler_name: str, torch_device: torch.device) -> None:
-    # V2 dispatch: pos_embeds / cos / sin are graph inputs (not InputConstants),
-    # so the parsed MXQ has 4 inputs and the compiled MXQ collapses them to
-    # 3 inputs after the quantizer merges cos+sin into a single rotateTensor.
-    processor = AutoProcessor.from_pretrained(args.model_id)
-    model = (
-        Qwen3VLForConditionalGeneration.from_pretrained(
-            args.model_id,
-            dtype=torch.float32,
-        )
-        .to(torch_device)
-        .eval()
-    )
-    inputs = build_inputs(processor, torch_device)
+def compile_dynamic(
+    args,
+    model,
+    inputs,
+    model_name: str,
+    compiler_name: str,
+    torch_device: torch.device,
+) -> None:
     grid_thw = inputs["image_grid_thw"].to(torch_device)
 
-    encoder = DynamicVisionModelForQwen3VL(model).to(torch_device).eval()
-    pos_embeds, cos, sin = encoder.compute_side_inputs(grid_thw)
+    encoder = qwen3vl.VisionModelForQwen3VL(model).to(torch_device).eval()
+    pos_embeds, cos, sin = compute_side_inputs(encoder.model, grid_thw)
     folded = fold_pixel_values(inputs["pixel_values"].to(torch_device).to(torch.float32))
     feed_dict = {"images": folded, "pos_embeds": pos_embeds, "cos": cos, "sin": sin}
 
@@ -158,18 +190,23 @@ if __name__ == "__main__":
     parser.add_argument("--target-device", choices=TARGET_DEVICES, default="aries-rb")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--model-id", default=DEFAULT_MODEL_ID)
-    parser.add_argument(
-        "--dynamic",
-        action="store_true",
-        help="Compile with V2 dispatch and dynamic N axis. The compiled MXQ takes 3 inputs "
-        "(folded pixel values, pos_embeds, packed rope) and pairs with a --dynamic decoder.",
-    )
+    parser.add_argument("--dynamic", action="store_true")
     args = parser.parse_args()
 
     model_name, compiler_name = resolve_names(args.model_id)
     torch_device = torch.device(args.device)
+    processor = AutoProcessor.from_pretrained(args.model_id)
+    model = (
+        Qwen3VLForConditionalGeneration.from_pretrained(
+            args.model_id,
+            dtype=torch.float32,
+        )
+        .to(torch_device)
+        .eval()
+    )
+    inputs = build_inputs(processor, torch_device)
 
     if args.dynamic:
-        compile_dynamic(args, model_name, compiler_name, torch_device)
+        compile_dynamic(args, model, inputs, model_name, compiler_name, torch_device)
     else:
-        compile_static(args, model_name, compiler_name, torch_device)
+        compile_static(args, model, inputs, model_name, compiler_name, torch_device)
