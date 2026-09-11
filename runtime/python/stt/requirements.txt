@@ -1,3 +1,2 @@
 mblt-model-zoo[transformers]
-transformers==5.16.1
 soundfile
