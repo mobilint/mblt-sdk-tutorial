@@ -153,9 +153,9 @@ python prepare_model.py --target-device aries-rb --dynamic
 ```bash
 # Dynamic 2B
 python ../../runtime/python/vlm/inference_mblt_model_zoo.py \
-    --model-folder compilation/vlm/prepared/aries-rb/Qwen3-VL-2B-Instruct-dynamic
+    --model-folder prepared/aries-rb/Qwen3-VL-2B-Instruct-dynamic
 
 # Static 4B (또는 8B): `-dynamic` 접미사 제거
 python ../../runtime/python/vlm/inference_mblt_model_zoo.py \
-    --model-folder compilation/vlm/prepared/aries-rb/Qwen3-VL-4B-Instruct
+    --model-folder prepared/aries-rb/Qwen3-VL-4B-Instruct
 ```

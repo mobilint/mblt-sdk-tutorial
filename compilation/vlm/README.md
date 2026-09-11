@@ -153,9 +153,9 @@ Continue with the [Python VLM runtime tutorial](../../runtime/python/vlm/README.
 ```bash
 # Dynamic 2B
 python ../../runtime/python/vlm/inference_mblt_model_zoo.py \
-    --model-folder compilation/vlm/prepared/aries-rb/Qwen3-VL-2B-Instruct-dynamic
+    --model-folder prepared/aries-rb/Qwen3-VL-2B-Instruct-dynamic
 
 # Static 4B (or 8B): drop the `-dynamic` suffix
 python ../../runtime/python/vlm/inference_mblt_model_zoo.py \
-    --model-folder compilation/vlm/prepared/aries-rb/Qwen3-VL-4B-Instruct
+    --model-folder prepared/aries-rb/Qwen3-VL-4B-Instruct
 ```
