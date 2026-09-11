@@ -1,1 +1,2 @@
 mblt-model-zoo[transformers]==2.4.2
+transformers==5.16.1
