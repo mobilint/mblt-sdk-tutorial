@@ -25,6 +25,19 @@ ENCODER_16BIT_ACTIVATIONS = [
 ]
 
 
+def spin_rotation_relpath(target_device: str, model_name: str, dynamic: bool) -> str:
+    """Cwd-relative path where the decoder-produced SpinR1 matrix lives.
+
+    Scoped by ``(target_device, model_name, mode)`` so compiling several
+    ``--model-id`` targets against the same device (or the same model in
+    both static/dynamic mode) does not overwrite a peer artifact. Encoder
+    compile config, ``compile_decoder.py``, and ``prepare_model.py`` all
+    resolve the file through this helper so the three stages stay in sync.
+    """
+    subdir = f"{model_name}-dynamic" if dynamic else model_name
+    return f"spinWeight/{target_device}/{subdir}/global_rotation.pth"
+
+
 def _llm_runtime(dynamic: bool) -> LlmConfig.Attributes.Runtime:
     """Runtime knobs for the decoder LlmConfig.
 
@@ -129,11 +142,15 @@ def decoder_compile_config(target_device: str, dynamic: bool = False) -> dict:
         raise ValueError(f"Unsupported target device: {target_device}")
 
 
-def encoder_compile_config(target_device: str, dynamic: bool = False) -> dict:
+def encoder_compile_config(
+    target_device: str,
+    model_name: str,
+    dynamic: bool = False,
+) -> dict:
     # Static and dynamic parsing produce different graphs but the same
     # quantization knobs are valid for both. The activation_16bits list is a
     # best-effort optimization; see the comment on ENCODER_16BIT_ACTIVATIONS.
-    del dynamic  # currently no per-mode knob divergence; kept for API symmetry
+    rotation_matrix_path = spin_rotation_relpath(target_device, model_name, dynamic)
     if target_device == "regulus-rb":
         return {
             "inference_scheme": "single",
@@ -160,7 +177,7 @@ def encoder_compile_config(target_device: str, dynamic: bool = False) -> dict:
                 vo=EquivalentTransformationConfig.Vo(apply=True),
                 head_out_ch_rotation=EquivalentTransformationConfig.HeadOutChRotation(
                     apply=True,
-                    matrix_path="spinWeight/regulus-rb/global_rotation.pth",
+                    matrix_path=rotation_matrix_path,
                 ),
                 spin_r1=EquivalentTransformationConfig.SpinR1(apply=False),
                 spin_r2=EquivalentTransformationConfig.SpinR2(apply=True),
@@ -191,7 +208,7 @@ def encoder_compile_config(target_device: str, dynamic: bool = False) -> dict:
                 vo=EquivalentTransformationConfig.Vo(apply=True),
                 head_out_ch_rotation=EquivalentTransformationConfig.HeadOutChRotation(
                     apply=True,
-                    matrix_path="spinWeight/aries-rb/global_rotation.pth",
+                    matrix_path=rotation_matrix_path,
                 ),
                 spin_r1=EquivalentTransformationConfig.SpinR1(apply=False),
                 spin_r2=EquivalentTransformationConfig.SpinR2(apply=True),

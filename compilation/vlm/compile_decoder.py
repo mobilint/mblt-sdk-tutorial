@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 import torch
-from compile_config import decoder_compile_config
+from compile_config import decoder_compile_config, spin_rotation_relpath
 from PIL import Image
 from qbcompiler import mblt_compile, mxq_compile
 from qbcompiler.model_dict.parser.backend.torch.input_capture import (
@@ -78,7 +78,7 @@ if __name__ == "__main__":
     suffix = "_decoder_dynamic" if args.dynamic else "_decoder"
     mblt_path = BASE_DIR / "mblt" / args.target_device / f"{compiler_name}{suffix}.mblt"
     mxq_path = BASE_DIR / "mxq" / args.target_device / f"{model_name}{suffix}.mxq"
-    rotation_path = BASE_DIR / "spinWeight" / args.target_device / "global_rotation.pth"
+    rotation_path = BASE_DIR / spin_rotation_relpath(args.target_device, model_name, args.dynamic)
     generated_rotation_path = BASE_DIR / "spinWeight" / f"{compiler_name}{suffix}" / "R1" / "global_rotation.pth"
 
     mblt_path.parent.mkdir(parents=True, exist_ok=True)

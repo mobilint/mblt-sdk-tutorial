@@ -148,4 +148,14 @@ The compiler configuration in `compile_config.py` is tuned for 2B. Compilation s
 
 ## Runtime
 
-Continue with the [Python VLM runtime tutorial](../../runtime/python/vlm/README.md).
+Continue with the [Python VLM runtime tutorial](../../runtime/python/vlm/README.md). Its default `--model-folder` points at the static 2B prepared folder; for a dynamic build or a non-2B `--model-id`, pass the matching folder explicitly:
+
+```bash
+# Dynamic 2B
+python ../../runtime/python/vlm/inference_mblt_model_zoo.py \
+    --model-folder compilation/vlm/prepared/aries-rb/Qwen3-VL-2B-Instruct-dynamic
+
+# Static 4B (or 8B): drop the `-dynamic` suffix
+python ../../runtime/python/vlm/inference_mblt_model_zoo.py \
+    --model-folder compilation/vlm/prepared/aries-rb/Qwen3-VL-4B-Instruct
+```

@@ -148,4 +148,14 @@ python prepare_model.py --target-device aries-rb --dynamic
 
 ## 런타임
 
-[Python VLM 런타임 튜토리얼](../../runtime/python/vlm/README.KR.md)을 이어서 진행합니다.
+[Python VLM 런타임 튜토리얼](../../runtime/python/vlm/README.KR.md)을 이어서 진행합니다. 런타임 스크립트의 기본 `--model-folder`는 static 2B 준비 폴더를 가리키므로, dynamic 빌드나 2B가 아닌 `--model-id`를 사용했다면 실제 폴더 경로를 명시적으로 넘기십시오.
+
+```bash
+# Dynamic 2B
+python ../../runtime/python/vlm/inference_mblt_model_zoo.py \
+    --model-folder compilation/vlm/prepared/aries-rb/Qwen3-VL-2B-Instruct-dynamic
+
+# Static 4B (또는 8B): `-dynamic` 접미사 제거
+python ../../runtime/python/vlm/inference_mblt_model_zoo.py \
+    --model-folder compilation/vlm/prepared/aries-rb/Qwen3-VL-4B-Instruct
+```

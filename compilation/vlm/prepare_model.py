@@ -5,6 +5,7 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 import torch
+from compile_config import spin_rotation_relpath
 from huggingface_hub import hf_hub_download, snapshot_download
 from huggingface_hub.utils import EntryNotFoundError
 from safetensors import safe_open
@@ -129,7 +130,7 @@ def prepare_model(
     decoder_suffix = "_decoder_dynamic" if dynamic else "_decoder"
     encoder_mxq = BASE_DIR / "mxq" / target_device / f"{model_name}{encoder_suffix}.mxq"
     decoder_mxq = BASE_DIR / "mxq" / target_device / f"{model_name}{decoder_suffix}.mxq"
-    rotation_path = BASE_DIR / "spinWeight" / target_device / "global_rotation.pth"
+    rotation_path = BASE_DIR / spin_rotation_relpath(target_device, model_name, dynamic)
     missing = [path for path in (encoder_mxq, decoder_mxq, rotation_path) if not path.is_file()]
     if missing:
         raise FileNotFoundError(f"Missing compilation artifacts: {missing}")
