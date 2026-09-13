@@ -1,3 +1,4 @@
+import gc
 from argparse import ArgumentParser
 from pathlib import Path
 
@@ -108,6 +109,9 @@ def compile_static(
     compiler_name: str,
     torch_device: torch.device,
 ) -> None:
+    mblt_path = BASE_DIR / "mblt" / args.target_device / f"{compiler_name}_encoder.mblt"
+    mxq_path = BASE_DIR / "mxq" / args.target_device / f"{model_name}_encoder.mxq"
+
     images = legacy_qwen3vl.repreprocess_pixel_values(
         inputs["pixel_values"],
         inputs["image_grid_thw"][0],
@@ -123,9 +127,6 @@ def compile_static(
     encoder.register_buffer("cos", cos, persistent=False)
     encoder.register_buffer("sin", sin, persistent=False)
 
-    mblt_path = BASE_DIR / "mblt" / args.target_device / f"{compiler_name}_encoder.mblt"
-    mxq_path = BASE_DIR / "mxq" / args.target_device / f"{model_name}_encoder.mxq"
-
     mblt_path.parent.mkdir(parents=True, exist_ok=True)
     mblt_compile(
         model=encoder,
@@ -135,12 +136,20 @@ def compile_static(
         feed_dict={"images": images},
     )
 
+    # Release tracing resources before MXQ compilation to free GPU memory.
+    model.to("cpu")
+    inputs.to("cpu")
+    del encoder, images, pos_embeds, cos, sin
+    gc.collect()
+    if torch_device.type == "cuda":
+        torch.cuda.empty_cache()
+
     mxq_path.parent.mkdir(parents=True, exist_ok=True)
     mxq_compile(
         model=str(mblt_path),
         target_device=args.target_device,
         save_path=str(mxq_path),
-        calib_data_path=str(BASE_DIR / "calibration_data/vision/npy_files.txt"),
+        calib_data_path=str(BASE_DIR / "calibration_data/static/vision/npy_files.txt"),
         device="gpu" if torch_device.type == "cuda" else "cpu",
         **encoder_compile_config(args.target_device, model_name, dynamic=False),
     )
@@ -154,15 +163,15 @@ def compile_dynamic(
     compiler_name: str,
     torch_device: torch.device,
 ) -> None:
+    mblt_path = BASE_DIR / "mblt" / args.target_device / f"{compiler_name}_encoder_dynamic.mblt"
+    mxq_path = BASE_DIR / "mxq" / args.target_device / f"{model_name}_encoder_dynamic.mxq"
+
     grid_thw = inputs["image_grid_thw"].to(torch_device)
 
     encoder = qwen3vl.VisionModelForQwen3VL(model).to(torch_device).eval()
     pos_embeds, cos, sin = compute_side_inputs(encoder.model, grid_thw)
     folded = fold_pixel_values(inputs["pixel_values"].to(torch_device).to(torch.float32))
     feed_dict = {"images": folded, "pos_embeds": pos_embeds, "cos": cos, "sin": sin}
-
-    mblt_path = BASE_DIR / "mblt" / args.target_device / f"{compiler_name}_encoder_dynamic.mblt"
-    mxq_path = BASE_DIR / "mxq" / args.target_device / f"{model_name}_encoder_dynamic.mxq"
 
     mblt_path.parent.mkdir(parents=True, exist_ok=True)
     mblt_compile(
@@ -174,12 +183,20 @@ def compile_dynamic(
         dynamic_axes=VISION_DYNAMIC_AXES,
     )
 
+    # Release tracing resources before MXQ compilation to free GPU memory.
+    model.to("cpu")
+    inputs.to("cpu")
+    del encoder, feed_dict, folded, pos_embeds, cos, sin
+    gc.collect()
+    if torch_device.type == "cuda":
+        torch.cuda.empty_cache()
+
     mxq_path.parent.mkdir(parents=True, exist_ok=True)
     mxq_compile(
         model=str(mblt_path),
         target_device=args.target_device,
         save_path=str(mxq_path),
-        calib_data_path=str(BASE_DIR / "calibration_data/vision/npy_files.json"),
+        calib_data_path=str(BASE_DIR / "calibration_data/dynamic/vision/npy_files.json"),
         device="gpu" if torch_device.type == "cuda" else "cpu",
         **encoder_compile_config(args.target_device, model_name, dynamic=True),
     )

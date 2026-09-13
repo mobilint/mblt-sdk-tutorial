@@ -24,9 +24,10 @@ pip install -r requirements.txt
 인코더는 두 가지 방식으로 만들 수 있습니다.
 
 - **Static (기본값)** — 비전 그래프가 224x224를 position embedding과 rope 테이블에 상수로 굳혀 두므로, 런타임이 받는 모든 이미지는 먼저 224x224로 리사이즈됩니다.
-  아래 모든 단계의 기본 동작입니다.
+  아래 모든 단계의 기본 동작이며 `static` 데이터 디렉터리를 사용합니다.
 - **Dynamic** — 호스트가 전처리된 이미지 크기에 맞춰 위치 임베딩과 RoPE를 계산해 인코더 MXQ에 전달합니다.
   전처리기의 크기 조정 후에도 이미지 크기는 가변입니다.
+  같은 명령에 `--dynamic`을 붙이면 `dynamic` 데이터 디렉터리를 사용합니다.
   MBLT와 MXQ 파일에는 `_dynamic`, prepared 폴더에는 `-dynamic` 접미사가 붙습니다.
 
 Dynamic 모드에서는 인코더와 디코더를 모두 `--dynamic`으로 컴파일해야 합니다.
@@ -39,9 +40,9 @@ Dynamic 모드에서는 인코더와 디코더를 모두 `--dynamic`으로 컴�
 python download_images.py
 ```
 
-고정된 데이터셋 리비전에서 COCO 검증 이미지 300장을 내려받아 RGB로 변환하고 `224x224` 크기로 조정한 뒤 `./images`에 저장합니다.
+고정된 데이터셋 리비전에서 COCO 검증 이미지 300장을 내려받아 RGB로 변환하고 `224x224` 크기로 조정한 뒤 `./images/static`에 저장합니다.
 
-Dynamic 비전에서는 리사이즈를 건너뛰어 샘플이 다양한 patch 수 N을 갖도록 합니다.
+Dynamic 비전에서는 리사이즈를 건너뛰어 샘플이 다양한 patch 수 N을 갖도록 하고 `./images/dynamic`에 저장합니다.
 
 ```bash
 python download_images.py --dynamic
@@ -53,20 +54,21 @@ python download_images.py --dynamic
 python generate_calibration_data.py --batch-size 4
 ```
 
-비전 인코더 데이터와 디코더의 prefill/decode 데이터를 `./calibration_data`에 생성합니다.
+비전 인코더 데이터와 디코더의 prefill/decode 데이터를 `./calibration_data/static`에 생성합니다.
 기본 배치 크기는 4이며 `cuda:0`을 사용합니다.
 사용 중인 GPU 메모리에 맞춰 `--batch-size`를 조절하고, 다른 GPU를 사용하려면 `--device`로 지정합니다.
 
 ```text
 calibration_data/
-├── vision/
-│   └── npy_files.txt
-├── prefill/
-│   └── npy_files.json
-├── decode/
-│   └── npy_files.json
-└── language/
-    └── npy_files.json
+└── static/
+    ├── vision/
+    │   └── npy_files.txt
+    ├── prefill/
+    │   └── npy_files.json
+    ├── decode/
+    │   └── npy_files.json
+    └── language/
+        └── npy_files.json
 ```
 
 각 비전 샘플은 `[1024, 64, 6]` 크기의 `images.npy`를 포함합니다.
@@ -79,6 +81,7 @@ Dynamic 비전에서는 `--dynamic`을 붙여 모든 샘플 작성기를 전환�
 python generate_calibration_data.py --batch-size 4 --dynamic
 ```
 
+Dynamic 샘플은 `./calibration_data/dynamic`에 저장됩니다.
 비전 샘플은 3-input이 됩니다.
 입력은 folded pixel values `[1, 1, N, 1536]`, `pos_embeds` `[1, 1, N, 1024]`, packed rope `[1, 1, N, 128]`입니다.
 매니페스트 `npy_files.json`은 N축이 dynamic으로 표시됩니다.
@@ -87,7 +90,8 @@ python generate_calibration_data.py --batch-size 4 --dynamic
 데이터셋 리비전, 난수 시드, 이미지 순서, 프롬프트 순서를 고정합니다.
 같은 옵션, GPU, 소프트웨어 환경에서 반복 실행하면 동일한 캘리브레이션 파일을 생성합니다.
 EOS까지 생성된 결과만 캘리브레이션 데이터에 포함합니다.
-`./calibration_data`가 이미 있으면 `--force`를 지정해 교체합니다.
+선택한 모드 디렉터리가 이미 있으면 `--force`를 지정해 해당 모드의 캘리브레이션 데이터만 교체합니다.
+Static과 dynamic 캘리브레이션 데이터는 함께 둘 수 있습니다.
 
 ## 3. MXQ 모델 컴파일
 
@@ -170,6 +174,44 @@ python prepare_model.py --target-device aries-rb --dynamic
 Dynamic 런타임 경로에서만 이 서브모듈을 할당합니다.
 `config.json`의 최상위에는 `dynamic_vision=true`를 씁니다.
 출력은 `./prepared/<target-device>/Qwen3-VL-2B-Instruct-dynamic`에 저장됩니다.
+
+## 출력 구조
+
+ARIES static과 dynamic을 모두 준비하면 생성 파일은 모드별로 분리됩니다.
+
+```text
+images/
+├── static/
+└── dynamic/
+
+calibration_data/
+├── static/
+│   ├── vision/
+│   ├── prefill/
+│   ├── decode/
+│   └── language/
+└── dynamic/
+    ├── vision/
+    ├── prefill/
+    ├── decode/
+    └── language/
+
+mblt/aries-rb/
+├── Qwen_Qwen3-VL-2B-Instruct_decoder.mblt
+├── Qwen_Qwen3-VL-2B-Instruct_encoder.mblt
+├── Qwen_Qwen3-VL-2B-Instruct_decoder_dynamic.mblt
+└── Qwen_Qwen3-VL-2B-Instruct_encoder_dynamic.mblt
+
+mxq/aries-rb/
+├── Qwen3-VL-2B-Instruct_decoder.mxq
+├── Qwen3-VL-2B-Instruct_encoder.mxq
+├── Qwen3-VL-2B-Instruct_decoder_dynamic.mxq
+└── Qwen3-VL-2B-Instruct_encoder_dynamic.mxq
+
+prepared/aries-rb/
+├── Qwen3-VL-2B-Instruct/
+└── Qwen3-VL-2B-Instruct-dynamic/
+```
 
 ## 다른 모델 크기
 

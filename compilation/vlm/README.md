@@ -23,9 +23,10 @@ pip install -r requirements.txt
 The pipeline can produce two flavors of the encoder:
 
 - **Static (default)** — the vision graph bakes 224x224 into its position embeddings and rope tables, so every image the runtime sees is first resized to 224x224.
-  Every step below defaults to this mode.
+  Every step below defaults to this mode and uses the `static` data directories.
 - **Dynamic** — the host computes position embeddings and RoPE for the processed image size and supplies them to the encoder MXQ.
   Image sizes may vary after processor resizing.
+  The same commands write to the `dynamic` data directories when `--dynamic` is passed.
   MBLT and MXQ filenames use a `_dynamic` suffix; prepared folders use a `-dynamic` suffix.
 
 Dynamic mode requires both the encoder and decoder to be compiled with `--dynamic`.
@@ -38,9 +39,9 @@ Pass `--dynamic` to every step below.
 python download_images.py
 ```
 
-The script downloads 300 COCO validation images from a fixed dataset revision, converts them to RGB, and resizes them to `224x224` under `./images`.
+The script downloads 300 COCO validation images from a fixed dataset revision, converts them to RGB, and resizes them to `224x224` under `./images/static`.
 
-For dynamic vision, skip the resize so the sample set spans a range of patch counts N:
+For dynamic vision, skip the resize so the sample set spans a range of patch counts N and is saved under `./images/dynamic`:
 
 ```bash
 python download_images.py --dynamic
@@ -52,20 +53,21 @@ python download_images.py --dynamic
 python generate_calibration_data.py --batch-size 4
 ```
 
-The script creates vision encoder samples and decoder prefill/decode samples under `./calibration_data`.
+The script creates vision encoder samples and decoder prefill/decode samples under `./calibration_data/static`.
 The default batch size is 4 on `cuda:0`.
 Adjust `--batch-size` for the available GPU memory, and use `--device` to select another GPU.
 
 ```text
 calibration_data/
-├── vision/
-│   └── npy_files.txt
-├── prefill/
-│   └── npy_files.json
-├── decode/
-│   └── npy_files.json
-└── language/
-    └── npy_files.json
+└── static/
+    ├── vision/
+    │   └── npy_files.txt
+    ├── prefill/
+    │   └── npy_files.json
+    ├── decode/
+    │   └── npy_files.json
+    └── language/
+        └── npy_files.json
 ```
 
 Each vision sample contains `images.npy` with shape `[1024, 64, 6]`.
@@ -77,13 +79,15 @@ For dynamic vision, add `--dynamic` to switch every sample writer:
 python generate_calibration_data.py --batch-size 4 --dynamic
 ```
 
+The dynamic samples are written under `./calibration_data/dynamic`.
 Vision samples become 3-input (folded pixel values `[1, 1, N, 1536]`, `pos_embeds` `[1, 1, N, 1024]`, packed rope `[1, 1, N, 128]`) with `npy_files.json` marking the N axis dynamic.
 Decoder samples add a `cos.npy` `[1, T, 256]` rope tensor as third input for the runtime rope slot.
 
 The dataset revision, random seed, image order, and prompt order are fixed.
 Repeated runs with the same options, GPU, and software environment produce identical calibration files.
 Only generations that reach EOS are included.
-If `./calibration_data` already exists, pass `--force` to replace it.
+If the selected mode directory already exists, pass `--force` to replace that mode's calibration data.
+Static and dynamic calibration data can coexist.
 
 ## 3. Compile MXQ Models
 
@@ -162,6 +166,44 @@ python prepare_model.py --target-device aries-rb --dynamic
 ```
 
 This picks up the `_dynamic` MXQ pair, additionally bundles `visual.pos_embed.weight` into `model.safetensors` (only the dynamic runtime path allocates that submodule), sets top-level `dynamic_vision=true` in `config.json`, and writes to `./prepared/<target-device>/Qwen3-VL-2B-Instruct-dynamic`.
+
+## Output Layout
+
+After preparing both static and dynamic ARIES builds, the generated files are laid out by mode:
+
+```text
+images/
+├── static/
+└── dynamic/
+
+calibration_data/
+├── static/
+│   ├── vision/
+│   ├── prefill/
+│   ├── decode/
+│   └── language/
+└── dynamic/
+    ├── vision/
+    ├── prefill/
+    ├── decode/
+    └── language/
+
+mblt/aries-rb/
+├── Qwen_Qwen3-VL-2B-Instruct_decoder.mblt
+├── Qwen_Qwen3-VL-2B-Instruct_encoder.mblt
+├── Qwen_Qwen3-VL-2B-Instruct_decoder_dynamic.mblt
+└── Qwen_Qwen3-VL-2B-Instruct_encoder_dynamic.mblt
+
+mxq/aries-rb/
+├── Qwen3-VL-2B-Instruct_decoder.mxq
+├── Qwen3-VL-2B-Instruct_encoder.mxq
+├── Qwen3-VL-2B-Instruct_decoder_dynamic.mxq
+└── Qwen3-VL-2B-Instruct_encoder_dynamic.mxq
+
+prepared/aries-rb/
+├── Qwen3-VL-2B-Instruct/
+└── Qwen3-VL-2B-Instruct-dynamic/
+```
 
 ## Other Model Sizes
 

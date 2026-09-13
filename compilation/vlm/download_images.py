@@ -12,7 +12,7 @@ DATASET_REVISION = "cf0b22332314a937e9dc8a1957b21725430bb41d"
 if __name__ == "__main__":
     parser = ArgumentParser(description="Download COCO validation images for VLM calibration")
     parser.add_argument("-n", "--num-images", type=int, default=300)
-    parser.add_argument("--output-dir", type=Path, default=Path("images"))
+    parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--size", type=int, default=224)
     parser.add_argument(
         "--dynamic",
@@ -21,6 +21,8 @@ if __name__ == "__main__":
         "sample set spans a range of patch counts N.",
     )
     args = parser.parse_args()
+    if args.output_dir is None:
+        args.output_dir = Path("images") / ("dynamic" if args.dynamic else "static")
     if args.num_images <= 0:
         raise ValueError("--num-images must be positive")
     if args.size <= 0:

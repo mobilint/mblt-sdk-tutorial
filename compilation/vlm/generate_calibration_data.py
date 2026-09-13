@@ -292,8 +292,8 @@ def save_vision_sample_dynamic(
 
 if __name__ == "__main__":
     parser = ArgumentParser(description="Generate Qwen3-VL encoder and decoder calibration data")
-    parser.add_argument("--image-dir", type=Path, default=Path("images"))
-    parser.add_argument("--output-dir", type=Path, default=Path("calibration_data"))
+    parser.add_argument("--image-dir", type=Path)
+    parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--image-size", type=int, nargs=2, default=(224, 224))
     parser.add_argument("--num-samples", type=int, default=300)
     parser.add_argument("--batch-size", type=int, default=4)
@@ -304,6 +304,10 @@ if __name__ == "__main__":
     parser.add_argument("--dynamic", action="store_true")
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
+    if args.image_dir is None:
+        args.image_dir = Path("images") / ("dynamic" if args.dynamic else "static")
+    if args.output_dir is None:
+        args.output_dir = Path("calibration_data") / ("dynamic" if args.dynamic else "static")
     if args.num_samples <= 0:
         raise ValueError("--num-samples must be positive")
     if args.batch_size <= 0:
