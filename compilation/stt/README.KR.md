@@ -10,8 +10,6 @@
 pip install -r requirements.txt
 ```
 
-Whisper parser에는 `transformers==4.50.0`이 필요합니다. `requirements.txt`에 해당 버전이 고정되어 있습니다.
-
 ## 지원 디바이스
 
 | 디바이스 | 지원 여부 |

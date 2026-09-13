@@ -10,8 +10,6 @@ Run all commands from `compilation/stt`.
 pip install -r requirements.txt
 ```
 
-The Whisper parser requires `transformers==4.50.0`. The version is pinned in `requirements.txt`.
-
 ## Supported Devices
 
 | Device | Support |
