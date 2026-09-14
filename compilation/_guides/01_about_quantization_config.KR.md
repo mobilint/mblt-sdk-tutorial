@@ -78,8 +78,8 @@ calibration_config = CalibrationConfig(
 **실제 사용 예시**:
 
 - `image_classification/model_compile.py`
-- `llm/mxq_compile.py`
-- `bert/compile_mxq.py`
+- `llm/compile_model.py`
+- `bert/compile_model.py`
 
 ---
 
@@ -111,8 +111,8 @@ bit_config = BitConfig(
 
 **실제 사용 예시**:
 
-- `llm/mxq_compile.py` - 8bit
-- `llm/mxq_compile_4bit.py` - W4V8
+- `llm/compile_model.py` - 8bit
+- `llm/compile_model_4bit.py` - W4V8
 
 ---
 
@@ -158,7 +158,7 @@ llm_config = LlmConfig(
 
 **실제 사용 예시**:
 
-- `llm/mxq_compile.py` - LLM 컴파일 시 시퀀스/캐시 길이 설정
+- `llm/compile_model.py` - LLM 컴파일 시 시퀀스/캐시 길이 설정
 - `stt/compile_decoder.py` - Whisper decoder (autoregressive 구조이므로 LlmConfig 필요)
 
 ---
@@ -219,7 +219,7 @@ et_config = EquivalentTransformationConfig(
 
 **실제 사용 예시**:
 
-- `llm/mxq_compile_4bit.py` - LLM 4bit SpinQuant 적용
+- `llm/compile_model_4bit.py` - LLM 4bit SpinQuant 적용
 - `vlm/compile_decoder.py` - VLM decoder의 등가 변환
 - `vlm/compile_encoder.py` - VLM encoder에서 R1 회전 행렬 참조 (`HeadOutChRotation`)
 
@@ -278,8 +278,8 @@ VLM의 경우 language 모델 컴파일 시 생성된 R1이 두 곳에서 사용
 
 **실제 사용 예시**:
 
-- `llm/mxq_compile_4bit.py` - LLM 4bit SpinQuant 적용
-- `llm/prepare_models.py` - LLM 회전 임베딩 재사용
+- `llm/compile_model_4bit.py` - LLM 4bit SpinQuant 적용
+- `llm/prepare_model.py` - LLM 회전 임베딩 재사용
 - `vlm/compile_decoder.py` - VLM decoder의 등가 변환
 - `vlm/compile_encoder.py` - VLM encoder에서 R1 회전 행렬 참조
 - `vlm/prepare_model.py` - VLM 텍스트 임베딩 R1 회전 및 런타임 패키징
@@ -316,7 +316,7 @@ sws_config = SearchWeightScaleConfig(
 
 **실제 사용 예시**:
 
-- `llm/mxq_compile_4bit.py`
+- `llm/compile_model_4bit.py`
 
 ---
 

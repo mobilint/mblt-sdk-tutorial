@@ -78,8 +78,8 @@ calibration_config = CalibrationConfig(
 **Usage examples**:
 
 - `image_classification/model_compile.py`
-- `llm/mxq_compile.py`
-- `bert/compile_mxq.py`
+- `llm/compile_model.py`
+- `bert/compile_model.py`
 
 ---
 
@@ -111,8 +111,8 @@ bit_config = BitConfig(
 
 **Usage examples**:
 
-- `llm/mxq_compile.py` - 8bit
-- `llm/mxq_compile_4bit.py` - W4V8
+- `llm/compile_model.py` - 8bit
+- `llm/compile_model_4bit.py` - W4V8
 
 ---
 
@@ -158,7 +158,7 @@ llm_config = LlmConfig(
 
 **Usage examples**:
 
-- `llm/mxq_compile.py` - Sequence/cache length settings for LLM compilation
+- `llm/compile_model.py` - Sequence/cache length settings for LLM compilation
 - `stt/compile_decoder.py` - Whisper decoder (requires LlmConfig due to autoregressive structure)
 
 ---
@@ -219,7 +219,7 @@ et_config = EquivalentTransformationConfig(
 
 **Usage examples**:
 
-- `llm/mxq_compile_4bit.py` - LLM 4bit SpinQuant application
+- `llm/compile_model_4bit.py` - LLM 4bit SpinQuant application
 - `vlm/compile_decoder.py` - VLM decoder equivalent transformation
 - `vlm/compile_encoder.py` - VLM encoder R1 rotation matrix reference (`HeadOutChRotation`)
 
@@ -279,8 +279,8 @@ No separate rotation is applied to vision embeddings.
 
 **Usage examples**:
 
-- `llm/mxq_compile_4bit.py` - LLM 4bit SpinQuant application
-- `llm/prepare_models.py` - LLM rotated embedding reuse
+- `llm/compile_model_4bit.py` - LLM 4bit SpinQuant application
+- `llm/prepare_model.py` - LLM rotated embedding reuse
 - `vlm/compile_decoder.py` - VLM decoder equivalent transformation
 - `vlm/compile_encoder.py` - VLM encoder R1 rotation matrix reference
 - `vlm/prepare_model.py` - VLM text embedding R1 rotation and runtime packaging
@@ -317,7 +317,7 @@ sws_config = SearchWeightScaleConfig(
 
 **Usage examples**:
 
-- `llm/mxq_compile_4bit.py`
+- `llm/compile_model_4bit.py`
 
 ---
 
