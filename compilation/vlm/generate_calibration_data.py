@@ -442,8 +442,13 @@ if __name__ == "__main__":
                 decode_deepstack = np.zeros((3, token_count, hidden_size), dtype=np.float32)
                 decode_dir = directories["decode"] / f"sample_{counts['decode']:03d}"
                 if args.dynamic:
+                    # Generated tokens continue after the highest multimodal prefill position.
+                    decode_start = int(sample_position_ids.max().item()) + 1
                     decode_position_ids = (
-                        torch.arange(token_count, dtype=torch.long).view(1, 1, -1).expand(3, 1, -1).contiguous()
+                        torch.arange(decode_start, decode_start + token_count, dtype=torch.long)
+                        .view(1, 1, -1)
+                        .expand(3, 1, -1)
+                        .contiguous()
                     )
                     decode_embeds_tensor = torch.from_numpy(decode_embeddings).to(model.device)
                     decode_cos = compute_language_rope(rotary_emb, decode_embeds_tensor, decode_position_ids)
