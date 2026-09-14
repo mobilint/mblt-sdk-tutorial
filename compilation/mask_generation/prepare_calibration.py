@@ -10,7 +10,7 @@ from decoder_bindings import (
     read_mblt_input_names,
     resolve_decoder_bindings,
 )
-from sam2_host import build_predictor, prepare_decoder_tensors, preprocess_encoder_input
+from sam2_host import build_predictor, prepare_decoder_tensors, preprocess_encoder_input, resolve_device
 from sav_dataset import build_prompt, detect_layout, iter_frame_samples, iter_mask_samples, video_ids
 
 ENCODER_INPUT_SHAPE = (1, 1024, 1024, 3)
@@ -302,7 +302,8 @@ if __name__ == "__main__":
         (decoder_output_dir / "decoder_calib.json").unlink(missing_ok=True)
         (decoder_output_dir / "decoder_tensor_meta.json").unlink(missing_ok=True)
 
-    predictor = build_predictor(args.model_id, args.torch_device)
+    torch_device = resolve_device(args.torch_device)
+    predictor = build_predictor(args.model_id, torch_device)
     if args.stage in ("encoder", "both"):
         print(f"wrote {generate_encoder_calibration(args, predictor)}")
     if args.stage in ("decoder", "both"):
