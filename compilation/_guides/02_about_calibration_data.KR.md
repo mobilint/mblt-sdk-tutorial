@@ -59,9 +59,9 @@ calibration_data/
 생성 과정:
 
 ```python
-# 1. 임베딩 가중치 로드
-embedding_weight = torch.load("embedding.pt")
-embedding_layer = torch.nn.Embedding.from_pretrained(embedding_weight)
+# 1. 모델의 임베딩 레이어 로드
+model = AutoModelForCausalLM.from_pretrained(model_id)
+embedding_layer = model.get_input_embeddings()
 
 # 2. 텍스트를 토큰화
 token_ids = tokenizer(text, return_tensors="pt")["input_ids"]

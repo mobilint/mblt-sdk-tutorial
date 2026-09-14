@@ -1,0 +1,17 @@
+{
+  "quantization": {
+    "calibration": {
+      "output": 1,
+      "mode": 0
+    }
+  },
+  "resourceManagement": {
+    "useGPUOnlyForCalibration": true,
+    "weightMemory": {
+      "method": 3
+    }
+  },
+  "llm": {
+    "apply": false
+  }
+}
