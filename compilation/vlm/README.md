@@ -71,7 +71,8 @@ calibration_data/
 ```
 
 Each vision sample contains `images.npy` with shape `[1024, 64, 6]`.
-Each decoder sample contains `inputs_embeds.npy` with shape `[1, T, 2048]` and one packed `deepstack_visual_embeds.npy` with shape `[3, T, 2048]`.
+Each decoder sample contains `inputs_embeds.npy` and three separate DeepStack files: `deepstack_0.npy`, `deepstack_1.npy`, and `deepstack_2.npy`.
+Each file has shape `[1, 1, T, 2048]`.
 
 For dynamic vision, add `--dynamic` to switch every sample writer:
 
@@ -81,7 +82,7 @@ python generate_calibration_data.py --batch-size 4 --dynamic
 
 The dynamic samples are written under `./calibration_data/dynamic`.
 Vision samples become 3-input (folded pixel values `[1, 1, N, 1536]`, `pos_embeds` `[1, 1, N, 1024]`, packed rope `[1, 1, N, 128]`) with `npy_files.json` marking the N axis dynamic.
-Decoder samples add a `cos.npy` `[1, T, 256]` rope tensor as third input for the runtime rope slot.
+Decoder samples add a `cos.npy` rope tensor with shape `[1, 1, T, 256]` as the fifth input for the runtime rope slot.
 
 The dataset revision, random seed, image order, and prompt order are fixed.
 Repeated runs with the same options, GPU, and software environment produce identical calibration files.

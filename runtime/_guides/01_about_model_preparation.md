@@ -22,7 +22,7 @@ Tasks performed:
 
 **Usage examples**:
 
-- `compilation/llm/prepare_models.py`
+- `compilation/llm/prepare_model.py`
 - `vlm/prepare_model.py`
 - `stt/prepare_model.py`
 

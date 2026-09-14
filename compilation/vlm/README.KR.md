@@ -72,8 +72,8 @@ calibration_data/
 ```
 
 각 비전 샘플은 `[1024, 64, 6]` 크기의 `images.npy`를 포함합니다.
-각 디코더 샘플은 `[1, T, 2048]` 크기의 `inputs_embeds.npy`를 포함합니다.
-DeepStack 3개는 `[3, T, 2048]` 크기의 `deepstack_visual_embeds.npy` 하나로 묶습니다.
+각 디코더 샘플은 `inputs_embeds.npy`와 분리된 DeepStack 파일 `deepstack_0.npy`, `deepstack_1.npy`, `deepstack_2.npy`를 포함합니다.
+각 파일의 크기는 `[1, 1, T, 2048]`입니다.
 
 Dynamic 비전에서는 `--dynamic`을 붙여 모든 샘플 작성기를 전환합니다.
 
@@ -85,7 +85,7 @@ Dynamic 샘플은 `./calibration_data/dynamic`에 저장됩니다.
 비전 샘플은 3-input이 됩니다.
 입력은 folded pixel values `[1, 1, N, 1536]`, `pos_embeds` `[1, 1, N, 1024]`, packed rope `[1, 1, N, 128]`입니다.
 매니페스트 `npy_files.json`은 N축이 dynamic으로 표시됩니다.
-디코더 샘플에는 런타임 rope 슬롯에 대응하는 `cos.npy` `[1, T, 256]`이 세 번째 입력으로 추가됩니다.
+디코더 샘플에는 런타임 rope 슬롯에 대응하는 `[1, 1, T, 256]` 크기의 `cos.npy`가 다섯 번째 입력으로 추가됩니다.
 
 데이터셋 리비전, 난수 시드, 이미지 순서, 프롬프트 순서를 고정합니다.
 같은 옵션, GPU, 소프트웨어 환경에서 반복 실행하면 동일한 캘리브레이션 파일을 생성합니다.

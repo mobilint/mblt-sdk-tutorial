@@ -53,7 +53,7 @@ calibration_data/
 └── decoder/
     ├── whisper_decoder_calib.json
     └── sample_*/
-        ├── decoder_hidden_states.npy
+        ├── inputs_embeds.npy
         └── encoder_hidden_states.npy
 ```
 
