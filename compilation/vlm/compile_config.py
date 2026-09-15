@@ -1,3 +1,4 @@
+from qbcompiler.artifact.input import read_mblt_graph_info
 from qbcompiler.configs import (
     BitConfig,
     CalibrationConfig,
@@ -8,18 +9,37 @@ from qbcompiler.configs import (
     SearchWeightScaleConfig,
 )
 
-DECODER_16BIT_ACTIVATIONS = [
-    "inputs_embeds/reshape",
-    "deepstack_visual_embeds/reshape/slice",
-    "deepstack_visual_embeds/reshape/slice_0",
-    "deepstack_visual_embeds/reshape/slice_1",
-]
-ENCODER_16BIT_ACTIVATIONS = [
-    "model_merger_fc2_conv_channel_last",
-    "add/reshape_49/reshape/gelu/conv2d",
-    "add/reshape_99/reshape/gelu/conv2d",
-    "add/reshape_149/reshape/gelu/conv2d",
-]
+def get_graph_layer_names(mblt_path: str, boundary: str) -> list[str]:
+    """Return the Input (boundary="inputs") or Output (boundary="outputs") layer names of an MBLT."""
+    layer_type = {"inputs": "Input", "outputs": "Output"}[boundary]
+    _, subgraphs = read_mblt_graph_info(mblt_path)
+    names: list[str] = []
+    for subgraph in subgraphs:
+        producers = {}  # activation id -> boundary layer name
+        for op in subgraph.operators:
+            op_type = getattr(op.layertype, "name", str(op.layertype)).rsplit(".", 1)[-1]
+            if op_type == layer_type:
+                for activation_id in op.options.outputs:
+                    producers[int(activation_id)] = op.name
+        for activation_id in getattr(subgraph, boundary):
+            name = producers.get(int(activation_id))
+            if name is not None and name not in names:
+                names.append(name)
+    if not names:
+        raise RuntimeError(f"no {layer_type} layers found in {mblt_path}")
+    return names
+
+
+def activation_16bit_config(mblt_path: str, boundary: str) -> BitConfig:
+    """Keep the MBLT graph inputs (decoder) or outputs (encoder) in 16-bit.
+
+    Layer names are read from the MBLT because the parser names them per model size
+    and per trace path. The dynamic decoder RoPE input is added later by the quantizer,
+    so it is not part of the MBLT inputs.
+    """
+    return BitConfig(
+        layer_overrides=BitConfig.LayerOverrides(activation_16bits=get_graph_layer_names(mblt_path, boundary)),
+    )
 
 
 def spin_rotation_relpath(target_device: str, model_name: str, dynamic: bool) -> str:
@@ -31,14 +51,13 @@ def _llm_runtime(dynamic: bool) -> LlmConfig.Attributes.Runtime:
     return LlmConfig.Attributes.Runtime(dynamic_rope=dynamic)
 
 
-def decoder_compile_config(target_device: str, dynamic: bool = False) -> dict:
+def decoder_compile_config(target_device: str, mblt_path: str, dynamic: bool = False) -> dict:
+    bit_config = activation_16bit_config(mblt_path, "inputs")
     if target_device == "regulus-rb":
         return {
             "inference_scheme": "single",
             "calibration_config": CalibrationConfig(output=0, mode=0),
-            "bit_config": BitConfig(
-                layer_overrides=BitConfig.LayerOverrides(activation_16bits=DECODER_16BIT_ACTIVATIONS),
-            ),
+            "bit_config": bit_config,
             "resource_management_config": ResourceManagementConfig(
                 weight_dtype="float32",
                 use_gpu_only_for_calibration=True,
@@ -84,9 +103,7 @@ def decoder_compile_config(target_device: str, dynamic: bool = False) -> dict:
         return {
             "inference_scheme": "all",
             "calibration_config": CalibrationConfig(output=0, mode=0),
-            "bit_config": BitConfig(
-                layer_overrides=BitConfig.LayerOverrides(activation_16bits=DECODER_16BIT_ACTIVATIONS),
-            ),
+            "bit_config": bit_config,
             "resource_management_config": ResourceManagementConfig(
                 weight_dtype="float32",
                 use_gpu_only_for_calibration=True,
@@ -126,16 +143,16 @@ def decoder_compile_config(target_device: str, dynamic: bool = False) -> dict:
 def encoder_compile_config(
     target_device: str,
     model_name: str,
+    mblt_path: str,
     dynamic: bool = False,
 ) -> dict:
     rotation_matrix_path = spin_rotation_relpath(target_device, model_name, dynamic)
+    bit_config = activation_16bit_config(mblt_path, "outputs")
     if target_device == "regulus-rb":
         return {
             "inference_scheme": "single",
             "calibration_config": CalibrationConfig(output=0, mode=1),
-            "bit_config": BitConfig(
-                layer_overrides=BitConfig.LayerOverrides(activation_16bits=ENCODER_16BIT_ACTIVATIONS),
-            ),
+            "bit_config": bit_config,
             "resource_management_config": ResourceManagementConfig(
                 weight_dtype="float32",
                 use_gpu_only_for_calibration=True,
@@ -158,9 +175,7 @@ def encoder_compile_config(
         return {
             "inference_scheme": "all",
             "calibration_config": CalibrationConfig(output=0, mode=1),
-            "bit_config": BitConfig(
-                layer_overrides=BitConfig.LayerOverrides(activation_16bits=ENCODER_16BIT_ACTIVATIONS),
-            ),
+            "bit_config": bit_config,
             "resource_management_config": ResourceManagementConfig(
                 weight_dtype="float32",
                 use_gpu_only_for_calibration=True,

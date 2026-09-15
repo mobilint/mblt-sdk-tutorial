@@ -151,7 +151,7 @@ def compile_static(
         save_path=str(mxq_path),
         calib_data_path=str(BASE_DIR / "calibration_data/static/vision/npy_files.txt"),
         device="gpu" if torch_device.type == "cuda" else "cpu",
-        **encoder_compile_config(args.target_device, model_name, dynamic=False),
+        **encoder_compile_config(args.target_device, model_name, str(mblt_path), dynamic=False),
     )
 
 
@@ -198,7 +198,7 @@ def compile_dynamic(
         save_path=str(mxq_path),
         calib_data_path=str(BASE_DIR / "calibration_data/dynamic/vision/npy_files.json"),
         device="gpu" if torch_device.type == "cuda" else "cpu",
-        **encoder_compile_config(args.target_device, model_name, dynamic=True),
+        **encoder_compile_config(args.target_device, model_name, str(mblt_path), dynamic=True),
     )
 
 
