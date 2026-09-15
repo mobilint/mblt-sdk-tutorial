@@ -5,15 +5,19 @@ description: Apply the Mobilint SDK tutorial repository workflow when editing it
 
 # Mobilint SDK Tutorial Skill
 
-Before starting work, read and follow the canonical shared skill guide at
-[`.agents/skill-guide.md`](../../../.agents/skill-guide.md).
+Before starting work, read and follow the canonical shared guide at
+[`.agents/agent-guide.md`](../../../.agents/agent-guide.md). It is the single
+source for both general agent instructions and this skill's workflow.
 
 ## Synchronization Policy
 
-Keep the Codex and Claude agent guides aligned, and keep shared skill guidance
-and its tool-specific entrypoints aligned. A major workflow change requires
-reviewing and updating all applicable shared guidance and entrypoints in the
-same change. Major workflow changes include changes to the repository map,
-tutorial architecture, SDK or tooling setup, validation process, dependency
-expectations, or documentation policy; ordinary tutorial-content edits are not
-major workflow changes.
+`.agents/agent-guide.md` is canonical. `AGENTS.md` is the repository entrypoint
+and `CLAUDE.md` is a symlink to it. This file stays a thin skill entrypoint
+that points at the canonical guide; it keeps its own frontmatter because Claude
+Code skill discovery requires a `name` field.
+
+A major workflow change requires updating the canonical guide and any affected
+entrypoint in the same change. Major workflow changes include changes to the
+repository map, tutorial architecture, SDK or tooling setup, validation
+process, dependency expectations, documentation policy, or this entrypoint
+layout; ordinary tutorial-content edits are not major workflow changes.

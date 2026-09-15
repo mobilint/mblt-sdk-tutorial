@@ -1,0 +1,8 @@
+{
+  "tokens/reshape": "tokens",
+  "add/transpose": "src_plus_pos",
+  "flatten/reshape/transpose": "src",
+  "flatten_1/reshape/transpose": "pos_src",
+  "high_res_features_1/transpose": "hrf1_nhwc",
+  "high_res_features_0/transpose": "hrf0_nhwc"
+}

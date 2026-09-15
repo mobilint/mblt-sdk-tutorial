@@ -134,8 +134,8 @@ When architectural patches (RoPE caching, convolution conversion, etc.) need to 
 This is a low-level API, so rather than using it directly,
 refer to the high-level functions provided in each tutorial.
 
-> Example: `compile_language_model()` in `vlm/mblt_compile_language.py`,
-> `compile_vision_encoder()` in `vlm/mblt_compile_vision.py`
+> Example: the decoder parser in `vlm/compile_decoder.py` and the encoder parser
+> in `vlm/compile_encoder.py`
 > For split compilation of multi-component models, see
 > [Multi-Component Model Guide](./03_about_multi_component.md).
 
@@ -149,7 +149,7 @@ refer to the high-level functions provided in each tutorial.
 | LLM | `torch` | Automatic (inside mxq_compile) | SpinQuant added for 4bit |
 | BERT | `torch` | Automatic (inside mxq_compile) | |
 | STT (Whisper) | `hf` | Explicit (mblt_compile) | encoder/decoder split |
-| VLM (Qwen2-VL) | `torch` | Explicit (ModelParser) | vision/language split |
+| VLM (Qwen3-VL) | `torch` | Explicit (ModelParser) | encoder/decoder split |
 
 ## Related Documents
 

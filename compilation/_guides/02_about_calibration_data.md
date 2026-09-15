@@ -59,9 +59,9 @@ calibration_data/
 Generation process:
 
 ```python
-# 1. Load embedding weights
-embedding_weight = torch.load("embedding.pt")
-embedding_layer = torch.nn.Embedding.from_pretrained(embedding_weight)
+# 1. Load the model's embedding layer
+model = AutoModelForCausalLM.from_pretrained(model_id)
+embedding_layer = model.get_input_embeddings()
 
 # 2. Tokenize text
 token_ids = tokenizer(text, return_tensors="pt")["input_ids"]
