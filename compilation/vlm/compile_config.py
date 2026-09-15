@@ -141,14 +141,6 @@ def encoder_compile_config(
                 use_gpu_only_for_calibration=True,
                 weight_memory=ResourceManagementConfig.WeightMemory(method=1),
             ),
-            "llm_config": LlmConfig(
-                apply=True,
-                attributes=LlmConfig.Attributes(
-                    max_sequence_length=1024,
-                    max_cache_length=1024,
-                    calibration=LlmConfig.Attributes.Calibration(use_full_seq_length=True),
-                ),
-            ),
             "equivalent_transformation_config": EquivalentTransformationConfig(
                 qk=EquivalentTransformationConfig.Qk(apply=True),
                 ud=EquivalentTransformationConfig.Ud(apply=True),
@@ -173,12 +165,6 @@ def encoder_compile_config(
                 weight_dtype="float32",
                 use_gpu_only_for_calibration=True,
                 weight_memory=ResourceManagementConfig.WeightMemory(method=1),
-            ),
-            "llm_config": LlmConfig(
-                apply=True,
-                attributes=LlmConfig.Attributes(
-                    calibration=LlmConfig.Attributes.Calibration(use_full_seq_length=True),
-                ),
             ),
             "equivalent_transformation_config": EquivalentTransformationConfig(
                 qk=EquivalentTransformationConfig.Qk(apply=True),
