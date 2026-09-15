@@ -128,7 +128,7 @@ SpinR1 행렬 경로는 `(target-device, model-name, mode)` 단위로 분리되�
 
 Qwen3-VL 2B 컴파일 설정은 자동으로 적용됩니다.
 ARIES는 static과 dynamic 모두 `inference_scheme="all"`을 사용합니다.
-REGULUS는 `inference_scheme="single"`을 사용하며 최대 시퀀스 길이와 캐시 길이는 1024입니다.
+REGULUS는 `inference_scheme="single"`을 사용하며 최대 시퀀스 길이와 캐시 길이는 4096입니다.
 
 Dynamic 비전에서는 두 스크립트 모두에 `--dynamic`을 넘깁니다 (디코더 먼저).
 

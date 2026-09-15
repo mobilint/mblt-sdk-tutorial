@@ -125,7 +125,7 @@ The SpinR1 matrix path is scoped by `(target-device, model-name, mode)` so multi
 
 The Qwen3-VL 2B compiler configuration is applied automatically.
 ARIES uses `inference_scheme="all"` for both static and dynamic builds.
-REGULUS uses `inference_scheme="single"` with a maximum sequence and cache length of 1024.
+REGULUS uses `inference_scheme="single"` with a maximum sequence and cache length of 4096.
 
 For dynamic vision, pass `--dynamic` to both scripts (decoder first, again):
 

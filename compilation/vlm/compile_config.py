@@ -10,7 +10,9 @@ from qbcompiler.configs import (
 
 DECODER_16BIT_ACTIVATIONS = [
     "inputs_embeds/reshape",
-    "deepstack_visual_embeds_0",
+    "deepstack_visual_embeds/reshape/slice",
+    "deepstack_visual_embeds/reshape/slice_0",
+    "deepstack_visual_embeds/reshape/slice_1",
 ]
 ENCODER_16BIT_ACTIVATIONS = [
     "model_merger_fc2_conv_channel_last",
@@ -45,8 +47,8 @@ def decoder_compile_config(target_device: str, dynamic: bool = False) -> dict:
             "llm_config": LlmConfig(
                 apply=True,
                 attributes=LlmConfig.Attributes(
-                    max_sequence_length=1024,
-                    max_cache_length=1024,
+                    max_sequence_length=4096,
+                    max_cache_length=4096,
                     calibration=LlmConfig.Attributes.Calibration(use_full_seq_length=True),
                     runtime=_llm_runtime(dynamic),
                 ),
