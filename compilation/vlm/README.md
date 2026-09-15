@@ -213,7 +213,7 @@ The default is `Qwen/Qwen3-VL-2B-Instruct`; passing another id like `Qwen/Qwen3-
 The runtime template repo id is derived as `mobilint/<name>` and Mobilint publishes `mobilint/Qwen3-VL-{2B,4B,8B}-Instruct`.
 
 The compiler configuration in `compile_config.py` is configured for 2B.
-Other model sizes require separate compilation and inference validation, including checking the layer names in `ENCODER_16BIT_ACTIVATIONS`.
+Other model sizes require separate compilation and inference validation. The 16-bit activation layers (decoder graph inputs, encoder graph outputs) are read from the MBLT by `compile_config.py`, so they follow the model size automatically.
 
 ## Runtime
 
