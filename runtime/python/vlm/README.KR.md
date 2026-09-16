@@ -1,6 +1,6 @@
 # Vision-Language 모델 런타임
 
-준비된 `Qwen3-VL-2B-Instruct` 모델을 `mblt-model-zoo`로 실행합니다.
+준비된 `Qwen3-VL-4B-Instruct` 모델을 `mblt-model-zoo`로 실행합니다.
 
 ## 사전 준비
 
@@ -12,7 +12,7 @@ pip install -r requirements.txt
 
 ## 추론 실행
 
-기본 명령은 `compilation/vlm/prepared/aries-rb/Qwen3-VL-2B-Instruct`에 준비된 ARIES 모델을 사용합니다.
+기본 명령은 `compilation/vlm/prepared/aries-rb/Qwen3-VL-4B-Instruct`에 준비된 ARIES 모델을 사용합니다.
 
 ```bash
 python inference_mblt_model_zoo.py

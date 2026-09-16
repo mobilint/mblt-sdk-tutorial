@@ -17,7 +17,7 @@ from transformers.models.qwen3_vl.modeling_qwen3_vl import (
 
 from compile_config import encoder_compile_config
 
-DEFAULT_MODEL_ID = "Qwen/Qwen3-VL-2B-Instruct"
+DEFAULT_MODEL_ID = "Qwen/Qwen3-VL-4B-Instruct"
 BASE_DIR = Path(__file__).resolve().parent
 TARGET_DEVICES = ("aries-rb", "regulus-rb")
 

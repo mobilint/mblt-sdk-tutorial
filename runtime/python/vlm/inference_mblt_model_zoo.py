@@ -4,7 +4,7 @@ from pathlib import Path
 from transformers import AutoModelForImageTextToText, AutoProcessor, TextStreamer, pipeline
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_MODEL_FOLDER = REPO_ROOT / "compilation/vlm/prepared/aries-rb/Qwen3-VL-2B-Instruct"
+DEFAULT_MODEL_FOLDER = REPO_ROOT / "compilation/vlm/prepared/aries-rb/Qwen3-VL-4B-Instruct"
 DEFAULT_IMAGE = "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-VL/assets/demo.jpeg"
 
 
@@ -13,7 +13,7 @@ if __name__ == "__main__":
     parser.add_argument("--model-folder", type=Path, default=DEFAULT_MODEL_FOLDER)
     parser.add_argument("--image", default=DEFAULT_IMAGE)
     parser.add_argument("--prompt", default="Describe the environment and context surrounding the main subject.")
-    parser.add_argument("--max-length", type=int, default=512)
+    parser.add_argument("--max-length", type=int, default=2048)
     args = parser.parse_args()
 
     if not args.model_folder.is_dir():

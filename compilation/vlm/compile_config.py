@@ -52,7 +52,19 @@ def _llm_runtime(dynamic: bool) -> LlmConfig.Attributes.Runtime:
 
 
 def decoder_compile_config(target_device: str, mblt_path: str, dynamic: bool = False) -> dict:
-    bit_config = activation_16bit_config(mblt_path, "inputs")
+    bit_config = BitConfig(
+        transformer=BitConfig.Transformer(
+            weight=BitConfig.Transformer.Weight(
+                query=4,
+                key=4,
+                value=8,
+                output=4,
+                ffn=4,
+                head=4,
+            ),
+        ),
+        layer_overrides=BitConfig.LayerOverrides(activation_16bits=get_graph_layer_names(mblt_path, "inputs")),
+    )
     if target_device == "regulus-rb":
         return {
             "inference_scheme": "single",
@@ -82,6 +94,7 @@ def decoder_compile_config(target_device: str, mblt_path: str, dynamic: bool = F
             ),
             "hessian_quant_config": HessianQuantConfig(
                 apply=True,
+                accumulation_device="gpu",
                 attributes=HessianQuantConfig.Attributes(
                     act_order=True,
                     block_size=128,
@@ -124,7 +137,15 @@ def decoder_compile_config(target_device: str, mblt_path: str, dynamic: bool = F
                 spin_r2=EquivalentTransformationConfig.SpinR2(apply=True),
                 optimize_ffn=EquivalentTransformationConfig.OptimizeFfn(apply=True),
             ),
-            "hessian_quant_config": None,
+            "hessian_quant_config": HessianQuantConfig(
+                apply=True,
+                accumulation_device="gpu",
+                attributes=HessianQuantConfig.Attributes(
+                    act_order=True,
+                    block_size=128,
+                    perc_damp=0.01,
+                ),
+            ),
             "search_weight_scale_config": SearchWeightScaleConfig(
                 apply=True,
                 transformer=SearchWeightScaleConfig.Transformer(

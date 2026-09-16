@@ -1,6 +1,6 @@
 # Vision-Language Model Compilation
 
-This tutorial compiles the encoder and decoder of [Qwen3-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct) into MXQ models and prepares one self-contained runtime model directory.
+This tutorial compiles the encoder and decoder of [Qwen3-VL-4B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct) into MXQ models and prepares one self-contained runtime model directory.
 
 Run all commands from `compilation/vlm`.
 
@@ -72,7 +72,7 @@ calibration_data/
 
 Each vision sample contains `images.npy` with shape `[1024, 64, 6]`.
 Each decoder sample contains `inputs_embeds.npy` and three separate DeepStack files: `deepstack_0.npy`, `deepstack_1.npy`, and `deepstack_2.npy`.
-Each file has shape `[1, 1, T, 2048]`.
+Each file has shape `[1, 1, T, 2560]`.
 
 For dynamic vision, add `--dynamic` to switch every sample writer:
 
@@ -113,17 +113,18 @@ Each script creates its target-specific MBLT and then compiles the MXQ model.
 Compiler options for both scripts are defined in `compile_config.py`.
 
 ```text
-mblt/<target-device>/Qwen_Qwen3-VL-2B-Instruct_{decoder,encoder}.mblt
-mxq/<target-device>/Qwen3-VL-2B-Instruct_{decoder,encoder}.mxq
-spinWeight/<target-device>/Qwen3-VL-2B-Instruct/global_rotation.pth
+mblt/<target-device>/Qwen_Qwen3-VL-4B-Instruct_{decoder,encoder}.mblt
+mxq/<target-device>/Qwen3-VL-4B-Instruct_{decoder,encoder}.mxq
+spinWeight/<target-device>/Qwen3-VL-4B-Instruct/global_rotation.pth
 ```
 
 Adding `--dynamic` produces separate MBLT and MXQ files with a `_dynamic` suffix.
-The MXQ filenames are `Qwen3-VL-2B-Instruct_{decoder,encoder}_dynamic.mxq`.
-The SpinR1 matrix is saved to `spinWeight/<target-device>/Qwen3-VL-2B-Instruct-dynamic/global_rotation.pth`.
+The MXQ filenames are `Qwen3-VL-4B-Instruct_{decoder,encoder}_dynamic.mxq`.
+The SpinR1 matrix is saved to `spinWeight/<target-device>/Qwen3-VL-4B-Instruct-dynamic/global_rotation.pth`.
 The SpinR1 matrix path is scoped by `(target-device, model-name, mode)` so multiple `--model-id` targets compiled against the same device do not overwrite each other.
 
-The Qwen3-VL 2B compiler configuration is applied automatically.
+The Qwen3-VL 4B compiler configuration is applied automatically.
+The decoder uses 4-bit weights with 8-bit value projections, Hessian-based weight quantization, and 16-bit activations on its graph inputs.
 ARIES uses `inference_scheme="all"` for both static and dynamic builds.
 REGULUS uses `inference_scheme="single"` with a maximum sequence and cache length of 4096.
 
@@ -157,7 +158,7 @@ python prepare_model.py --target-device regulus-rb
 
 The script downloads the Mobilint runtime files, applies the decoder SpinR1 matrix to the token embedding, copies both MXQ files, and writes the matching runtime configuration.
 
-The output is written to `./prepared/<target-device>/Qwen3-VL-2B-Instruct`.
+The output is written to `./prepared/<target-device>/Qwen3-VL-4B-Instruct`.
 If that directory already exists, pass `--force` to replace it.
 
 For dynamic vision:
@@ -166,7 +167,7 @@ For dynamic vision:
 python prepare_model.py --target-device aries-rb --dynamic
 ```
 
-This picks up the `_dynamic` MXQ pair, additionally bundles `visual.pos_embed.weight` into `model.safetensors` (only the dynamic runtime path allocates that submodule), sets top-level `dynamic_vision=true` in `config.json`, and writes to `./prepared/<target-device>/Qwen3-VL-2B-Instruct-dynamic`.
+This picks up the `_dynamic` MXQ pair, additionally bundles `visual.pos_embed.weight` into `model.safetensors` (only the dynamic runtime path allocates that submodule), sets top-level `dynamic_vision=true` in `config.json`, and writes to `./prepared/<target-device>/Qwen3-VL-4B-Instruct-dynamic`.
 
 ## Output Layout
 
@@ -190,42 +191,42 @@ calibration_data/
     └── language/
 
 mblt/aries-rb/
-├── Qwen_Qwen3-VL-2B-Instruct_decoder.mblt
-├── Qwen_Qwen3-VL-2B-Instruct_encoder.mblt
-├── Qwen_Qwen3-VL-2B-Instruct_decoder_dynamic.mblt
-└── Qwen_Qwen3-VL-2B-Instruct_encoder_dynamic.mblt
+├── Qwen_Qwen3-VL-4B-Instruct_decoder.mblt
+├── Qwen_Qwen3-VL-4B-Instruct_encoder.mblt
+├── Qwen_Qwen3-VL-4B-Instruct_decoder_dynamic.mblt
+└── Qwen_Qwen3-VL-4B-Instruct_encoder_dynamic.mblt
 
 mxq/aries-rb/
-├── Qwen3-VL-2B-Instruct_decoder.mxq
-├── Qwen3-VL-2B-Instruct_encoder.mxq
-├── Qwen3-VL-2B-Instruct_decoder_dynamic.mxq
-└── Qwen3-VL-2B-Instruct_encoder_dynamic.mxq
+├── Qwen3-VL-4B-Instruct_decoder.mxq
+├── Qwen3-VL-4B-Instruct_encoder.mxq
+├── Qwen3-VL-4B-Instruct_decoder_dynamic.mxq
+└── Qwen3-VL-4B-Instruct_encoder_dynamic.mxq
 
 prepared/aries-rb/
-├── Qwen3-VL-2B-Instruct/
-└── Qwen3-VL-2B-Instruct-dynamic/
+├── Qwen3-VL-4B-Instruct/
+└── Qwen3-VL-4B-Instruct-dynamic/
 ```
 
 ## Other Model Sizes
 
 Every compile / calibration / prepare script accepts `--model-id`.
-The default is `Qwen/Qwen3-VL-2B-Instruct`; passing another id like `Qwen/Qwen3-VL-4B-Instruct` or `Qwen/Qwen3-VL-8B-Instruct` runs the same pipeline against that base model.
+The default is `Qwen/Qwen3-VL-4B-Instruct`; passing another id like `Qwen/Qwen3-VL-2B-Instruct` or `Qwen/Qwen3-VL-8B-Instruct` runs the same pipeline against that base model.
 The runtime template repo id is derived as `mobilint/<name>` and Mobilint publishes `mobilint/Qwen3-VL-{2B,4B,8B}-Instruct`.
 
-The compiler configuration in `compile_config.py` is configured for 2B.
+The compiler configuration in `compile_config.py` is configured for 4B.
 Other model sizes require separate compilation and inference validation. The 16-bit activation layers (decoder graph inputs, encoder graph outputs) are read from the MBLT by `compile_config.py`, so they follow the model size automatically.
 
 ## Runtime
 
 Continue with the [Python VLM runtime tutorial](../../runtime/python/vlm/README.md).
-Its default `--model-folder` points at the static 2B prepared folder; for a dynamic build or a non-2B `--model-id`, pass the matching folder explicitly:
+Its default `--model-folder` points at the static 4B prepared folder; for a dynamic build or a non-4B `--model-id`, pass the matching folder explicitly:
 
 ```bash
-# Dynamic 2B
+# Dynamic 4B
 python ../../runtime/python/vlm/inference_mblt_model_zoo.py \
-    --model-folder prepared/aries-rb/Qwen3-VL-2B-Instruct-dynamic
+    --model-folder prepared/aries-rb/Qwen3-VL-4B-Instruct-dynamic
 
-# Static 4B (or 8B): drop the `-dynamic` suffix
+# Static 2B (or 8B): drop the `-dynamic` suffix
 python ../../runtime/python/vlm/inference_mblt_model_zoo.py \
-    --model-folder prepared/aries-rb/Qwen3-VL-4B-Instruct
+    --model-folder prepared/aries-rb/Qwen3-VL-2B-Instruct
 ```

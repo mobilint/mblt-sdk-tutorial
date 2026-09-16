@@ -13,7 +13,7 @@ from safetensors.torch import save_file
 from compile_config import spin_rotation_relpath
 
 BASE_DIR = Path(__file__).resolve().parent
-DEFAULT_BASE_MODEL_ID = "Qwen/Qwen3-VL-2B-Instruct"
+DEFAULT_BASE_MODEL_ID = "Qwen/Qwen3-VL-4B-Instruct"
 EMBEDDING_KEY = "model.language_model.embed_tokens.weight"
 VISION_POS_EMBED_KEY = "model.visual.pos_embed.weight"
 TARGET_DEVICES = ("aries-rb", "regulus-rb")

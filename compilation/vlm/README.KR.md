@@ -1,6 +1,6 @@
 # Vision-Language 모델 컴파일
 
-이 튜토리얼은 [Qwen3-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct)의 인코더와 디코더를 MXQ로 컴파일합니다.
+이 튜토리얼은 [Qwen3-VL-4B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct)의 인코더와 디코더를 MXQ로 컴파일합니다.
 실행에 필요한 파일은 하나의 모델 디렉터리로 준비합니다.
 
 모든 명령은 `compilation/vlm`에서 실행합니다.
@@ -73,7 +73,7 @@ calibration_data/
 
 각 비전 샘플은 `[1024, 64, 6]` 크기의 `images.npy`를 포함합니다.
 각 디코더 샘플은 `inputs_embeds.npy`와 분리된 DeepStack 파일 `deepstack_0.npy`, `deepstack_1.npy`, `deepstack_2.npy`를 포함합니다.
-각 파일의 크기는 `[1, 1, T, 2048]`입니다.
+각 파일의 크기는 `[1, 1, T, 2560]`입니다.
 
 Dynamic 비전에서는 `--dynamic`을 붙여 모든 샘플 작성기를 전환합니다.
 
@@ -116,17 +116,18 @@ python compile_encoder.py --target-device regulus-rb
 두 스크립트의 컴파일 설정은 `compile_config.py`에 정의되어 있습니다.
 
 ```text
-mblt/<target-device>/Qwen_Qwen3-VL-2B-Instruct_{decoder,encoder}.mblt
-mxq/<target-device>/Qwen3-VL-2B-Instruct_{decoder,encoder}.mxq
-spinWeight/<target-device>/Qwen3-VL-2B-Instruct/global_rotation.pth
+mblt/<target-device>/Qwen_Qwen3-VL-4B-Instruct_{decoder,encoder}.mblt
+mxq/<target-device>/Qwen3-VL-4B-Instruct_{decoder,encoder}.mxq
+spinWeight/<target-device>/Qwen3-VL-4B-Instruct/global_rotation.pth
 ```
 
 `--dynamic`을 붙이면 static 산출물 옆에 `_dynamic` 접미사가 붙은 짝이 생성됩니다.
-MXQ 파일 이름은 `Qwen3-VL-2B-Instruct_{decoder,encoder}_dynamic.mxq`입니다.
-SpinR1 행렬은 `spinWeight/<target-device>/Qwen3-VL-2B-Instruct-dynamic/global_rotation.pth`에 저장됩니다.
+MXQ 파일 이름은 `Qwen3-VL-4B-Instruct_{decoder,encoder}_dynamic.mxq`입니다.
+SpinR1 행렬은 `spinWeight/<target-device>/Qwen3-VL-4B-Instruct-dynamic/global_rotation.pth`에 저장됩니다.
 SpinR1 행렬 경로는 `(target-device, model-name, mode)` 단위로 분리되므로 같은 디바이스에서 여러 `--model-id`를 컴파일해도 서로 덮어쓰지 않습니다.
 
-Qwen3-VL 2B 컴파일 설정은 자동으로 적용됩니다.
+Qwen3-VL 4B 컴파일 설정은 자동으로 적용됩니다.
+디코더는 4-bit weight(value projection 은 8-bit), Hessian 기반 weight 양자화, graph 입력 16-bit activation 을 사용합니다.
 ARIES는 static과 dynamic 모두 `inference_scheme="all"`을 사용합니다.
 REGULUS는 `inference_scheme="single"`을 사용하며 최대 시퀀스 길이와 캐시 길이는 4096입니다.
 
@@ -160,7 +161,7 @@ python prepare_model.py --target-device regulus-rb
 
 Mobilint 런타임 파일을 내려받고, 디코더 SpinR1 행렬을 토큰 임베딩에 적용하고, 두 MXQ와 디바이스 설정을 하나의 폴더에 구성합니다.
 
-출력은 `./prepared/<target-device>/Qwen3-VL-2B-Instruct`에 저장됩니다.
+출력은 `./prepared/<target-device>/Qwen3-VL-4B-Instruct`에 저장됩니다.
 해당 디렉터리가 이미 있으면 `--force`를 지정해 교체합니다.
 
 Dynamic 비전은 다음과 같이 준비합니다.
@@ -173,7 +174,7 @@ python prepare_model.py --target-device aries-rb --dynamic
 `visual.pos_embed.weight`는 `model.safetensors`에 추가로 번들링합니다.
 Dynamic 런타임 경로에서만 이 서브모듈을 할당합니다.
 `config.json`의 최상위에는 `dynamic_vision=true`를 씁니다.
-출력은 `./prepared/<target-device>/Qwen3-VL-2B-Instruct-dynamic`에 저장됩니다.
+출력은 `./prepared/<target-device>/Qwen3-VL-4B-Instruct-dynamic`에 저장됩니다.
 
 ## 출력 구조
 
@@ -197,43 +198,43 @@ calibration_data/
     └── language/
 
 mblt/aries-rb/
-├── Qwen_Qwen3-VL-2B-Instruct_decoder.mblt
-├── Qwen_Qwen3-VL-2B-Instruct_encoder.mblt
-├── Qwen_Qwen3-VL-2B-Instruct_decoder_dynamic.mblt
-└── Qwen_Qwen3-VL-2B-Instruct_encoder_dynamic.mblt
+├── Qwen_Qwen3-VL-4B-Instruct_decoder.mblt
+├── Qwen_Qwen3-VL-4B-Instruct_encoder.mblt
+├── Qwen_Qwen3-VL-4B-Instruct_decoder_dynamic.mblt
+└── Qwen_Qwen3-VL-4B-Instruct_encoder_dynamic.mblt
 
 mxq/aries-rb/
-├── Qwen3-VL-2B-Instruct_decoder.mxq
-├── Qwen3-VL-2B-Instruct_encoder.mxq
-├── Qwen3-VL-2B-Instruct_decoder_dynamic.mxq
-└── Qwen3-VL-2B-Instruct_encoder_dynamic.mxq
+├── Qwen3-VL-4B-Instruct_decoder.mxq
+├── Qwen3-VL-4B-Instruct_encoder.mxq
+├── Qwen3-VL-4B-Instruct_decoder_dynamic.mxq
+└── Qwen3-VL-4B-Instruct_encoder_dynamic.mxq
 
 prepared/aries-rb/
-├── Qwen3-VL-2B-Instruct/
-└── Qwen3-VL-2B-Instruct-dynamic/
+├── Qwen3-VL-4B-Instruct/
+└── Qwen3-VL-4B-Instruct-dynamic/
 ```
 
 ## 다른 모델 크기
 
 컴파일 · 캘리브레이션 · 준비 스크립트 모두 `--model-id`를 받습니다.
-기본값은 `Qwen/Qwen3-VL-2B-Instruct`입니다.
-`Qwen/Qwen3-VL-4B-Instruct`나 `Qwen/Qwen3-VL-8B-Instruct` 같은 다른 id도 같은 파이프라인에서 사용할 수 있습니다.
+기본값은 `Qwen/Qwen3-VL-4B-Instruct`입니다.
+`Qwen/Qwen3-VL-2B-Instruct`나 `Qwen/Qwen3-VL-8B-Instruct` 같은 다른 id도 같은 파이프라인에서 사용할 수 있습니다.
 런타임 템플릿 레포지토리 id는 `mobilint/<name>`으로 유도되며 Mobilint가 `mobilint/Qwen3-VL-{2B,4B,8B}-Instruct`를 공개합니다.
 
-`compile_config.py`의 컴파일 설정은 2B 기준으로 조정되어 있습니다.
+`compile_config.py`의 컴파일 설정은 4B 기준으로 조정되어 있습니다.
 다른 모델 크기는 컴파일과 추론을 별도로 검증해야 합니다. 16-bit activation 레이어(decoder graph 입력, encoder graph 출력)는 `compile_config.py`가 MBLT에서 읽으므로 모델 크기에 따라 자동으로 정해집니다.
 
 ## 런타임
 
 [Python VLM 런타임 튜토리얼](../../runtime/python/vlm/README.KR.md)을 이어서 진행합니다.
-런타임 스크립트의 기본 `--model-folder`는 static 2B 준비 폴더를 가리키므로, dynamic 빌드나 2B가 아닌 `--model-id`를 사용했다면 실제 폴더 경로를 명시적으로 넘기십시오.
+런타임 스크립트의 기본 `--model-folder`는 static 4B 준비 폴더를 가리키므로, dynamic 빌드나 4B가 아닌 `--model-id`를 사용했다면 실제 폴더 경로를 명시적으로 넘기십시오.
 
 ```bash
-# Dynamic 2B
+# Dynamic 4B
 python ../../runtime/python/vlm/inference_mblt_model_zoo.py \
-    --model-folder prepared/aries-rb/Qwen3-VL-2B-Instruct-dynamic
+    --model-folder prepared/aries-rb/Qwen3-VL-4B-Instruct-dynamic
 
-# Static 4B (또는 8B): `-dynamic` 접미사 제거
+# Static 2B (또는 8B): `-dynamic` 접미사 제거
 python ../../runtime/python/vlm/inference_mblt_model_zoo.py \
-    --model-folder prepared/aries-rb/Qwen3-VL-4B-Instruct
+    --model-folder prepared/aries-rb/Qwen3-VL-2B-Instruct
 ```

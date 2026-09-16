@@ -13,7 +13,7 @@ from qbcompiler.model_dict.parser.backend.torch.input_capture import (
 from qbcompiler.model_dict.parser.patcher.parts import load_for_part, prepare_part
 from transformers import AutoProcessor
 
-DEFAULT_MODEL_ID = "Qwen/Qwen3-VL-2B-Instruct"
+DEFAULT_MODEL_ID = "Qwen/Qwen3-VL-4B-Instruct"
 BASE_DIR = Path(__file__).resolve().parent
 TARGET_DEVICES = ("aries-rb", "regulus-rb")
 LANGUAGE_DYNAMIC_AXES = {

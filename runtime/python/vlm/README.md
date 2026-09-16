@@ -1,6 +1,6 @@
 # Vision-Language Model Runtime
 
-This tutorial runs the prepared `Qwen3-VL-2B-Instruct` model with `mblt-model-zoo`.
+This tutorial runs the prepared `Qwen3-VL-4B-Instruct` model with `mblt-model-zoo`.
 
 ## Prerequisites
 
@@ -12,7 +12,7 @@ First complete the [VLM compilation tutorial](../../../compilation/vlm/README.md
 
 ## Run Inference
 
-The default command uses the ARIES model prepared at `compilation/vlm/prepared/aries-rb/Qwen3-VL-2B-Instruct`.
+The default command uses the ARIES model prepared at `compilation/vlm/prepared/aries-rb/Qwen3-VL-4B-Instruct`.
 
 ```bash
 python inference_mblt_model_zoo.py

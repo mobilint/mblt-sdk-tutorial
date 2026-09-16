@@ -18,7 +18,7 @@ from transformers.models.qwen3_vl.modeling_qwen3_vl import (
     get_vision_position_ids,
 )
 
-DEFAULT_MODEL_ID = "Qwen/Qwen3-VL-2B-Instruct"
+DEFAULT_MODEL_ID = "Qwen/Qwen3-VL-4B-Instruct"
 SEED = 42
 PROMPTS = (
     "Describe this image.",
