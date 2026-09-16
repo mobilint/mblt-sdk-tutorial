@@ -112,7 +112,7 @@ if __name__ == "__main__":
             BASE_DIR / "calibration_data" / ("dynamic" if args.dynamic else "static") / "language/npy_files.json"
         ),
         device="gpu" if torch_device.type == "cuda" else "cpu",
-        **decoder_compile_config(args.target_device, dynamic=args.dynamic),
+        **decoder_compile_config(args.target_device, str(mblt_path), dynamic=args.dynamic),
     )
 
     rotation_path.parent.mkdir(parents=True, exist_ok=True)

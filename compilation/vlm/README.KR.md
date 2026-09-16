@@ -128,7 +128,7 @@ SpinR1 행렬 경로는 `(target-device, model-name, mode)` 단위로 분리되�
 
 Qwen3-VL 2B 컴파일 설정은 자동으로 적용됩니다.
 ARIES는 static과 dynamic 모두 `inference_scheme="all"`을 사용합니다.
-REGULUS는 `inference_scheme="single"`을 사용하며 최대 시퀀스 길이와 캐시 길이는 1024입니다.
+REGULUS는 `inference_scheme="single"`을 사용하며 최대 시퀀스 길이와 캐시 길이는 4096입니다.
 
 Dynamic 비전에서는 두 스크립트 모두에 `--dynamic`을 넘깁니다 (디코더 먼저).
 
@@ -221,7 +221,7 @@ prepared/aries-rb/
 런타임 템플릿 레포지토리 id는 `mobilint/<name>`으로 유도되며 Mobilint가 `mobilint/Qwen3-VL-{2B,4B,8B}-Instruct`를 공개합니다.
 
 `compile_config.py`의 컴파일 설정은 2B 기준으로 조정되어 있습니다.
-다른 모델 크기는 `ENCODER_16BIT_ACTIVATIONS`의 레이어 이름 확인을 포함해 컴파일과 추론을 별도로 검증해야 합니다.
+다른 모델 크기는 컴파일과 추론을 별도로 검증해야 합니다. 16-bit activation 레이어(decoder graph 입력, encoder graph 출력)는 `compile_config.py`가 MBLT에서 읽으므로 모델 크기에 따라 자동으로 정해집니다.
 
 ## 런타임
 
