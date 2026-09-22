@@ -87,7 +87,7 @@ def decoder_embeddings(model, tokens: torch.Tensor) -> np.ndarray:
     decoder = model.model.decoder
     token_ids = tokens.unsqueeze(0)
     with torch.inference_mode():
-        embeddings = decoder.embed_tokens(token_ids)
+        embeddings = decoder.embed_tokens(token_ids) + decoder.embed_positions(token_ids)
     return embeddings.cpu().numpy().astype(np.float32)
 
 
