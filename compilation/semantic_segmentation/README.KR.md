@@ -116,6 +116,14 @@ python model_compile.py --target-device regulus-rb
 
 > **참고:** YOLO26 semantic-segmentation 모델은 `regulus-ra`를 사용하는 구형 REGULUS 디바이스에서 지원되지 않습니다. `aries-rb` 또는 `regulus-rb`를 사용하세요.
 
+> **참고:** `1024x2048` 입력으로 인해 GPU 컴파일 시 메모리를 많이 사용합니다. 메모리가 약 12 GB인 GPU에서는 기본 설정으로 실행하면 `CUDA out of memory` 오류가 발생할 수 있습니다. PyTorch의 expandable memory segment를 활성화한 뒤 다시 실행하세요.
+>
+> ```bash
+> PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True python model_compile.py --target-device aries-rb
+> ```
+>
+> 그래도 메모리가 부족하다면 `CUDA_VISIBLE_DEVICES=""`로 GPU를 숨겨 `model_compile.py`가 CPU 컴파일로 전환되도록 하세요. 이 경우 컴파일 시간이 더 오래 걸립니다.
+
 명령을 실행하면 다음 파일이 생성됩니다.
 
 - `yolo26m-sem.mxq`: NPU에서 실행할 양자화 모델

@@ -28,7 +28,7 @@ The runtime flow in `inference_mxq.py` performs these steps:
 2. Read an RGB image and apply `768x768` YOLO-style letterbox preprocessing.
 3. Match the HWC or CHW input layout reported by the model.
 4. Run inference on the Mobilint NPU.
-5. Upsample the quarter-resolution MXQ output by 4× to match the ONNX output shape.
+5. Upsample the MXQ output by 4× when it is quarter-resolution, so it matches the ONNX output shape.
 6. Remove letterbox padding and resize the depth map to the source image.
 7. Colorize inverse depth and blend it over the source image.
 
@@ -37,7 +37,7 @@ The compiled MXQ model includes `/255` normalization, so the runtime input remai
 ## Files in This Tutorial
 
 - `inference_mxq.py`: Runs preprocessing, NPU inference, postprocessing, and visualization.
-- `postprocess.py`: Normalizes the MXQ output layout, upsamples it, and restores the source-image shape.
+- `postprocess.py`: Normalizes the MXQ output layout, upsamples it when needed, and restores the source-image shape.
 - `visualize.py`: Converts inverse depth to a JET color map and saves an overlay.
 
 ## Preprocessing
@@ -51,9 +51,9 @@ outputs = model.infer([model_input])
 
 The returned border sizes are passed to postprocessing so the padded regions can be removed accurately.
 
-## Required MXQ Output Upsampling
+## MXQ Output Upsampling
 
-The ONNX model returns a depth tensor with shape `(1, 1, 768, 768)`, while the compiled MXQ model returns `(1, 1, 192, 192)`. Therefore, the MXQ output must be bilinearly upsampled by a factor of four before letterbox restoration:
+The ONNX model returns a depth tensor with shape `(1, 1, 768, 768)`. Depending on the `qbcompiler` version, the compiled MXQ model returns either the same full-resolution `768x768` depth map (for example, with `qbcompiler` 1.3.0 the final `Resize` is compiled into the MXQ) or a quarter-resolution `192x192` depth map. When the output is quarter-resolution, it is bilinearly upsampled by a factor of four before letterbox restoration:
 
 ```python
 depth = F.interpolate(
@@ -64,7 +64,7 @@ depth = F.interpolate(
 )
 ```
 
-After this operation, `postprocess.py` verifies the `768x768` shape, removes the letterbox padding, and resizes the depth map to the original image dimensions.
+A full-resolution output skips this step. `postprocess.py` then verifies the `768x768` shape, removes the letterbox padding, and resizes the depth map to the original image dimensions.
 
 ## Run the Example
 
