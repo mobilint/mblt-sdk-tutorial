@@ -1,4 +1,4 @@
-"""Postprocess the lower-resolution MXQ depth output."""
+"""Postprocess the MXQ depth output."""
 
 from collections.abc import Sequence
 
@@ -44,13 +44,18 @@ def postprocess_depth(
 
     depth = _to_bchw(outputs[0])
 
-    # The MXQ graph returns a quarter-resolution depth map. Restore the
-    # 768x768 ONNX output shape before undoing letterbox preprocessing.
-    depth = F.interpolate(depth, scale_factor=4.0, mode="bilinear", align_corners=False)
-    if depth.shape[-2:] != (input_height, input_width):
+    # Depending on the qbcompiler version, the MXQ graph returns either the
+    # full-resolution 768x768 depth map (the final Resize is compiled into the
+    # MXQ) or a quarter-resolution 192x192 map. Restore the 768x768 ONNX output
+    # shape before undoing letterbox preprocessing.
+    output_shape = tuple(depth.shape[-2:])
+    if output_shape == (input_height // 4, input_width // 4):
+        depth = F.interpolate(depth, scale_factor=4.0, mode="bilinear", align_corners=False)
+    elif output_shape != (input_height, input_width):
         raise ValueError(
-            "The 4x MXQ depth output does not match the ONNX output shape: "
-            f"got {tuple(depth.shape[-2:])}, expected {(input_height, input_width)}"
+            "The MXQ depth output must match the model input shape or a quarter of it: "
+            f"got {output_shape}, expected {(input_height, input_width)} "
+            f"or {(input_height // 4, input_width // 4)}"
         )
 
     top, bottom, left, right = letterbox_borders

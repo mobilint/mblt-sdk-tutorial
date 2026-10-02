@@ -6,9 +6,9 @@
 
 #include "preprocessor.h"
 
-// Performs the C++ equivalent of:
-// F.interpolate(depth, scale_factor=4.0, mode="bilinear", align_corners=False)
-// and then removes letterbox padding and restores the source-image shape.
+// Restores the ONNX output shape (for a quarter-resolution MXQ output, the C++ equivalent of
+// F.interpolate(depth, scale_factor=4.0, mode="bilinear", align_corners=False)),
+// then removes letterbox padding and restores the source-image shape.
 cv::Mat postprocess_depth(const mobilint::NDArray<float>& output, const LetterboxInfo& letterbox,
                           cv::Size original_size);
 

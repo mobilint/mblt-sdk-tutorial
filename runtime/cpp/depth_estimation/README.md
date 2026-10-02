@@ -31,7 +31,7 @@ The runtime flow in `infer_depth.cc` performs these steps:
 2. Read the input image and apply `768x768` YOLO-style letterbox preprocessing.
 3. Pack a `uint8` RGB tensor in the HWC or CHW layout reported by the model.
 4. Run inference on the Mobilint NPU.
-5. Upsample the quarter-resolution MXQ depth output by 4×.
+5. Upsample the MXQ depth output by 4× when it is quarter-resolution.
 6. Remove letterbox padding and resize the depth map to the source image.
 7. Colorize inverse depth and blend it over the source image.
 
@@ -44,9 +44,9 @@ The compilation tutorial fuses `/255` normalization into the MXQ model with `Uin
 - `utils/postprocess/`: Restores the ONNX output shape, removes padding, and visualizes depth.
 - `CMakeLists.txt`: Builds the `infer-depth` executable.
 
-## Required MXQ Output Upsampling
+## MXQ Output Upsampling
 
-The ONNX model returns `(1, 1, 768, 768)`, while the MXQ runtime returns a quarter-resolution `(1, 192, 192)` tensor. The C++ postprocessor performs the equivalent of:
+The ONNX model returns `(1, 1, 768, 768)`. Depending on the `qbcompiler` version, the MXQ runtime returns either the same full-resolution `768x768` depth map (for example, with `qbcompiler` 1.3.0 the final `Resize` is compiled into the MXQ) or a quarter-resolution `(1, 192, 192)` tensor. For a quarter-resolution output, the C++ postprocessor performs the equivalent of:
 
 ```python
 F.interpolate(
@@ -57,7 +57,7 @@ F.interpolate(
 )
 ```
 
-It uses OpenCV linear interpolation to resize `192x192` to `768x768`. OpenCV's half-pixel linear sampling matches PyTorch bilinear interpolation with `align_corners=False`. The program validates the 4× relationship before continuing.
+It uses OpenCV linear interpolation to resize `192x192` to `768x768`. OpenCV's half-pixel linear sampling matches PyTorch bilinear interpolation with `align_corners=False`. The program accepts only a full-resolution or an exact quarter-resolution output; a full-resolution output is used as is.
 
 After upsampling, the postprocessor removes the exact letterbox borders and restores the original image dimensions.
 

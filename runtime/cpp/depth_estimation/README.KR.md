@@ -31,7 +31,7 @@ REGULUS 크로스 컴파일에서는 [C++ 런타임 가이드](../README.KR.md)�
 2. 입력 이미지를 읽고 `768x768` YOLO 방식 letterbox 전처리를 적용합니다.
 3. 모델이 알려주는 HWC 또는 CHW 레이아웃에 맞춰 `uint8` RGB tensor를 구성합니다.
 4. Mobilint NPU에서 추론을 실행합니다.
-5. 1/4 크기의 MXQ depth 출력을 4배 upsampling합니다.
+5. MXQ depth 출력이 1/4 크기라면 4배 upsampling합니다.
 6. Letterbox 패딩을 제거하고 depth map을 원본 이미지 크기로 조정합니다.
 7. Inverse depth를 컬러로 변환해 원본 이미지 위에 합성합니다.
 
@@ -44,9 +44,9 @@ REGULUS 크로스 컴파일에서는 [C++ 런타임 가이드](../README.KR.md)�
 - `utils/postprocess/`: ONNX 출력 shape 복원, 패딩 제거, depth 시각화를 처리합니다.
 - `CMakeLists.txt`: `infer-depth` 실행 파일을 빌드합니다.
 
-## 필수 MXQ 출력 Upsampling
+## MXQ 출력 Upsampling
 
-ONNX 모델은 `(1, 1, 768, 768)`을 출력하지만, MXQ 런타임은 1/4 크기인 `(1, 192, 192)` tensor를 반환합니다. C++ 후처리는 다음 Python 코드와 같은 연산을 수행합니다.
+ONNX 모델은 `(1, 1, 768, 768)`을 출력합니다. `qbcompiler` 버전에 따라 MXQ 런타임은 동일한 `768x768` 크기의 depth map을 반환하거나(예: `qbcompiler` 1.3.0에서는 마지막 `Resize`가 MXQ에 포함됨), 1/4 크기인 `(1, 192, 192)` tensor를 반환합니다. 출력이 1/4 크기라면 C++ 후처리는 다음 Python 코드와 같은 연산을 수행합니다.
 
 ```python
 F.interpolate(
@@ -57,7 +57,7 @@ F.interpolate(
 )
 ```
 
-OpenCV linear interpolation으로 `192x192` 출력을 `768x768`로 조정합니다. OpenCV의 half-pixel linear sampling은 PyTorch bilinear interpolation의 `align_corners=False`와 같습니다. 프로그램은 후처리를 계속하기 전에 출력 크기가 정확히 4배 관계인지 확인합니다.
+OpenCV linear interpolation으로 `192x192` 출력을 `768x768`로 조정합니다. OpenCV의 half-pixel linear sampling은 PyTorch bilinear interpolation의 `align_corners=False`와 같습니다. 프로그램은 원본 크기 출력 또는 정확히 1/4 크기인 출력만 허용하며, 원본 크기 출력은 그대로 사용합니다.
 
 Upsampling이 끝나면 정확한 letterbox 패딩 영역을 제거하고 depth map을 원본 이미지 크기로 복원합니다.
 
