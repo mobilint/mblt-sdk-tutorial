@@ -9,8 +9,8 @@ from pathlib import Path
 import numpy as np
 import torch
 from PIL import Image
-from qbcompiler.model_dict_legacy.parser.backend.fx_hf_extensions.transformers.models.qwen3vl import (
-    repreprocess_pixel_values,
+from qbcompiler.model_dict.parser.patcher.models.hf_models.qwen3vl import (
+    fold_pixel_values,
 )
 from transformers import AutoProcessor, Qwen3VLForConditionalGeneration
 from transformers.models.qwen3_vl.modeling_qwen3_vl import (
@@ -75,11 +75,6 @@ def pack_rotate_tensor(cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
     out[..., dim : 2 * dim : 2] = sin[..., half:dim]
     out[..., dim + 1 : 2 * dim : 2] = cos[..., half:dim]
     return out
-
-
-def fold_pixel_values(pixel_values: torch.Tensor) -> torch.Tensor:
-    n, fold_in = pixel_values.shape
-    return pixel_values.transpose(0, 1).reshape(1, fold_in, 1, n).contiguous()
 
 
 def compute_vision_side_inputs(visual, grid_thw: torch.Tensor):
@@ -247,7 +242,8 @@ def save_vision_sample_static(
     pixel_values: torch.Tensor,
     grid_thw: torch.Tensor,
 ) -> Path:
-    images = repreprocess_pixel_values(pixel_values.float(), grid_thw)
+    del grid_thw
+    images = fold_pixel_values(pixel_values.float())
     image_array = images.squeeze(0).permute(1, 2, 0).cpu().numpy()
     vision_dir.mkdir()
     path = vision_dir / "images.npy"

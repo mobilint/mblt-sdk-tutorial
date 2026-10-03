@@ -60,7 +60,6 @@ def decoder_compile_config(target_device: str, mblt_path: str, dynamic: bool = F
             "bit_config": bit_config,
             "resource_management_config": ResourceManagementConfig(
                 weight_dtype="float32",
-                use_gpu_only_for_calibration=True,
                 weight_memory=ResourceManagementConfig.WeightMemory(method=1),
             ),
             "llm_config": LlmConfig(
@@ -106,7 +105,6 @@ def decoder_compile_config(target_device: str, mblt_path: str, dynamic: bool = F
             "bit_config": bit_config,
             "resource_management_config": ResourceManagementConfig(
                 weight_dtype="float32",
-                use_gpu_only_for_calibration=True,
                 weight_memory=ResourceManagementConfig.WeightMemory(method=1),
             ),
             "llm_config": LlmConfig(
@@ -155,7 +153,6 @@ def encoder_compile_config(
             "bit_config": bit_config,
             "resource_management_config": ResourceManagementConfig(
                 weight_dtype="float32",
-                use_gpu_only_for_calibration=True,
                 weight_memory=ResourceManagementConfig.WeightMemory(method=1),
             ),
             "equivalent_transformation_config": EquivalentTransformationConfig(
@@ -178,7 +175,6 @@ def encoder_compile_config(
             "bit_config": bit_config,
             "resource_management_config": ResourceManagementConfig(
                 weight_dtype="float32",
-                use_gpu_only_for_calibration=True,
                 weight_memory=ResourceManagementConfig.WeightMemory(method=1),
             ),
             "equivalent_transformation_config": EquivalentTransformationConfig(

@@ -81,15 +81,33 @@ if __name__ == "__main__":
     processor = AutoProcessor.from_pretrained(args.model_id)
     model = load_for_part(args.model_id, "language", dtype=torch.float32, device=torch_device).eval()
     capture_target = prepare_part(model, "language").eval()
-    with capture_forward_inputs(capture_target, to_cpu=False) as feed_dict:
-        model.generate(**build_inputs(processor, torch_device), max_new_tokens=1, do_sample=False)
-    feed_dict = dict(feed_dict)
-    dynamic_axes = {name: axes for name, axes in LANGUAGE_DYNAMIC_AXES.items() if name in feed_dict}
+    # Static captures prefill only; dynamic also captures the first decode step.
+    capture_calls = 2 if args.dynamic else 1
+    with capture_forward_inputs(
+        capture_target, max_calls=capture_calls, to_cpu=False
+    ) as captured:
+        model.generate(
+            **build_inputs(processor, torch_device),
+            max_new_tokens=capture_calls,
+            min_new_tokens=capture_calls,
+            do_sample=False,
+        )
+    if len(captured.calls) < capture_calls:
+        raise RuntimeError("generate() stopped before the first decode step")
+    part_options = (
+        {"prefill_feed": captured.effective_kwargs_at(0)} if args.dynamic else None
+    )
+    feed_dict = dict(captured)
+    # Token length is dynamic in both modes.
+    dynamic_axes = {
+        name: axes for name, axes in LANGUAGE_DYNAMIC_AXES.items() if name in feed_dict
+    }
 
     mblt_path.parent.mkdir(parents=True, exist_ok=True)
     mblt_compile(
         model=model,
         model_part="language",
+        model_part_options=part_options,
         mblt_save_path=str(mblt_path),
         target_device=args.target_device,
         backend="torch",
@@ -97,7 +115,7 @@ if __name__ == "__main__":
         dynamic_axes=dynamic_axes,
     )
 
-    # Release tracing resources before MXQ compilation to free GPU memory.
+    # Free tracing memory before quantization.
     del feed_dict, capture_target, model, processor
     gc.collect()
     if torch_device.type == "cuda":

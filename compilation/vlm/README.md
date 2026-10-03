@@ -70,7 +70,7 @@ calibration_data/
         └── npy_files.json
 ```
 
-Each vision sample contains `images.npy` with shape `[1024, 64, 6]`.
+Each vision sample contains folded pixel values in `images.npy` with shape `[1, N, 1536]`.
 Each decoder sample contains `inputs_embeds.npy` and three separate DeepStack files: `deepstack_0.npy`, `deepstack_1.npy`, and `deepstack_2.npy`.
 Each file has shape `[1, 1, T, 2048]`.
 

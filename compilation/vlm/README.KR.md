@@ -71,7 +71,7 @@ calibration_data/
         └── npy_files.json
 ```
 
-각 비전 샘플은 `[1024, 64, 6]` 크기의 `images.npy`를 포함합니다.
+각 비전 샘플은 `[1, N, 1536]` 크기로 접힌 픽셀 값 `images.npy`를 포함합니다.
 각 디코더 샘플은 `inputs_embeds.npy`와 분리된 DeepStack 파일 `deepstack_0.npy`, `deepstack_1.npy`, `deepstack_2.npy`를 포함합니다.
 각 파일의 크기는 `[1, 1, T, 2048]`입니다.
 
