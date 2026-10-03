@@ -16,10 +16,13 @@ DEFAULT_MODEL_ID = "Qwen/Qwen3-VL-2B-Instruct"
 BASE_DIR = Path(__file__).resolve().parent
 TARGET_DEVICES = ("aries-rb", "regulus-rb")
 
-# The `vision` part with `side_inputs` traces four graph inputs: the folded pixel
-# values and the host-computed position embeddings, cosine and sine. All four
-# share the patch-count axis N, which is marked dynamic so one MXQ accepts any
-# image size the processor produces.
+# Dynamic (default): the `vision` part with `side_inputs` traces four graph inputs,
+# the folded pixel values and the host-computed position embeddings, cosine and
+# sine. All four share the patch-count axis N, which is marked dynamic so one MXQ
+# accepts any image size the processor produces.
+# Static (`--static`): the `vision` part without side inputs traces the folded
+# pixel values only. The position embeddings and RoPE of the 224x224 trace image
+# are baked into the graph, so the MXQ accepts 224x224 images only.
 VISION_PART_OPTIONS = {"side_inputs": True}
 VISION_DYNAMIC_AXES = {
     "images": [-1],
@@ -68,16 +71,28 @@ if __name__ == "__main__":
     parser.add_argument("--target-device", choices=TARGET_DEVICES, default="aries-rb")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--model-id", default=DEFAULT_MODEL_ID)
+    parser.add_argument(
+        "--static",
+        dest="dynamic",
+        action="store_false",
+        help="Compile the static 224x224 encoder (folded pixel values only) instead of the dynamic one.",
+    )
     args = parser.parse_args()
 
     model_name, compiler_name = resolve_names(args.model_id)
     torch_device = torch.device(args.device)
-    mblt_path = BASE_DIR / "mblt" / args.target_device / f"{compiler_name}_encoder.mblt"
-    mxq_path = BASE_DIR / "mxq" / args.target_device / f"{model_name}_encoder.mxq"
+    suffix = "_encoder" if args.dynamic else "_encoder_static"
+    mblt_path = BASE_DIR / "mblt" / args.target_device / f"{compiler_name}{suffix}.mblt"
+    mxq_path = BASE_DIR / "mxq" / args.target_device / f"{model_name}{suffix}.mxq"
+    if args.dynamic:
+        calib_data_path = BASE_DIR / "calibration_data" / "vision" / "npy_files.json"
+    else:
+        calib_data_path = BASE_DIR / "calibration_data_static" / "vision" / "npy_files.txt"
 
     processor = AutoProcessor.from_pretrained(args.model_id)
     model = load_for_part(args.model_id, "vision", dtype=torch.float32, device=torch_device).eval()
-    # Capture the vision tower's real arguments (pixel values and grid) from one forward pass.
+    # Capture the vision tower's real arguments (pixel values and grid) from one forward pass
+    # over the 224x224 trace image.
     capture_target = prepare_part(model, "vision").eval()
     with capture_forward_inputs(capture_target, to_cpu=False) as feed_dict:
         model.generate(**build_inputs(processor, torch_device), max_new_tokens=1, do_sample=False)
@@ -87,12 +102,12 @@ if __name__ == "__main__":
     mblt_compile(
         model=model,
         model_part="vision",
-        model_part_options=VISION_PART_OPTIONS,
+        model_part_options=VISION_PART_OPTIONS if args.dynamic else None,
         mblt_save_path=str(mblt_path),
         target_device=args.target_device,
         backend="torch",
         feed_dict=feed_dict,
-        dynamic_axes=VISION_DYNAMIC_AXES,
+        dynamic_axes=VISION_DYNAMIC_AXES if args.dynamic else None,
     )
 
     # Release tracing resources before MXQ compilation to free GPU memory.
@@ -106,7 +121,7 @@ if __name__ == "__main__":
         model=str(mblt_path),
         target_device=args.target_device,
         save_path=str(mxq_path),
-        calib_data_path=str(BASE_DIR / "calibration_data/vision/npy_files.json"),
+        calib_data_path=str(calib_data_path),
         device="gpu" if torch_device.type == "cuda" else "cpu",
-        **encoder_compile_config(args.target_device, model_name, str(mblt_path)),
+        **encoder_compile_config(args.target_device, model_name, str(mblt_path), dynamic=args.dynamic),
     )
