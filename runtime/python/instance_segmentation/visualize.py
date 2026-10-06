@@ -104,7 +104,7 @@ def draw_masks(img, masks, colors, alpha=0.3):
 
     img = img.astype(np.float32) / 255
     img = img * inv_alph_masks[-1] + mcs
-    img = (img * 255).astype(np.uint8)
+    img = (np.clip(img, 0, 1) * 255).astype(np.uint8)  # clip so bright pixels do not wrap around in uint8
 
     return img
 
