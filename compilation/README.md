@@ -28,12 +28,19 @@ After preparing the environment, download the latest qbcompiler image from [qbco
 - `{version}-cuda*` for compilation on GPU with CUDA support
 
 Choose the Docker image that matches your environment.
-For example, for version 1.0.1:
+For example, for version 1.3:
 
 ```bash
-docker pull mobilint/qbcompiler:1.0-cpu-ubuntu22.04 # Compilation on CPU
-docker pull mobilint/qbcompiler:1.0-cuda12.8.1-ubuntu22.04 # Compilation on GPU with CUDA support
+docker pull mobilint/qbcompiler:1.3-cpu-ubuntu22.04 # Compilation on CPU
+docker pull mobilint/qbcompiler:1.3-cuda12.8.1-ubuntu22.04 # Compilation on GPU with CUDA support
 ```
+
+The tutorials target qbcompiler 1.4.
+Until a 1.4 image is published, install the qbcompiler 1.4 wheel (see below) in the 1.3 image; a 1.4 image will replace it.
+
+> **Do not upgrade PyTorch in the image.**
+> The compiled extension in the qbcompiler wheel (`mmc`) links against the PyTorch version shipped in the image (2.7.1).
+> If a `pip install` of a tutorial's `requirements.txt` would upgrade `torch`, install `torch==2.7.1` again, or keep it pinned with a constraint file (`pip install -c <file containing torch==2.7.1> ...`).
 
 Then, create a Docker container:
 
@@ -66,7 +73,7 @@ docker run -it --ipc=host \
   --name {your_container_name} \
   --gpus=all \
   --device /dev/aries0:/dev/aries0 \
-  mobilint/qbcompiler:1.0-cuda12.8.1-ubuntu22.04
+  mobilint/qbcompiler:1.3-cuda12.8.1-ubuntu22.04
 ```
 
 Next, visit the [Mobilint Download Center](https://dl.mobilint.com/) to download the latest qbcompiler wheel file.
@@ -86,7 +93,7 @@ docker run -it --ipc=host \
   -v {path_to_local_workspace}:{path_to_container_workspace} \
   --name {your_container_name} \
   --gpus=all \
-  mobilint/qbcompiler:1.0-cuda12.8.1-ubuntu22.04
+  mobilint/qbcompiler:1.3-cuda12.8.1-ubuntu22.04
 ```
 
 Next, visit the [Mobilint Download Center](https://dl.mobilint.com/) to download the latest qbcompiler wheel file.

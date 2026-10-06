@@ -8,7 +8,7 @@ The example uses [YOLO11m-seg](https://docs.ultralytics.com/models/yolo11/), a C
 
 Before you begin, make sure the following are available:
 
-- `qbcompiler` v1.0.0
+- `qbcompiler` v1.4.0
 - A Hugging Face account with access to the gated COCO dataset
 
 Install the required Python packages:

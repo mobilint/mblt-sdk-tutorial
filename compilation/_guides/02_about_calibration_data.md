@@ -152,7 +152,7 @@ mxq_compile(
 | **Sample count** | Typically 100-128. Too few leads to biased distributions; too many increases compile time |
 | **Diversity** | Use diverse samples with distributions similar to actual inference data |
 | **Sequence length** | For LLMs, a minimum sequence length of 512 or more is recommended |
-| **OOM handling** | Reduce calibration sample count or sequence length to resolve memory issues |
+| **OOM handling** | Reduce calibration sample count or sequence length to resolve memory issues. Since qbcompiler 1.4, GPU memory for weight quantization is budgeted automatically; set `ResourceManagementConfig(gpu_memory_budget_mb=...)` (MiB, `-1` auto, `0` unlimited) to change it |
 
 ## Related Documents
 

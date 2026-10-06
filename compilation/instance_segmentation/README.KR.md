@@ -8,7 +8,7 @@
 
 시작하기 전에 다음 항목을 준비하세요:
 
-- `qbcompiler` v1.0.0
+- `qbcompiler` v1.4.0
 - gated COCO 데이터셋에 접근할 수 있는 Hugging Face 계정
 
 필요한 Python 패키지는 다음과 같이 설치합니다:

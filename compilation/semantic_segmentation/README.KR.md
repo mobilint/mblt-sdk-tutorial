@@ -122,6 +122,9 @@ python model_compile.py --target-device regulus-rb
 > PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True python model_compile.py --target-device aries-rb
 > ```
 >
+> qbcompiler 1.4는 weight quantization의 GPU 메모리 사용량도 자동으로 제한하고(`ResourceManagementConfig(gpu_memory_budget_mb=-1)`, 기본값), 복구 가능한 out-of-memory 오류가 나면 더 작은 batch로 재시도합니다.
+> 같은 GPU에서 다른 작업을 함께 돌린다면 `mxq_compile()`에 `resource_management_config=ResourceManagementConfig(gpu_memory_budget_mb=<MiB>)`를 넘겨 예산을 지정하세요.
+>
 > 그래도 메모리가 부족하다면 `CUDA_VISIBLE_DEVICES=""`로 GPU를 숨겨 `model_compile.py`가 CPU 컴파일로 전환되도록 하세요. 이 경우 컴파일 시간이 더 오래 걸립니다.
 
 명령을 실행하면 다음 파일이 생성됩니다.
