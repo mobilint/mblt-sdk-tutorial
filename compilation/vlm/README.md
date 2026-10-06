@@ -18,16 +18,34 @@ pip install -r requirements.txt
 | `regulus-rb` | Supported |
 | `regulus-ra` | Not supported |
 
-## Vision Encoder
+## Vision Modes
 
-The encoder is compiled through qbcompiler's `vision` model part with dynamic side inputs.
-The host computes the vision position embeddings and RoPE for each processed image size and supplies them to the encoder MXQ, so image sizes may vary after processor resizing and the number of image tokens follows the image size.
-The decoder is compiled with a runtime RoPE input (`dynamic_rope`) so it accepts that variable number of image tokens.
+The pipeline builds one of two encoder and decoder pairs.
+Every step below takes the same mode, and the two pairs cannot be mixed.
+
+| | Dynamic (default) | Static (`--static`) |
+| --- | --- | --- |
+| Image size | Any size the processor produces | 224x224 only; the runtime resizes every image |
+| Encoder | `vision` part with `side_inputs`; inputs are folded pixel values `[1, N, 1536]`, position embeddings `[1, N, 1024]`, and packed RoPE `[1, N, 128]` | `vision` part without side inputs; one input, folded pixel values `[1, 256, 1536]` |
+| Decoder | Runtime RoPE input (`dynamic_rope`), traced on the first decode step | RoPE inside the graph, traced on the prefill |
+| Runtime config | `dynamic_vision=true` | `dynamic_vision=false` |
+| Output names | No suffix | `_static` suffix (`-static` for directories) |
+
+The shapes are for the 2B model.
+In both modes the encoder is traced from the qbcompiler 1.4 `vision` model part, and the decoder token length is dynamic.
 
 > **qbcompiler 1.4 or later is required.**
-> The static 224x224 encoder of earlier versions, built with `qbcompiler.model_dict_legacy` and `repreprocess_pixel_values`, has been removed together with the legacy parser.
-> The encoder MXQ now takes three inputs: folded pixel values `[1, N, 1536]`, position embeddings `[1, N, 1024]`, and packed RoPE `[1, N, 128]` for the 2B model.
-> `mblt-model-zoo` 2.11 or later recognizes this encoder from its input shapes.
+> The legacy parser (`qbcompiler.model_dict_legacy`, `repreprocess_pixel_values`) that earlier versions of this tutorial used for the static encoder has been removed.
+> The static encoder now takes the same folded pixel layout as the dynamic one.
+>
+> **Runtime requirements:**
+>
+> - Dynamic: `mblt-model-zoo` 2.11 or later recognizes this encoder from its input shapes.
+> - Static: requires a `transformers-mblt` release that contains the fix for the folded static encoder (PR link: **TBD**).
+>   <!-- TODO: add the transformers-mblt PR link for the folded static-encoder fix. -->
+>   Releases without the fix feed a single-input vision MXQ in the legacy `[1024, 64, 6]` layout, which does not match the 1.4 static encoder.
+
+To build the static pair, pass `--static` to every command in steps 1 through 4.
 
 ## 1. Download Calibration Images
 
@@ -37,6 +55,8 @@ python download_images.py
 
 The script downloads 300 COCO validation images from a fixed dataset revision, converts them to RGB, and saves them under `./images` at their original resolution.
 Keeping the original sizes makes the calibration set span a range of vision patch counts N.
+
+With `--static`, the images are resized to 224x224 (`--size`) and saved under `./images_static`, because the static encoder accepts one image size only.
 
 ## 2. Generate Calibration Data
 
@@ -65,10 +85,14 @@ The `npy_files.json` manifest marks the N axis dynamic.
 Each decoder sample contains `inputs_embeds.npy`, three separate DeepStack files (`deepstack_0.npy`, `deepstack_1.npy`, and `deepstack_2.npy`), and a `cos.npy` RoPE tensor.
 The embedding and DeepStack files have shape `[1, 1, T, 2048]`; `cos.npy` has shape `[1, 1, T, 256]` and feeds the decoder's runtime RoPE input.
 
+With `--static`, the script reads `./images_static`, checks that every image is 224x224 (`--image-size`), and writes to `./calibration_data_static`.
+Each vision sample is then one `images.npy` with the folded pixel values `[1, 256, 1536]`, listed in `vision/npy_files.txt`.
+The decoder samples have no `cos.npy`, because the static decoder keeps RoPE inside the graph.
+
 The dataset revision, random seed, image order, and prompt order are fixed.
 Repeated runs with the same options, GPU, and software environment produce identical calibration files.
 Only generations that reach EOS are included.
-If `./calibration_data` already exists, pass `--force` to replace it.
+If the output directory already exists, pass `--force` to replace it.
 
 ## 3. Compile MXQ Models
 
@@ -89,10 +113,23 @@ python compile_decoder.py --target-device regulus-rb
 python compile_encoder.py --target-device regulus-rb
 ```
 
-Each script loads the model with `load_for_part`, captures the inputs of one forward pass with `capture_forward_inputs`, creates its target-specific MBLT with `mblt_compile(model_part=...)`, and then compiles the MXQ model.
-The decoder uses the `language` part.
-The encoder uses the `vision` part with `model_part_options={"side_inputs": True}`, which makes the position embeddings, cosine, and sine graph inputs next to the folded pixel values, and marks their patch-count axis dynamic.
-Compilation packs cosine and sine into one RoPE input, producing a three-input encoder MXQ.
+For the static pair, add `--static` to both scripts, decoder first again:
+
+```bash
+python compile_decoder.py --target-device aries-rb --static
+python compile_encoder.py --target-device aries-rb --static
+```
+
+Each script loads the model with `load_for_part`, captures the inputs of a short generation with `capture_forward_inputs`, creates its target-specific MBLT with `mblt_compile(model_part=...)`, and then compiles the MXQ model.
+
+- The decoder uses the `language` part.
+  The dynamic decoder is traced on the first decode step, with the prefill call passed as `model_part_options={"prefill_feed": ...}`; the static decoder is traced on the prefill.
+  The token length axis is dynamic in both.
+- The dynamic encoder uses the `vision` part with `model_part_options={"side_inputs": True}`, which makes the position embeddings, cosine, and sine graph inputs next to the folded pixel values, and marks their patch-count axis dynamic.
+  Compilation packs cosine and sine into one RoPE input, producing a three-input encoder MXQ.
+- The static encoder uses the `vision` part without options.
+  The position embeddings and RoPE of the 224x224 trace image stay inside the graph, producing a one-input encoder MXQ.
+
 Compiler options for both scripts are defined in `compile_config.py`.
 
 ```text
@@ -101,7 +138,8 @@ mxq/<target-device>/Qwen3-VL-2B-Instruct_{decoder,encoder}.mxq
 spinWeight/<target-device>/Qwen3-VL-2B-Instruct/global_rotation.pth
 ```
 
-The SpinR1 matrix path is scoped by `(target-device, model-name)` so multiple `--model-id` targets compiled against the same device do not overwrite each other.
+The static build writes `Qwen_Qwen3-VL-2B-Instruct_{decoder,encoder}_static.mblt`, `Qwen3-VL-2B-Instruct_{decoder,encoder}_static.mxq`, and `spinWeight/<target-device>/Qwen3-VL-2B-Instruct-static/global_rotation.pth`, so both builds can coexist.
+The SpinR1 matrix path is scoped by `(target-device, model-name, mode)` so multiple `--model-id` targets compiled against the same device do not overwrite each other.
 
 The Qwen3-VL 2B compiler configuration is applied automatically.
 ARIES uses `inference_scheme="all"`.
@@ -132,12 +170,15 @@ The script downloads the Mobilint runtime files, applies the decoder SpinR1 matr
 The output is written to `./prepared/<target-device>/Qwen3-VL-2B-Instruct`.
 If that directory already exists, pass `--force` to replace it.
 
+With `--static`, the script packages the `_static` MXQ pair, leaves out `visual.pos_embed.weight` (the static encoder has the position embeddings built in), sets `dynamic_vision=false`, and writes to `./prepared/<target-device>/Qwen3-VL-2B-Instruct-static`.
+
 ## Output Layout
 
-After compiling and preparing the ARIES build, the generated files are laid out as follows:
+After compiling and preparing both ARIES builds, the generated files are laid out as follows:
 
 ```text
 images/
+images_static/
 
 calibration_data/
 ├── vision/
@@ -145,19 +186,31 @@ calibration_data/
 ├── decode/
 └── language/
 
+calibration_data_static/
+├── vision/
+├── prefill/
+├── decode/
+└── language/
+
 mblt/aries-rb/
 ├── Qwen_Qwen3-VL-2B-Instruct_decoder.mblt
-└── Qwen_Qwen3-VL-2B-Instruct_encoder.mblt
+├── Qwen_Qwen3-VL-2B-Instruct_encoder.mblt
+├── Qwen_Qwen3-VL-2B-Instruct_decoder_static.mblt
+└── Qwen_Qwen3-VL-2B-Instruct_encoder_static.mblt
 
 mxq/aries-rb/
 ├── Qwen3-VL-2B-Instruct_decoder.mxq
-└── Qwen3-VL-2B-Instruct_encoder.mxq
+├── Qwen3-VL-2B-Instruct_encoder.mxq
+├── Qwen3-VL-2B-Instruct_decoder_static.mxq
+└── Qwen3-VL-2B-Instruct_encoder_static.mxq
 
 spinWeight/aries-rb/
-└── Qwen3-VL-2B-Instruct/
+├── Qwen3-VL-2B-Instruct/
+└── Qwen3-VL-2B-Instruct-static/
 
 prepared/aries-rb/
-└── Qwen3-VL-2B-Instruct/
+├── Qwen3-VL-2B-Instruct/
+└── Qwen3-VL-2B-Instruct-static/
 ```
 
 ## Other Model Sizes
@@ -173,9 +226,14 @@ The 16-bit activation layers (decoder graph inputs, encoder graph outputs) are r
 ## Runtime
 
 Continue with the [Python VLM runtime tutorial](../../runtime/python/vlm/README.md).
-Its default `--model-folder` points at the 2B ARIES prepared folder; for another target device or a non-2B `--model-id`, pass the matching folder explicitly:
+Its default `--model-folder` points at the dynamic 2B ARIES prepared folder; for a static build, another target device, or a non-2B `--model-id`, pass the matching folder explicitly:
 
 ```bash
+# Static 2B (needs the transformers-mblt fix above)
+python ../../runtime/python/vlm/inference_mblt_model_zoo.py \
+    --model-folder prepared/aries-rb/Qwen3-VL-2B-Instruct-static
+
+# Dynamic 4B
 python ../../runtime/python/vlm/inference_mblt_model_zoo.py \
     --model-folder prepared/aries-rb/Qwen3-VL-4B-Instruct
 ```
