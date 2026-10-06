@@ -116,6 +116,14 @@ python model_compile.py --target-device regulus-rb
 
 > **Note:** The YOLO26 semantic-segmentation model is not available for older REGULUS devices that use `regulus-ra`. Use `aries-rb` or `regulus-rb`.
 
+> **Note:** The `1024x2048` input makes GPU compilation memory-intensive. On a GPU with about 12 GB of memory, the default run can fail with `CUDA out of memory`. Enable PyTorch's expandable memory segments and run the command again:
+>
+> ```bash
+> PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True python model_compile.py --target-device aries-rb
+> ```
+>
+> If it still runs out of memory, hide the GPU with `CUDA_VISIBLE_DEVICES=""` so `model_compile.py` falls back to CPU compilation, which is slower.
+
 The command generates:
 
 - `yolo26m-sem.mxq`: quantized NPU model

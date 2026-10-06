@@ -39,8 +39,13 @@ float percentile(const std::vector<float>& sorted, float fraction) {
 cv::Mat postprocess_depth(const mobilint::NDArray<float>& output, const LetterboxInfo& letterbox,
                           cv::Size original_size) {
   const cv::Size raw_size = resolve_depth_size(output.shape());
-  if (raw_size.width * 4 != letterbox.input_width || raw_size.height * 4 != letterbox.input_height) {
-    throw std::invalid_argument("The 4x MXQ depth output does not match the ONNX output shape.");
+  // Depending on the qbcompiler version, the MXQ returns either the full-resolution depth map
+  // (the final Resize is compiled into the MXQ) or a quarter-resolution map that needs 4x upsampling.
+  const bool full_resolution = raw_size.width == letterbox.input_width && raw_size.height == letterbox.input_height;
+  const bool quarter_resolution =
+      raw_size.width * 4 == letterbox.input_width && raw_size.height * 4 == letterbox.input_height;
+  if (!full_resolution && !quarter_resolution) {
+    throw std::invalid_argument("The MXQ depth output must match the model input shape or a quarter of it.");
   }
 
   cv::Mat raw(raw_size.height, raw_size.width, CV_32FC1, const_cast<float*>(output.data()));

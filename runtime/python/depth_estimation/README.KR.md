@@ -28,7 +28,7 @@ NPU 드라이버와 `qbruntime` 설정은 [Python 런타임 가이드](../README
 2. RGB 이미지를 읽고 `768x768` YOLO 방식 letterbox 전처리를 적용합니다.
 3. 모델이 알려주는 HWC 또는 CHW 입력 레이아웃에 맞춥니다.
 4. Mobilint NPU에서 추론을 실행합니다.
-5. ONNX 출력 shape과 맞도록 1/4 크기의 MXQ 출력을 4배 upsampling합니다.
+5. MXQ 출력이 1/4 크기라면 ONNX 출력 shape과 맞도록 4배 upsampling합니다.
 6. Letterbox 패딩을 제거하고 depth map을 원본 이미지 크기로 조정합니다.
 7. Inverse depth를 컬러로 변환해 원본 이미지 위에 합성합니다.
 
@@ -37,7 +37,7 @@ NPU 드라이버와 `qbruntime` 설정은 [Python 런타임 가이드](../README
 ## 이 튜토리얼의 파일
 
 - `inference_mxq.py`: 전처리, NPU 추론, 후처리, 시각화를 실행합니다.
-- `postprocess.py`: MXQ 출력 레이아웃을 정리하고 upsampling한 뒤 원본 이미지 크기로 복원합니다.
+- `postprocess.py`: MXQ 출력 레이아웃을 정리하고 필요한 경우 upsampling한 뒤 원본 이미지 크기로 복원합니다.
 - `visualize.py`: Inverse depth를 JET 컬러맵으로 변환하고 overlay 이미지를 저장합니다.
 
 ## 전처리
@@ -51,9 +51,9 @@ outputs = model.infer([model_input])
 
 반환된 패딩 크기는 후처리 단계로 전달되어 패딩 영역을 정확하게 제거하는 데 사용됩니다.
 
-## 필수 MXQ 출력 Upsampling
+## MXQ 출력 Upsampling
 
-ONNX 모델은 `(1, 1, 768, 768)` shape의 depth tensor를 출력하지만, 컴파일된 MXQ 모델의 출력 shape은 `(1, 1, 192, 192)`입니다. 따라서 letterbox를 복원하기 전에 MXQ 출력을 bilinear 방식으로 4배 upsampling해야 합니다.
+ONNX 모델은 `(1, 1, 768, 768)` shape의 depth tensor를 출력합니다. `qbcompiler` 버전에 따라 컴파일된 MXQ 모델은 동일한 `768x768` 크기의 depth map을 출력하거나(예: `qbcompiler` 1.3.0에서는 마지막 `Resize`가 MXQ에 포함됨), 1/4 크기인 `192x192` depth map을 출력합니다. 출력이 1/4 크기라면 letterbox를 복원하기 전에 bilinear 방식으로 4배 upsampling합니다.
 
 ```python
 depth = F.interpolate(
@@ -64,7 +64,7 @@ depth = F.interpolate(
 )
 ```
 
-이 연산이 끝나면 `postprocess.py`가 출력 shape이 `768x768`인지 확인하고 letterbox 패딩을 제거한 뒤, depth map을 원본 이미지 크기로 조정합니다.
+출력이 이미 원본 크기라면 이 단계는 건너뜁니다. 이후 `postprocess.py`가 출력 shape이 `768x768`인지 확인하고 letterbox 패딩을 제거한 뒤, depth map을 원본 이미지 크기로 조정합니다.
 
 ## 예제 실행
 

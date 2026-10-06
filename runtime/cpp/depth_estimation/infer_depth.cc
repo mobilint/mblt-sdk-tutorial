@@ -1,5 +1,5 @@
 // End-to-end YOLO26 depth inference on a Mobilint NPU.
-// Pipeline: letterbox -> uint8 MXQ inference -> 4x bilinear depth upsampling
+// Pipeline: letterbox -> uint8 MXQ inference -> bilinear depth upsampling (when needed)
 // -> letterbox removal -> source-size restoration -> color visualization.
 
 #include <qbruntime/qbruntime.h>
