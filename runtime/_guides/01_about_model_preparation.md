@@ -86,7 +86,7 @@ When there are multiple sub-models, each sub-model's `mxq_path` and `target_core
 `target_cores` specifies which NPU core(s) the model runs on.
 
 > For detailed explanation of core modes, see
-> [Mobilint Multi-Core Documentation](https://docs.mobilint.com/v1.0/en/multicore.html).
+> [Mobilint Multi-Core Documentation](https://docs.mobilint.com/aries/en/core-mode.html).
 
 ### Core Modes
 

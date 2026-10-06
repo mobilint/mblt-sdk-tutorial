@@ -21,7 +21,7 @@ Install everything yourself on the host:
 
 #### 1. Driver Installation
 
-Start the Mobilint NPU driver to enable device access on the host. See the [Driver Installation Guide](https://docs.mobilint.com/v1.2/en/installing_driver.html).
+Start the Mobilint NPU driver to enable device access on the host. See the [Driver Installation Guide](https://docs.mobilint.com/aries/en/driver-installation.html).
 
 If you run inside Docker, expose the NPU to the container:
 
@@ -31,7 +31,7 @@ If you run inside Docker, expose the NPU to the container:
 
 #### 2. Runtime Library Installation
 
-Install the runtime library in the Python environment ([Runtime Installation Guide](https://docs.mobilint.com/v1.2/en/installing_runtime_library.html)):
+Install the runtime library in the Python environment ([Runtime Installation Guide](https://docs.mobilint.com/runtime/v1.5/en/installing_runtime_library.html)):
 
 ```bash
 pip install mobilint-qb-runtime
@@ -43,7 +43,7 @@ Depending on the model, you may need extra Python packages (e.g., `torch`, `nump
 
 #### 4. Utility Tool (Optional)
 
-Mobilint provides a CLI utility for checking NPU status, verifying MXQ files, and running quick inference. See the [Utility Tool Installation Guide](https://docs.mobilint.com/v1.2/en/installing_utility.html).
+Mobilint provides a CLI utility for checking NPU status, verifying MXQ files, and running quick inference. See the [Utility Tool Installation Guide](https://docs.mobilint.com/runtime/v1.5/en/installing_utility.html).
 
 ### REGULUS (ARM64 target board)
 
