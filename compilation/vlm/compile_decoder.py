@@ -63,20 +63,14 @@ if __name__ == "__main__":
     parser.add_argument("--target-device", choices=TARGET_DEVICES, default="aries-rb")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--model-id", default=DEFAULT_MODEL_ID)
-    parser.add_argument("--dynamic", action="store_true")
     args = parser.parse_args()
 
     model_name, compiler_name = resolve_names(args.model_id)
     torch_device = torch.device(args.device)
-    suffix = "_decoder_dynamic" if args.dynamic else "_decoder"
-    mblt_path = BASE_DIR / "mblt" / args.target_device / f"{compiler_name}{suffix}.mblt"
-    mxq_path = BASE_DIR / "mxq" / args.target_device / f"{model_name}{suffix}.mxq"
-    rotation_path = BASE_DIR / spin_rotation_relpath(
-        args.target_device,
-        model_name,
-        args.dynamic,
-    )
-    generated_rotation_path = BASE_DIR / "spinWeight" / f"{compiler_name}{suffix}" / "R1" / "global_rotation.pth"
+    mblt_path = BASE_DIR / "mblt" / args.target_device / f"{compiler_name}_decoder.mblt"
+    mxq_path = BASE_DIR / "mxq" / args.target_device / f"{model_name}_decoder.mxq"
+    rotation_path = BASE_DIR / spin_rotation_relpath(args.target_device, model_name)
+    generated_rotation_path = BASE_DIR / "spinWeight" / f"{compiler_name}_decoder" / "R1" / "global_rotation.pth"
 
     processor = AutoProcessor.from_pretrained(args.model_id)
     model = load_for_part(args.model_id, "language", dtype=torch.float32, device=torch_device).eval()
@@ -108,11 +102,9 @@ if __name__ == "__main__":
         model=str(mblt_path),
         target_device=args.target_device,
         save_path=str(mxq_path),
-        calib_data_path=str(
-            BASE_DIR / "calibration_data" / ("dynamic" if args.dynamic else "static") / "language/npy_files.json"
-        ),
+        calib_data_path=str(BASE_DIR / "calibration_data/language/npy_files.json"),
         device="gpu" if torch_device.type == "cuda" else "cpu",
-        **decoder_compile_config(args.target_device, str(mblt_path), dynamic=args.dynamic),
+        **decoder_compile_config(args.target_device, str(mblt_path)),
     )
 
     rotation_path.parent.mkdir(parents=True, exist_ok=True)
