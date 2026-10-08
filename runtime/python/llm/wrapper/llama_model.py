@@ -213,14 +213,9 @@ class LlamaMXQ(LlamaPreTrainedModel, GenerationMixin):
         use_cache=True,
         **kwargs,
     ):
-        # If we have cache: let's slice `input_ids` through `cache_position`, to keep only the unprocessed tokens
-        # Exception 1: when passing inputs_embeds, input_ids may be missing entries
-        # Exception 2: some generation methods do special slicing of input_ids, so we don't need to do it here
-        if past_key_values is not None:
-            if inputs_embeds is not None:  # Exception 1
-                input_ids = input_ids[:, -cache_position.shape[0] :]
-            elif input_ids.shape[1] != cache_position.shape[0]:  # Default case (the "else", a no op, is Exception 2)
-                input_ids = input_ids[:, cache_position]
+        # The KV cache lives on the NPU and self.current_cache_position counts the tokens it already holds,
+        # so only the tokens after that position are fed. transformers 5 no longer passes cache_position here.
+        input_ids = input_ids[:, self.current_cache_position :]
 
         if attention_mask is not None and position_ids is None:
             # create position_ids on the fly for batch generation
@@ -233,7 +228,7 @@ class LlamaMXQ(LlamaPreTrainedModel, GenerationMixin):
                 position_ids = position_ids.clone(memory_format=torch.contiguous_format)
 
         # if `inputs_embeds` are passed, we only want to use them in the 1st generation step
-        if inputs_embeds is not None and cache_position[0] == 0:
+        if inputs_embeds is not None and self.current_cache_position == 0:
             model_inputs = {"inputs_embeds": inputs_embeds, "input_ids": None}
         else:
             # The clone here is for the same reason as for `position_ids`.
