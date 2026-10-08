@@ -21,7 +21,7 @@ Python `qbruntime` 라이브러리로 MXQ 모델을 실행한다. ARIES 와 REGU
 
 #### 1. 드라이버 설치
 
-호스트의 Mobilint NPU 드라이버를 시작해 장치 액세스를 활성화한다. 자세한 내용은 [드라이버 설치 가이드](https://docs.mobilint.com/v1.2/en/installing_driver.html) 참고.
+호스트의 Mobilint NPU 드라이버를 시작해 장치 액세스를 활성화한다. 자세한 내용은 [드라이버 설치 가이드](https://docs.mobilint.com/aries/kr/driver-installation.html) 참고.
 
 Docker 환경이면 컨테이너에 NPU 를 노출한다:
 
@@ -31,7 +31,7 @@ Docker 환경이면 컨테이너에 NPU 를 노출한다:
 
 #### 2. 런타임 라이브러리 설치
 
-Python 환경에 `qbruntime` 라이브러리를 설치한다 ([런타임 설치 가이드](https://docs.mobilint.com/v1.2/en/installing_runtime_library.html)):
+Python 환경에 `qbruntime` 라이브러리를 설치한다 ([런타임 설치 가이드](https://docs.mobilint.com/runtime/v1.5/kr/installing_runtime_library.html)):
 
 ```bash
 pip install mobilint-qb-runtime
@@ -43,7 +43,7 @@ pip install mobilint-qb-runtime
 
 #### 4. 유틸리티 도구 (선택)
 
-Mobilint 는 NPU 상태 확인, MXQ 검증, 간단한 추론 실행용 CLI 유틸리티를 제공한다. [유틸리티 도구 설치 가이드](https://docs.mobilint.com/v1.2/en/installing_utility.html) 참고.
+Mobilint 는 NPU 상태 확인, MXQ 검증, 간단한 추론 실행용 CLI 유틸리티를 제공한다. [유틸리티 도구 설치 가이드](https://docs.mobilint.com/runtime/v1.5/kr/installing_utility.html) 참고.
 
 ### REGULUS (ARM64 타겟 보드)
 

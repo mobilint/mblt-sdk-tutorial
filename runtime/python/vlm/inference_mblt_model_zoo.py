@@ -4,6 +4,8 @@ from pathlib import Path
 from transformers import AutoModelForImageTextToText, AutoProcessor, TextStreamer, pipeline
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+# Dynamic build (the default of every compilation step). A static build is prepared
+# under `Qwen3-VL-2B-Instruct-static`; pass it with --model-folder.
 DEFAULT_MODEL_FOLDER = REPO_ROOT / "compilation/vlm/prepared/aries-rb/Qwen3-VL-2B-Instruct"
 DEFAULT_IMAGE = "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-VL/assets/demo.jpeg"
 

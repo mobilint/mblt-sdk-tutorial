@@ -9,8 +9,8 @@ from pathlib import Path
 import numpy as np
 import torch
 from PIL import Image
-from qbcompiler.model_dict_legacy.parser.backend.fx_hf_extensions.transformers.models.qwen3vl import (
-    repreprocess_pixel_values,
+from qbcompiler.model_dict.parser.patcher.models.hf_models.qwen3vl import (
+    fold_pixel_values,
 )
 from transformers import AutoProcessor, Qwen3VLForConditionalGeneration
 from transformers.models.qwen3_vl.modeling_qwen3_vl import (
@@ -33,7 +33,7 @@ PROMPTS = (
     "What small or easily overlooked details can you spot?",
 )
 
-VISION_DYNAMIC_INPUT_NAMES = ["float_1_channel_last", "pos_embeds/reshape", "cos"]
+VISION_INPUT_NAMES = ["float_1_channel_last", "pos_embeds/reshape", "cos"]
 LANGUAGE_INPUT_NAMES = [
     "inputs_embeds/reshape",
     "deepstack_visual_embeds/reshape/slice",
@@ -77,11 +77,6 @@ def pack_rotate_tensor(cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
     return out
 
 
-def fold_pixel_values(pixel_values: torch.Tensor) -> torch.Tensor:
-    n, fold_in = pixel_values.shape
-    return pixel_values.transpose(0, 1).reshape(1, fold_in, 1, n).contiguous()
-
-
 def compute_vision_side_inputs(visual, grid_thw: torch.Tensor):
     indices, weights = get_vision_interpolation_indices_and_weights(
         grid_thw,
@@ -96,21 +91,19 @@ def compute_vision_side_inputs(visual, grid_thw: torch.Tensor):
     return pos_embeds, rotary
 
 
-def save_language_sample_static(sample_dir: Path, inputs_embeds: np.ndarray, deepstack: np.ndarray) -> None:
+def save_language_sample(
+    sample_dir: Path,
+    inputs_embeds: np.ndarray,
+    deepstack: np.ndarray,
+    cos: np.ndarray | None,
+) -> None:
     sample_dir.mkdir(parents=True)
     np.save(sample_dir / "inputs_embeds.npy", inputs_embeds[None])
     for index, layer in enumerate(deepstack):
         np.save(sample_dir / f"deepstack_{index}.npy", layer[None, None])
-
-
-def save_language_sample_dynamic(
-    sample_dir: Path,
-    inputs_embeds: np.ndarray,
-    deepstack: np.ndarray,
-    cos: np.ndarray,
-) -> None:
-    save_language_sample_static(sample_dir, inputs_embeds, deepstack)
-    np.save(sample_dir / "cos.npy", cos[None])
+    # Only the dynamic decoder has the runtime RoPE input.
+    if cos is not None:
+        np.save(sample_dir / "cos.npy", cos[None])
 
 
 def tokens_to_embeddings(token_ids: Sequence[int], embedding_layer, device) -> np.ndarray:
@@ -139,10 +132,10 @@ def compute_language_rope(
     return pack_rotate_tensor(cos, sin).cpu().numpy()
 
 
-def create_language_manifest(stage_dir: Path, hidden_size: int, rope_width: int | None = None) -> None:
+def create_language_manifest(stage_dir: Path, hidden_size: int, rope_width: int | None) -> None:
     input_names = list(LANGUAGE_INPUT_NAMES)
     input_files = list(LANGUAGE_INPUT_FILES)
-    input_shapes = [[1, 1, -1, hidden_size] for _ in input_names]
+    input_shapes = [[1, 1, -1, hidden_size] for _ in LANGUAGE_INPUT_NAMES]
     if rope_width is not None:
         input_names.append("cos")
         input_files.append("cos.npy")
@@ -198,17 +191,16 @@ def generate_batch(
     processor,
     image_paths,
     prompts,
-    image_size,
     max_new_tokens: int,
-    dynamic: bool,
+    image_size: tuple[int, int] | None,
 ):
     images = []
     texts = []
     for image_path, prompt in zip(image_paths, prompts):
         with Image.open(image_path) as source:
             image = source.convert("RGB")
-        if not dynamic and image_size is not None and image.size != image_size:
-            raise ValueError(f"{image_path}: expected image size {image_size}, got {image.size}")
+        if image_size is not None and image.size != image_size:
+            raise ValueError(f"{image_path}: the static encoder needs {image_size} images, got {image.size}")
 
         messages = [
             {
@@ -242,20 +234,16 @@ def generate_batch(
     return inputs, generated, captured
 
 
-def save_vision_sample_static(
-    vision_dir: Path,
-    pixel_values: torch.Tensor,
-    grid_thw: torch.Tensor,
-) -> Path:
-    images = repreprocess_pixel_values(pixel_values.float(), grid_thw)
-    image_array = images.squeeze(0).permute(1, 2, 0).cpu().numpy()
+def save_vision_sample_static(vision_dir: Path, pixel_values: torch.Tensor) -> Path:
+    # [1, fold_in, 1, N] -> [1, N, fold_in]: one HWC sample for the single-input static encoder.
+    images = fold_pixel_values(pixel_values.float()).squeeze(0).permute(1, 2, 0)
     vision_dir.mkdir()
     path = vision_dir / "images.npy"
-    np.save(path, image_array)
+    np.save(path, images.cpu().numpy())
     return path
 
 
-def save_vision_sample_dynamic(
+def save_vision_sample(
     vision_dir: Path,
     pixel_values: torch.Tensor,
     grid_thw: torch.Tensor,
@@ -292,22 +280,37 @@ def save_vision_sample_dynamic(
 
 if __name__ == "__main__":
     parser = ArgumentParser(description="Generate Qwen3-VL encoder and decoder calibration data")
-    parser.add_argument("--image-dir", type=Path)
-    parser.add_argument("--output-dir", type=Path)
-    parser.add_argument("--image-size", type=int, nargs=2, default=(224, 224))
+    parser.add_argument("--image-dir", type=Path, help="Default: images (dynamic) or images_static (--static)")
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        help="Default: calibration_data (dynamic) or calibration_data_static (--static)",
+    )
+    parser.add_argument(
+        "--image-size",
+        type=int,
+        nargs=2,
+        default=(224, 224),
+        help="Image size (width height) the static encoder was traced with; checked with --static",
+    )
     parser.add_argument("--num-samples", type=int, default=300)
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--max-new-tokens", type=int, default=512)
     parser.add_argument("--intermediate-ratios", type=float, nargs="*", default=(0.25, 0.5, 0.75))
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--model-id", default=DEFAULT_MODEL_ID)
-    parser.add_argument("--dynamic", action="store_true")
+    parser.add_argument(
+        "--static",
+        dest="dynamic",
+        action="store_false",
+        help="Write calibration data for the static 224x224 encoder and the decoder without a runtime RoPE input",
+    )
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
     if args.image_dir is None:
-        args.image_dir = Path("images") / ("dynamic" if args.dynamic else "static")
+        args.image_dir = Path("images" if args.dynamic else "images_static")
     if args.output_dir is None:
-        args.output_dir = Path("calibration_data") / ("dynamic" if args.dynamic else "static")
+        args.output_dir = Path("calibration_data" if args.dynamic else "calibration_data_static")
     if args.num_samples <= 0:
         raise ValueError("--num-samples must be positive")
     if args.batch_size <= 0:
@@ -348,9 +351,9 @@ if __name__ == "__main__":
     language_rope_width = 2 * text_head_dim
     counts = {"vision": 0, "prefill": 0, "decode": 0}
     vision_calib_paths: list[list[str]] = []
-    vision_single_paths: list[str] = []
-    visual_module = model.model.visual if args.dynamic else None
-    rotary_emb = model.model.language_model.rotary_emb if args.dynamic else None
+    vision_static_paths: list[str] = []
+    visual_module = model.model.visual
+    rotary_emb = model.model.language_model.rotary_emb
 
     for batch_start in range(0, len(image_files), args.batch_size):
         batch_paths = image_files[batch_start : batch_start + args.batch_size]
@@ -362,9 +365,8 @@ if __name__ == "__main__":
             processor,
             batch_paths,
             batch_prompts,
-            tuple(args.image_size) if args.image_size else None,
             args.max_new_tokens,
-            args.dynamic,
+            None if args.dynamic else tuple(args.image_size),
         )
 
         deepstack = captured.get("deepstack_visual_embeds")
@@ -373,7 +375,7 @@ if __name__ == "__main__":
             raise RuntimeError(f"Expected three DeepStack tensors for {batch_paths[0]}")
         if visual_masks is None:
             raise RuntimeError(f"visual_pos_masks is missing for {batch_paths[0]}")
-        if args.dynamic and captured.get("position_ids") is None:
+        if captured.get("position_ids") is None:
             raise RuntimeError(f"position_ids capture failed for {batch_paths[0]}")
 
         input_width = inputs["input_ids"].shape[1]
@@ -406,11 +408,11 @@ if __name__ == "__main__":
 
             vision_dir = directories["vision"] / f"sample_{counts['vision']:03d}"
             if args.dynamic:
-                paths = save_vision_sample_dynamic(vision_dir, pixel_values, grid_thw, visual_module)
+                paths = save_vision_sample(vision_dir, pixel_values, grid_thw, visual_module)
                 vision_calib_paths.append([str(path.resolve()) for path in paths])
             else:
-                path = save_vision_sample_static(vision_dir, pixel_values, grid_thw)
-                vision_single_paths.append(str(path.resolve()))
+                path = save_vision_sample_static(vision_dir, pixel_values)
+                vision_static_paths.append(str(path.resolve()))
             counts["vision"] += 1
 
             sequence_length = prefill_embeddings.shape[1]
@@ -426,14 +428,13 @@ if __name__ == "__main__":
             prefill_dir = directories["prefill"] / f"sample_{counts['prefill']:03d}"
             prefill_embeds_np = prefill_embeddings.numpy()
             deepstack_np = np.concatenate(deepstack_arrays, axis=0)
-            if args.dynamic:
-                sample_position_ids = captured["position_ids"][:, batch_index : batch_index + 1, real_start:]
-                prefill_cos = compute_language_rope(
-                    rotary_emb, prefill_embeddings.to(model.device), sample_position_ids
-                )
-                save_language_sample_dynamic(prefill_dir, prefill_embeds_np, deepstack_np, prefill_cos)
-            else:
-                save_language_sample_static(prefill_dir, prefill_embeds_np, deepstack_np)
+            sample_position_ids = captured["position_ids"][:, batch_index : batch_index + 1, real_start:]
+            prefill_cos = (
+                compute_language_rope(rotary_emb, prefill_embeddings.to(model.device), sample_position_ids)
+                if args.dynamic
+                else None
+            )
+            save_language_sample(prefill_dir, prefill_embeds_np, deepstack_np, prefill_cos)
             counts["prefill"] += 1
 
             for ratio in ratios:
@@ -441,20 +442,21 @@ if __name__ == "__main__":
                 decode_embeddings = tokens_to_embeddings(decode_ids[:token_count], embedding_layer, model.device)
                 decode_deepstack = np.zeros((3, token_count, hidden_size), dtype=np.float32)
                 decode_dir = directories["decode"] / f"sample_{counts['decode']:03d}"
-                if args.dynamic:
-                    # Generated tokens continue after the highest multimodal prefill position.
-                    decode_start = int(sample_position_ids.max().item()) + 1
-                    decode_position_ids = (
-                        torch.arange(decode_start, decode_start + token_count, dtype=torch.long)
-                        .view(1, 1, -1)
-                        .expand(3, 1, -1)
-                        .contiguous()
-                    )
-                    decode_embeds_tensor = torch.from_numpy(decode_embeddings).to(model.device)
-                    decode_cos = compute_language_rope(rotary_emb, decode_embeds_tensor, decode_position_ids)
-                    save_language_sample_dynamic(decode_dir, decode_embeddings, decode_deepstack, decode_cos)
-                else:
-                    save_language_sample_static(decode_dir, decode_embeddings, decode_deepstack)
+                # Generated tokens continue after the highest multimodal prefill position.
+                decode_start = int(sample_position_ids.max().item()) + 1
+                decode_position_ids = (
+                    torch.arange(decode_start, decode_start + token_count, dtype=torch.long)
+                    .view(1, 1, -1)
+                    .expand(3, 1, -1)
+                    .contiguous()
+                )
+                decode_embeds_tensor = torch.from_numpy(decode_embeddings).to(model.device)
+                decode_cos = (
+                    compute_language_rope(rotary_emb, decode_embeds_tensor, decode_position_ids)
+                    if args.dynamic
+                    else None
+                )
+                save_language_sample(decode_dir, decode_embeddings, decode_deepstack, decode_cos)
                 counts["decode"] += 1
 
         if pixel_offset != inputs["pixel_values"].shape[0]:
@@ -475,7 +477,7 @@ if __name__ == "__main__":
         )
         vision_index = {
             "info": {
-                "input names": VISION_DYNAMIC_INPUT_NAMES,
+                "input names": VISION_INPUT_NAMES,
                 "input shapes": [
                     [1, 1, -1, fold_in],
                     [1, 1, -1, vision_hidden],
@@ -490,9 +492,9 @@ if __name__ == "__main__":
         create_language_manifest(directories["prefill"], hidden_size, language_rope_width)
         create_language_manifest(directories["decode"], hidden_size, language_rope_width)
     else:
-        (directories["vision"] / "npy_files.txt").write_text("\n".join(vision_single_paths) + "\n", encoding="utf-8")
-        create_language_manifest(directories["prefill"], hidden_size)
-        create_language_manifest(directories["decode"], hidden_size)
+        (directories["vision"] / "npy_files.txt").write_text("\n".join(vision_static_paths) + "\n", encoding="utf-8")
+        create_language_manifest(directories["prefill"], hidden_size, None)
+        create_language_manifest(directories["decode"], hidden_size, None)
 
     counts["language"] = merge_language_data(directories["prefill"], directories["decode"], directories["language"])
     print(f"Saved calibration data: {counts}")

@@ -152,7 +152,7 @@ mxq_compile(
 | **샘플 수** | 일반적으로 100~128개. 너무 적으면 분포가 편향되고, 너무 많으면 컴파일 시간 증가 |
 | **다양성** | 실제 추론 데이터와 유사한 분포를 가진 다양한 샘플 사용 |
 | **시퀀스 길이** | LLM의 경우 최소 512 이상의 시퀀스 길이 권장 |
-| **OOM 대응** | calibration 샘플 수를 줄이거나 시퀀스 길이를 줄여 메모리 문제 해결 |
+| **OOM 대응** | calibration 샘플 수를 줄이거나 시퀀스 길이를 줄여 메모리 문제 해결. qbcompiler 1.4부터 weight quantization의 GPU 메모리는 자동으로 예산이 정해지며, `ResourceManagementConfig(gpu_memory_budget_mb=...)`(MiB, `-1` 자동, `0` 제한 없음)로 바꿀 수 있음 |
 
 ## 다음 문서
 

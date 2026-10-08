@@ -63,33 +63,47 @@ if __name__ == "__main__":
     parser.add_argument("--target-device", choices=TARGET_DEVICES, default="aries-rb")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--model-id", default=DEFAULT_MODEL_ID)
-    parser.add_argument("--dynamic", action="store_true")
+    parser.add_argument(
+        "--static",
+        dest="dynamic",
+        action="store_false",
+        help="Compile the decoder that pairs with the static 224x224 encoder (no runtime RoPE input).",
+    )
     args = parser.parse_args()
 
     model_name, compiler_name = resolve_names(args.model_id)
     torch_device = torch.device(args.device)
-    suffix = "_decoder_dynamic" if args.dynamic else "_decoder"
+    suffix = "_decoder" if args.dynamic else "_decoder_static"
     mblt_path = BASE_DIR / "mblt" / args.target_device / f"{compiler_name}{suffix}.mblt"
     mxq_path = BASE_DIR / "mxq" / args.target_device / f"{model_name}{suffix}.mxq"
-    rotation_path = BASE_DIR / spin_rotation_relpath(
-        args.target_device,
-        model_name,
-        args.dynamic,
-    )
+    calib_dir = BASE_DIR / ("calibration_data" if args.dynamic else "calibration_data_static")
+    rotation_path = BASE_DIR / spin_rotation_relpath(args.target_device, model_name, args.dynamic)
     generated_rotation_path = BASE_DIR / "spinWeight" / f"{compiler_name}{suffix}" / "R1" / "global_rotation.pth"
 
     processor = AutoProcessor.from_pretrained(args.model_id)
     model = load_for_part(args.model_id, "language", dtype=torch.float32, device=torch_device).eval()
     capture_target = prepare_part(model, "language").eval()
-    with capture_forward_inputs(capture_target, to_cpu=False) as feed_dict:
-        model.generate(**build_inputs(processor, torch_device), max_new_tokens=1, do_sample=False)
-    feed_dict = dict(feed_dict)
+    # Static captures prefill only; dynamic also captures the first decode step.
+    capture_calls = 2 if args.dynamic else 1
+    with capture_forward_inputs(capture_target, max_calls=capture_calls, to_cpu=False) as captured:
+        model.generate(
+            **build_inputs(processor, torch_device),
+            max_new_tokens=capture_calls,
+            min_new_tokens=capture_calls,
+            do_sample=False,
+        )
+    if len(captured.calls) < capture_calls:
+        raise RuntimeError("generate() stopped before the first decode step")
+    part_options = {"prefill_feed": captured.effective_kwargs_at(0)} if args.dynamic else None
+    feed_dict = dict(captured)
+    # Token length is dynamic in both modes.
     dynamic_axes = {name: axes for name, axes in LANGUAGE_DYNAMIC_AXES.items() if name in feed_dict}
 
     mblt_path.parent.mkdir(parents=True, exist_ok=True)
     mblt_compile(
         model=model,
         model_part="language",
+        model_part_options=part_options,
         mblt_save_path=str(mblt_path),
         target_device=args.target_device,
         backend="torch",
@@ -98,7 +112,7 @@ if __name__ == "__main__":
     )
 
     # Release tracing resources before MXQ compilation to free GPU memory.
-    del feed_dict, capture_target, model, processor
+    del feed_dict, part_options, captured, capture_target, model, processor
     gc.collect()
     if torch_device.type == "cuda":
         torch.cuda.empty_cache()
@@ -108,9 +122,7 @@ if __name__ == "__main__":
         model=str(mblt_path),
         target_device=args.target_device,
         save_path=str(mxq_path),
-        calib_data_path=str(
-            BASE_DIR / "calibration_data" / ("dynamic" if args.dynamic else "static") / "language/npy_files.json"
-        ),
+        calib_data_path=str(calib_dir / "language" / "npy_files.json"),
         device="gpu" if torch_device.type == "cuda" else "cpu",
         **decoder_compile_config(args.target_device, str(mblt_path), dynamic=args.dynamic),
     )

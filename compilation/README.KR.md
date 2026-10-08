@@ -28,12 +28,19 @@ GPU를 사용할 수 있다면 컴파일 시간을 줄이기 위해 사용하는
 - `{version}-cuda*`: CUDA를 지원하는 GPU에서 컴파일 시 사용
 
 사용 중인 환경에 맞는 Docker 이미지를 선택하세요.
-예를 들어, 버전 1.0.1의 경우 다음과 같습니다:
+예를 들어, 버전 1.3의 경우 다음과 같습니다:
 
 ```bash
-docker pull mobilint/qbcompiler:1.0-cpu-ubuntu22.04 # CPU에서 컴파일
-docker pull mobilint/qbcompiler:1.0-cuda12.8.1-ubuntu22.04 # CUDA 지원 GPU에서 컴파일
+docker pull mobilint/qbcompiler:1.3-cpu-ubuntu22.04 # CPU에서 컴파일
+docker pull mobilint/qbcompiler:1.3-cuda12.8.1-ubuntu22.04 # CUDA 지원 GPU에서 컴파일
 ```
+
+튜토리얼은 qbcompiler 1.4를 기준으로 합니다.
+1.4 이미지가 공개되기 전까지는 1.3 이미지에 qbcompiler 1.4 wheel(아래 참고)을 설치해 사용하세요. 이후 1.4 이미지로 대체됩니다.
+
+> **이미지의 PyTorch를 업그레이드하지 마세요.**
+> qbcompiler wheel의 컴파일된 확장 모듈(`mmc`)은 이미지에 포함된 PyTorch 버전(2.7.1)에 링크되어 있습니다.
+> 튜토리얼의 `requirements.txt`를 `pip install`할 때 `torch`가 업그레이드된다면 `torch==2.7.1`을 다시 설치하거나, constraint 파일로 고정하세요(`pip install -c <torch==2.7.1이 적힌 파일> ...`).
 
 그 다음, Docker 컨테이너를 생성합니다:
 
@@ -66,7 +73,7 @@ docker run -it --ipc=host \
   --name {your_container_name} \
   --gpus=all \
   --device /dev/aries0:/dev/aries0 \
-  mobilint/qbcompiler:1.0-cuda12.8.1-ubuntu22.04
+  mobilint/qbcompiler:1.3-cuda12.8.1-ubuntu22.04
 ```
 
 다음으로, [Mobilint 다운로드 센터](https://dl.mobilint.com/)를 방문하여 최신 qbcompiler wheel 파일을 다운로드하세요.
@@ -86,7 +93,7 @@ docker run -it --ipc=host \
   -v {path_to_local_workspace}:{path_to_container_workspace} \
   --name {your_container_name} \
   --gpus=all \
-  mobilint/qbcompiler:1.0-cuda12.8.1-ubuntu22.04
+  mobilint/qbcompiler:1.3-cuda12.8.1-ubuntu22.04
 ```
 
 다음으로, [Mobilint 다운로드 센터](https://dl.mobilint.com/)를 방문하여 최신 qbcompiler wheel 파일을 다운로드하세요.

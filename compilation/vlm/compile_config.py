@@ -9,6 +9,7 @@ from qbcompiler.configs import (
     SearchWeightScaleConfig,
 )
 
+
 def get_graph_layer_names(mblt_path: str, boundary: str) -> list[str]:
     """Return the Input (boundary="inputs") or Output (boundary="outputs") layer names of an MBLT."""
     layer_type = {"inputs": "Input", "outputs": "Output"}[boundary]
@@ -34,24 +35,27 @@ def activation_16bit_config(mblt_path: str, boundary: str) -> BitConfig:
     """Keep the MBLT graph inputs (decoder) or outputs (encoder) in 16-bit.
 
     Layer names are read from the MBLT because the parser names them per model size
-    and per trace path. The dynamic decoder RoPE input is added later by the quantizer,
-    so it is not part of the MBLT inputs.
+    and per trace path. The dynamic decoder's RoPE input is added later by the quantizer
+    (`LlmConfig.Attributes.Runtime.dynamic_rope`), so it is not part of the MBLT inputs.
     """
     return BitConfig(
         layer_overrides=BitConfig.LayerOverrides(activation_16bits=get_graph_layer_names(mblt_path, boundary)),
     )
 
 
-def spin_rotation_relpath(target_device: str, model_name: str, dynamic: bool) -> str:
-    subdir = f"{model_name}-dynamic" if dynamic else model_name
+def spin_rotation_relpath(target_device: str, model_name: str, dynamic: bool = True) -> str:
+    subdir = model_name if dynamic else f"{model_name}-static"
     return f"spinWeight/{target_device}/{subdir}/global_rotation.pth"
 
 
 def _llm_runtime(dynamic: bool) -> LlmConfig.Attributes.Runtime:
+    # Dynamic: the host computes RoPE for the combined image and text sequence, because
+    # the number of image tokens follows the image size. Static: every image is 224x224,
+    # so the decoder keeps its RoPE inside the graph.
     return LlmConfig.Attributes.Runtime(dynamic_rope=dynamic)
 
 
-def decoder_compile_config(target_device: str, mblt_path: str, dynamic: bool = False) -> dict:
+def decoder_compile_config(target_device: str, mblt_path: str, dynamic: bool = True) -> dict:
     bit_config = activation_16bit_config(mblt_path, "inputs")
     if target_device == "regulus-rb":
         return {
@@ -60,7 +64,6 @@ def decoder_compile_config(target_device: str, mblt_path: str, dynamic: bool = F
             "bit_config": bit_config,
             "resource_management_config": ResourceManagementConfig(
                 weight_dtype="float32",
-                use_gpu_only_for_calibration=True,
                 weight_memory=ResourceManagementConfig.WeightMemory(method=1),
             ),
             "llm_config": LlmConfig(
@@ -106,7 +109,6 @@ def decoder_compile_config(target_device: str, mblt_path: str, dynamic: bool = F
             "bit_config": bit_config,
             "resource_management_config": ResourceManagementConfig(
                 weight_dtype="float32",
-                use_gpu_only_for_calibration=True,
                 weight_memory=ResourceManagementConfig.WeightMemory(method=1),
             ),
             "llm_config": LlmConfig(
@@ -144,7 +146,7 @@ def encoder_compile_config(
     target_device: str,
     model_name: str,
     mblt_path: str,
-    dynamic: bool = False,
+    dynamic: bool = True,
 ) -> dict:
     rotation_matrix_path = spin_rotation_relpath(target_device, model_name, dynamic)
     bit_config = activation_16bit_config(mblt_path, "outputs")
@@ -155,7 +157,6 @@ def encoder_compile_config(
             "bit_config": bit_config,
             "resource_management_config": ResourceManagementConfig(
                 weight_dtype="float32",
-                use_gpu_only_for_calibration=True,
                 weight_memory=ResourceManagementConfig.WeightMemory(method=1),
             ),
             "equivalent_transformation_config": EquivalentTransformationConfig(
@@ -178,7 +179,6 @@ def encoder_compile_config(
             "bit_config": bit_config,
             "resource_management_config": ResourceManagementConfig(
                 weight_dtype="float32",
-                use_gpu_only_for_calibration=True,
                 weight_memory=ResourceManagementConfig.WeightMemory(method=1),
             ),
             "equivalent_transformation_config": EquivalentTransformationConfig(
