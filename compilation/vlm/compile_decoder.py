@@ -4,7 +4,7 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 import torch
-from compile_config import decoder_compile_config, spin_rotation_relpath
+from compile_config import STATIC_IMAGE_SIZE, decoder_compile_config, spin_rotation_relpath
 from PIL import Image
 from qbcompiler import mblt_compile, mxq_compile
 from qbcompiler.model_dict.parser.backend.torch.input_capture import (
@@ -35,7 +35,7 @@ def build_inputs(processor, device):
     generator = torch.Generator().manual_seed(42)
     pixels = torch.randint(
         256,
-        (224, 224, 3),
+        (STATIC_IMAGE_SIZE, STATIC_IMAGE_SIZE, 3),
         generator=generator,
         dtype=torch.uint8,
     ).numpy()
@@ -67,7 +67,8 @@ if __name__ == "__main__":
         "--static",
         dest="dynamic",
         action="store_false",
-        help="Compile the decoder that pairs with the static 224x224 encoder (no runtime RoPE input).",
+        help=f"Compile the decoder that pairs with the static {STATIC_IMAGE_SIZE}x{STATIC_IMAGE_SIZE} encoder "
+        "(no runtime RoPE input).",
     )
     args = parser.parse_args()
 

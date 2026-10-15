@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 import torch
-from compile_config import encoder_compile_config
+from compile_config import STATIC_IMAGE_SIZE, encoder_compile_config, static_grid_thw
 from PIL import Image
 from qbcompiler import mblt_compile, mxq_compile
 from qbcompiler.model_dict.parser.backend.torch.input_capture import (
@@ -21,8 +21,9 @@ TARGET_DEVICES = ("aries-rb", "regulus-rb")
 # sine. All four share the patch-count axis N, which is marked dynamic so one MXQ
 # accepts any image size the processor produces.
 # Static (`--static`): the `vision` part without side inputs traces the folded
-# pixel values only. The position embeddings and RoPE of the 224x224 trace image
-# are baked into the graph, so the MXQ accepts 224x224 images only.
+# pixel values only. The position embeddings and RoPE of the STATIC_IMAGE_SIZE x
+# STATIC_IMAGE_SIZE trace image are baked into the graph, so the MXQ accepts that
+# patch grid only.
 VISION_PART_OPTIONS = {"side_inputs": True}
 VISION_DYNAMIC_AXES = {
     "images": [-1],
@@ -43,7 +44,7 @@ def build_inputs(processor, device):
     generator = torch.Generator().manual_seed(42)
     pixels = torch.randint(
         256,
-        (224, 224, 3),
+        (STATIC_IMAGE_SIZE, STATIC_IMAGE_SIZE, 3),
         generator=generator,
         dtype=torch.uint8,
     ).numpy()
@@ -75,7 +76,8 @@ if __name__ == "__main__":
         "--static",
         dest="dynamic",
         action="store_false",
-        help="Compile the static 224x224 encoder (folded pixel values only) instead of the dynamic one.",
+        help=f"Compile the static {STATIC_IMAGE_SIZE}x{STATIC_IMAGE_SIZE} encoder (folded pixel values only) "
+        "instead of the dynamic one.",
     )
     args = parser.parse_args()
 
@@ -92,10 +94,16 @@ if __name__ == "__main__":
     processor = AutoProcessor.from_pretrained(args.model_id)
     model = load_for_part(args.model_id, "vision", dtype=torch.float32, device=torch_device).eval()
     # Capture the vision tower's real arguments (pixel values and grid) from one forward pass
-    # over the 224x224 trace image.
+    # over the trace image.
+    inputs = build_inputs(processor, torch_device)
+    if not args.dynamic:
+        expected_grid = static_grid_thw(processor.image_processor.patch_size, processor.image_processor.merge_size)
+        trace_grid = tuple(inputs["image_grid_thw"][0].tolist())
+        if trace_grid != expected_grid:
+            raise ValueError(f"the static trace image maps to the {trace_grid} patch grid, expected {expected_grid}")
     capture_target = prepare_part(model, "vision").eval()
     with capture_forward_inputs(capture_target, to_cpu=False) as feed_dict:
-        model.generate(**build_inputs(processor, torch_device), max_new_tokens=1, do_sample=False)
+        model.generate(**inputs, max_new_tokens=1, do_sample=False)
     feed_dict = dict(feed_dict)
 
     mblt_path.parent.mkdir(parents=True, exist_ok=True)

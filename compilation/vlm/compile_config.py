@@ -9,6 +9,24 @@ from qbcompiler.configs import (
     SearchWeightScaleConfig,
 )
 
+# Static vision contract shared by the VLM download, calibration, and compile scripts.
+# The static encoder is traced with one STATIC_IMAGE_SIZE x STATIC_IMAGE_SIZE image and
+# accepts the patch grid of that image only. The processor rounds image sides to multiples
+# of patch_size * merge_size and enlarges images below its minimum pixel count (65536 for
+# Qwen3-VL), so STATIC_IMAGE_SIZE must be a multiple of 32 and at least 256.
+STATIC_IMAGE_SIZE = 256
+
+
+def static_grid_thw(patch_size: int, merge_size: int) -> tuple[int, int, int]:
+    """Return the (t, h, w) patch grid of one STATIC_IMAGE_SIZE x STATIC_IMAGE_SIZE image."""
+    factor = patch_size * merge_size
+    if STATIC_IMAGE_SIZE % factor:
+        raise ValueError(
+            f"STATIC_IMAGE_SIZE {STATIC_IMAGE_SIZE} is not a multiple of patch_size * merge_size ({factor})"
+        )
+    side = STATIC_IMAGE_SIZE // patch_size
+    return (1, side, side)
+
 
 def get_graph_layer_names(mblt_path: str, boundary: str) -> list[str]:
     """Return the Input (boundary="inputs") or Output (boundary="outputs") layer names of an MBLT."""
@@ -50,8 +68,9 @@ def spin_rotation_relpath(target_device: str, model_name: str, dynamic: bool = T
 
 def _llm_runtime(dynamic: bool) -> LlmConfig.Attributes.Runtime:
     # Dynamic: the host computes RoPE for the combined image and text sequence, because
-    # the number of image tokens follows the image size. Static: every image is 224x224,
-    # so the decoder keeps its RoPE inside the graph.
+    # the number of image tokens follows the image size. Static: every image maps to the
+    # patch grid of a STATIC_IMAGE_SIZE x STATIC_IMAGE_SIZE image, so the decoder keeps
+    # its RoPE inside the graph.
     return LlmConfig.Attributes.Runtime(dynamic_rope=dynamic)
 
 

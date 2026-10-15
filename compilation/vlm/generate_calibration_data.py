@@ -8,6 +8,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
+from compile_config import STATIC_IMAGE_SIZE, static_grid_thw
 from PIL import Image
 from qbcompiler.model_dict.parser.patcher.models.hf_models.qwen3vl import (
     fold_pixel_values,
@@ -186,21 +187,34 @@ def move_to_cpu(value):
     return value
 
 
+def check_static_grids(processor, image_files: Sequence[Path]) -> None:
+    # The static encoder is traced with one STATIC_IMAGE_SIZE x STATIC_IMAGE_SIZE image, so every
+    # calibration image must map to the same patch grid after the processor resize. Check all
+    # images before any sample is written.
+    static_grid = static_grid_thw(processor.image_processor.patch_size, processor.image_processor.merge_size)
+    for image_path in image_files:
+        with Image.open(image_path) as source:
+            image = source.convert("RGB")
+        grid = tuple(processor.image_processor(images=[image], return_tensors="pt")["image_grid_thw"][0].tolist())
+        if grid != static_grid:
+            raise ValueError(
+                f"{image_path}: the static encoder needs the {static_grid} patch grid "
+                f"({STATIC_IMAGE_SIZE}x{STATIC_IMAGE_SIZE} images), got {grid}"
+            )
+
+
 def generate_batch(
     model,
     processor,
     image_paths,
     prompts,
     max_new_tokens: int,
-    image_size: tuple[int, int] | None,
 ):
     images = []
     texts = []
     for image_path, prompt in zip(image_paths, prompts):
         with Image.open(image_path) as source:
             image = source.convert("RGB")
-        if image_size is not None and image.size != image_size:
-            raise ValueError(f"{image_path}: the static encoder needs {image_size} images, got {image.size}")
 
         messages = [
             {
@@ -286,13 +300,6 @@ if __name__ == "__main__":
         type=Path,
         help="Default: calibration_data (dynamic) or calibration_data_static (--static)",
     )
-    parser.add_argument(
-        "--image-size",
-        type=int,
-        nargs=2,
-        default=(224, 224),
-        help="Image size (width height) the static encoder was traced with; checked with --static",
-    )
     parser.add_argument("--num-samples", type=int, default=300)
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--max-new-tokens", type=int, default=512)
@@ -303,7 +310,8 @@ if __name__ == "__main__":
         "--static",
         dest="dynamic",
         action="store_false",
-        help="Write calibration data for the static 224x224 encoder and the decoder without a runtime RoPE input",
+        help=f"Write calibration data for the static {STATIC_IMAGE_SIZE}x{STATIC_IMAGE_SIZE} encoder "
+        "and the decoder without a runtime RoPE input",
     )
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
@@ -317,15 +325,21 @@ if __name__ == "__main__":
         raise ValueError("--batch-size must be positive")
     if any(ratio <= 0 or ratio > 1 for ratio in args.intermediate_ratios):
         raise ValueError("--intermediate-ratios must be greater than 0 and no greater than 1")
-    if args.output_dir.exists():
-        if not args.force:
-            raise FileExistsError(f"{args.output_dir} already exists. Use --force to replace it.")
-        shutil.rmtree(args.output_dir)
+    if args.output_dir.exists() and not args.force:
+        raise FileExistsError(f"{args.output_dir} already exists. Use --force to replace it.")
 
     image_files = sorted(args.image_dir.glob("*.jpg"))
     if len(image_files) < args.num_samples:
         raise RuntimeError(f"Found {len(image_files)} images, but --num-samples requests {args.num_samples}")
     image_files = image_files[: args.num_samples]
+
+    processor = AutoProcessor.from_pretrained(args.model_id)
+    processor.tokenizer.padding_side = "left"
+    if not args.dynamic:
+        check_static_grids(processor, image_files)
+    # Replace the old output only after every input check has passed.
+    if args.output_dir.exists():
+        shutil.rmtree(args.output_dir)
 
     set_seed()
     model = Qwen3VLForConditionalGeneration.from_pretrained(
@@ -334,8 +348,6 @@ if __name__ == "__main__":
         device_map=args.device,
     )
     model.eval()
-    processor = AutoProcessor.from_pretrained(args.model_id)
-    processor.tokenizer.padding_side = "left"
 
     directories = {name: args.output_dir / name for name in ("vision", "prefill", "decode", "language")}
     for name in ("vision", "prefill", "decode"):
@@ -366,7 +378,6 @@ if __name__ == "__main__":
             batch_paths,
             batch_prompts,
             args.max_new_tokens,
-            None if args.dynamic else tuple(args.image_size),
         )
 
         deepstack = captured.get("deepstack_visual_embeds")

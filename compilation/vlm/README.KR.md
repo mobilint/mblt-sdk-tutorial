@@ -26,7 +26,7 @@ pip install -r requirements.txt
 
 | | Dynamic (기본값) | Static (`--static`) |
 | --- | --- | --- |
-| 이미지 크기 | 전처리기가 만드는 모든 크기 | 224x224만 지원하며, 런타임이 모든 이미지를 224x224로 조정 |
+| 이미지 크기 | 전처리기가 만드는 모든 크기 | 256x256(16x16 patch grid)만 지원하며, 런타임이 모든 이미지를 256x256으로 조정 |
 | 인코더 | `vision` 파트 + `side_inputs`. 입력은 folded pixel values `[1, N, 1536]`, 위치 임베딩 `[1, N, 1024]`, packed RoPE `[1, N, 128]` | side input 없는 `vision` 파트. 입력은 folded pixel values `[1, 256, 1536]` 1개 |
 | 디코더 | 런타임 RoPE 입력(`dynamic_rope`), 첫 decode step으로 trace | RoPE를 그래프 내부에서 계산, prefill로 trace |
 | 런타임 설정 | `dynamic_vision=true` | `dynamic_vision=false` |
@@ -34,17 +34,6 @@ pip install -r requirements.txt
 
 shape는 2B 모델 기준입니다.
 두 모드 모두 qbcompiler 1.4의 `vision` 모델 파트로 인코더를 trace하며, 디코더의 토큰 길이는 dynamic입니다.
-
-> **qbcompiler 1.4 이상이 필요합니다.**
-> 이 튜토리얼의 이전 버전이 static 인코더에 사용한 레거시 파서(`qbcompiler.model_dict_legacy`, `repreprocess_pixel_values`)는 삭제되었습니다.
-> 이제 static 인코더도 dynamic 인코더와 같은 folded pixel 레이아웃을 입력으로 받습니다.
->
-> **런타임 요구 사항:**
->
-> - Dynamic: `mblt-model-zoo` 2.11 이상은 입력 shape로 이 인코더를 인식합니다.
-> - Static: folded static 인코더 수정이 포함된 `transformers-mblt` 릴리스가 필요합니다(PR 링크: **TBD**).
->   <!-- TODO: folded static 인코더 수정을 담은 transformers-mblt PR 링크를 추가하십시오. -->
->   수정이 없는 릴리스는 입력이 1개인 vision MXQ에 레거시 `[1024, 64, 6]` 레이아웃을 넣으므로 1.4 static 인코더와 맞지 않습니다.
 
 static 조합을 만들려면 1단계부터 4단계까지 모든 명령에 `--static`을 지정합니다.
 
@@ -57,7 +46,7 @@ python download_images.py
 고정된 데이터셋 리비전에서 COCO 검증 이미지 300장을 내려받아 RGB로 변환하고 원본 해상도 그대로 `./images`에 저장합니다.
 원본 크기를 유지하므로 캘리브레이션 샘플이 다양한 비전 patch 수 N을 갖습니다.
 
-`--static`을 지정하면 static 인코더가 한 가지 이미지 크기만 받으므로, 이미지를 224x224(`--size`)로 조정해 `./images_static`에 저장합니다.
+`--static`을 지정하면 static 인코더가 한 가지 patch grid만 받으므로, 이미지를 256x256으로 조정해 `./images_static`에 저장합니다.
 
 ## 2. 캘리브레이션 데이터 생성
 
@@ -87,7 +76,7 @@ calibration_data/
 각 디코더 샘플은 `inputs_embeds.npy`, 분리된 DeepStack 파일 `deepstack_0.npy`, `deepstack_1.npy`, `deepstack_2.npy`, 그리고 RoPE 텐서 `cos.npy`를 포함합니다.
 임베딩과 DeepStack 파일의 크기는 `[1, 1, T, 2048]`이고, `cos.npy`는 `[1, 1, T, 256]` 크기로 디코더의 런타임 RoPE 입력에 대응합니다.
 
-`--static`을 지정하면 `./images_static`을 읽어 모든 이미지가 224x224(`--image-size`)인지 확인하고 `./calibration_data_static`에 씁니다.
+`--static`을 지정하면 `./images_static`을 읽어 전처리기가 모든 이미지를 256x256 이미지의 16x16 patch grid로 만드는지 확인하고 `./calibration_data_static`에 씁니다.
 이때 각 비전 샘플은 folded pixel values `[1, 256, 1536]`를 담은 `images.npy` 하나이며, `vision/npy_files.txt`에 나열됩니다.
 static 디코더는 RoPE를 그래프 내부에서 계산하므로 디코더 샘플에 `cos.npy`가 없습니다.
 
@@ -130,7 +119,7 @@ python compile_encoder.py --target-device aries-rb --static
 - dynamic 인코더는 `vision` 파트를 `model_part_options={"side_inputs": True}`와 함께 사용합니다. 이 옵션은 위치 임베딩, cosine, sine을 folded pixel values와 함께 그래프 입력으로 만들고, 스크립트는 이들의 patch 수 축을 dynamic으로 지정합니다.
   컴파일 과정에서 cosine과 sine을 하나의 RoPE 입력으로 묶으므로 인코더 MXQ의 입력은 3개입니다.
 - static 인코더는 옵션 없이 `vision` 파트를 사용합니다.
-  224x224 trace 이미지의 위치 임베딩과 RoPE가 그래프 안에 남으므로 인코더 MXQ의 입력은 1개입니다.
+  256x256 trace 이미지의 위치 임베딩과 RoPE가 그래프 안에 남으므로 인코더 MXQ의 입력은 1개입니다.
 
 두 스크립트의 컴파일 설정은 `compile_config.py`에 정의되어 있습니다.
 
@@ -233,7 +222,7 @@ prepared/aries-rb/
 런타임 스크립트의 기본 `--model-folder`는 dynamic ARIES 2B 준비 폴더를 가리키므로, static 빌드, 다른 대상 디바이스, 2B가 아닌 `--model-id`를 사용했다면 실제 폴더 경로를 명시적으로 넘기십시오.
 
 ```bash
-# Static 2B (위의 transformers-mblt 수정 필요)
+# Static 2B
 python ../../runtime/python/vlm/inference_mblt_model_zoo.py \
     --model-folder prepared/aries-rb/Qwen3-VL-2B-Instruct-static
 
