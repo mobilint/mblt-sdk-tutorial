@@ -122,6 +122,9 @@ python model_compile.py --target-device regulus-rb
 > PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True python model_compile.py --target-device aries-rb
 > ```
 >
+> qbcompiler 1.4 also limits the GPU memory used by weight quantization automatically (`ResourceManagementConfig(gpu_memory_budget_mb=-1)`, the default) and retries recoverable out-of-memory errors with smaller batches.
+> To leave room for other work on the same GPU, pass `resource_management_config=ResourceManagementConfig(gpu_memory_budget_mb=<MiB>)` to `mxq_compile()`.
+>
 > If it still runs out of memory, hide the GPU with `CUDA_VISIBLE_DEVICES=""` so `model_compile.py` falls back to CPU compilation, which is slower.
 
 The command generates:

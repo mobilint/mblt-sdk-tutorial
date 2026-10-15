@@ -8,7 +8,7 @@ Python `qbruntime` 라이브러리는 ARIES와 REGULUS에서 동일한 Mobilint 
 
 ### 1. NPU 드라이버 활성화
 
-호스트에 Mobilint NPU 드라이버가 설치되어 있고 정상적으로 실행 중인지 확인하세요. 아직 설치하지 않았다면 [드라이버 설치 가이드](https://docs.mobilint.com/v1.2/en/installing_driver.html)를 따르세요.
+호스트에 Mobilint NPU 드라이버가 설치되어 있고 정상적으로 실행 중인지 확인하세요. 아직 설치하지 않았다면 [드라이버 설치 가이드](https://docs.mobilint.com/aries/kr/driver-installation.html)를 따르세요.
 
 Docker 환경에서는 다음 옵션으로 디바이스를 컨테이너에 노출해야 합니다.
 

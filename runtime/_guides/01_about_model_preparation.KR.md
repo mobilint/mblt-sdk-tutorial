@@ -86,7 +86,7 @@
 `target_cores`는 모델을 어떤 NPU 코어에서 실행할지 지정합니다.
 
 > 코어 모드에 관한 상세한 설명은
-> [Mobilint Multi-Core Documentation](https://docs.mobilint.com/v1.0/en/multicore.html)을 참조하세요.
+> [Mobilint Multi-Core Documentation](https://docs.mobilint.com/aries/kr/core-mode.html)을 참조하세요.
 
 ### 코어 모드
 

@@ -8,7 +8,7 @@ Follow these steps before running any Python tutorial in this directory.
 
 ### 1. Enable the NPU Driver
 
-Make sure the Mobilint NPU driver is installed and running on the host. If it is not installed yet, follow the [Driver Installation Guide](https://docs.mobilint.com/v1.2/en/installing_driver.html).
+Make sure the Mobilint NPU driver is installed and running on the host. If it is not installed yet, follow the [Driver Installation Guide](https://docs.mobilint.com/aries/en/driver-installation.html).
 
 If you are running inside Docker, expose the device to the container:
 

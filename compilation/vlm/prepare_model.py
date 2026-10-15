@@ -5,12 +5,11 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 import torch
+from compile_config import spin_rotation_relpath
 from huggingface_hub import hf_hub_download, snapshot_download
 from huggingface_hub.utils import EntryNotFoundError
 from safetensors import safe_open
 from safetensors.torch import save_file
-
-from compile_config import spin_rotation_relpath
 
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_BASE_MODEL_ID = "Qwen/Qwen3-VL-2B-Instruct"
@@ -61,6 +60,8 @@ def save_runtime_weights(
 
     tensors: dict[str, torch.Tensor] = {EMBEDDING_KEY: (embedding @ rotation).contiguous()}
     if dynamic:
+        # The dynamic runtime computes the vision position embeddings on the host for each
+        # image size. The static encoder has them baked in.
         tensors[VISION_POS_EMBED_KEY] = load_hf_tensor(base_model_id, "visual.pos_embed.weight").contiguous()
     save_file(tensors, output_path)
 
@@ -105,10 +106,9 @@ def prepare_model(
     dynamic: bool,
 ) -> None:
     runtime_model_id, model_name = resolve_model_ids(base_model_id)
-    encoder_suffix = "_encoder_dynamic" if dynamic else "_encoder"
-    decoder_suffix = "_decoder_dynamic" if dynamic else "_decoder"
-    encoder_mxq = BASE_DIR / "mxq" / target_device / f"{model_name}{encoder_suffix}.mxq"
-    decoder_mxq = BASE_DIR / "mxq" / target_device / f"{model_name}{decoder_suffix}.mxq"
+    suffix = "" if dynamic else "_static"
+    encoder_mxq = BASE_DIR / "mxq" / target_device / f"{model_name}_encoder{suffix}.mxq"
+    decoder_mxq = BASE_DIR / "mxq" / target_device / f"{model_name}_decoder{suffix}.mxq"
     rotation_path = BASE_DIR / spin_rotation_relpath(target_device, model_name, dynamic)
     missing = [path for path in (encoder_mxq, decoder_mxq, rotation_path) if not path.is_file()]
     if missing:
@@ -147,15 +147,15 @@ if __name__ == "__main__":
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--model-id", default=DEFAULT_BASE_MODEL_ID)
     parser.add_argument(
-        "--dynamic",
-        action="store_true",
-        help="Package the dynamic MXQ pair. Reads *_encoder_dynamic.mxq / *_decoder_dynamic.mxq, "
-        "bundles visual.pos_embed.weight, and sets top-level dynamic_vision=true in config.json.",
+        "--static",
+        dest="dynamic",
+        action="store_false",
+        help="Package the static MXQ pair (*_encoder_static.mxq / *_decoder_static.mxq) with dynamic_vision=false",
     )
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
 
     _, model_name = resolve_model_ids(args.model_id)
-    folder_name = f"{model_name}-dynamic" if args.dynamic else model_name
+    folder_name = model_name if args.dynamic else f"{model_name}-static"
     output_dir = args.output_dir or BASE_DIR / "prepared" / args.target_device / folder_name
     prepare_model(args.model_id, args.target_device, output_dir, args.force, args.dynamic)
