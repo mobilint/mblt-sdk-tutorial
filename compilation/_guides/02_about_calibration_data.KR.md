@@ -109,12 +109,12 @@ calibration_data/
 ├── language/
 │   ├── sample_000/
 │   │   └── inputs_embeds.npy
-│   ├── npy_files.txt             # .npy 파일 경로 목록
+│   ├── npy_files.json            # 입력 매니페스트
 │   └── metadata.json
 └── vision/
     ├── sample_000/
     │   └── images.npy
-    ├── npy_files.txt
+    ├── npy_files.json
     └── metadata.json
 ```
 
@@ -124,12 +124,13 @@ calibration_data/
 
 ## `npy_files.txt` 형식
 
-VLM, STT 등에서 calibration 데이터 경로를 나열하는 텍스트 파일입니다.
+calibration 데이터 경로를 나열하는 텍스트 파일입니다.
+서브모델 그래프의 입력이 하나일 때 사용합니다. 예를 들어 STT와 static VLM vision 모드가 해당합니다.
 
 ```text
-calibration_data/language/sample_000/inputs_embeds.npy
-calibration_data/language/sample_001/inputs_embeds.npy
-calibration_data/language/sample_002/inputs_embeds.npy
+calibration_data_static/vision/sample_000/images.npy
+calibration_data_static/vision/sample_001/images.npy
+calibration_data_static/vision/sample_002/images.npy
 ...
 ```
 
@@ -139,9 +140,35 @@ calibration_data/language/sample_002/inputs_embeds.npy
 mxq_compile(
     ...,
     target_device="aries-rb",
-    calib_data_path="calibration_data/language/npy_files.txt",
+    calib_data_path="calibration_data_static/vision/npy_files.txt",
 )
 ```
+
+---
+
+## `npy_files.json` 형식
+
+입력 이름, 입력 shape, 샘플별 경로 목록을 담은 JSON 매니페스트입니다.
+서브모델 그래프의 입력이 여러 개일 때 사용합니다. 예를 들어 Qwen3-VL vision 및 language 파트가 해당합니다.
+VLM 튜토리얼은 기본 dynamic 모드에서 이 매니페스트를 작성합니다.
+
+```json
+{
+    "info": {
+        "input names": ["inputs_embeds/reshape", "deepstack_visual_embeds/reshape/slice"],
+        "input shapes": [[1, 1, -1, 2048], [1, 1, -1, 2048]]
+    },
+    "calib paths": [
+        [
+            "calibration_data/language/sample_000/inputs_embeds.npy",
+            "calibration_data/language/sample_000/deepstack_0.npy"
+        ]
+    ]
+}
+```
+
+입력 이름은 MBLT의 graph 입력 이름과 같아야 합니다.
+`-1` 축은 dynamic 축을 뜻합니다.
 
 ---
 

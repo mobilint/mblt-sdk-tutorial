@@ -79,6 +79,14 @@ docker run -it --ipc=host \
 다음으로, [Mobilint 다운로드 센터](https://dl.mobilint.com/)를 방문하여 최신 qbcompiler wheel 파일을 다운로드하세요.
 로그인한 뒤 `ARIES -> qb Compiler` 메뉴에서 현재 환경에 맞는 wheel 파일을 다운로드하세요.
 
+다운로드한 파일을 컨테이너로 복사하고 설치합니다:
+
+```bash
+docker cp {path_to_local_wheel_file} {your_container_name}:{path_to_container_workspace}
+docker exec -it {your_container_name} /bin/bash
+pip install {path_to_container_workspace}/{wheel_file_name}
+```
+
 ### REGULUS
 
 REGULUS는 호스트(x86_64)에서 컴파일하고 타겟 보드에서 추론하는 크로스 컴파일 방식입니다.

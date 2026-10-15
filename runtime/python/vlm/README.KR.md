@@ -25,10 +25,6 @@ python inference_mblt_model_zoo.py \
   --model-folder ../../../compilation/vlm/prepared/aries-rb/Qwen3-VL-2B-Instruct-static
 ```
 
-static 빌드에는 folded static 인코더 수정이 포함된 `transformers-mblt` 릴리스가 필요합니다(PR 링크: **TBD**).
-<!-- TODO: folded static 인코더 수정을 담은 transformers-mblt PR 링크를 추가하십시오. -->
-dynamic 빌드는 `requirements.txt`의 `mblt-model-zoo` 버전으로 실행됩니다.
-
 로컬 이미지나 URL과 프롬프트를 직접 지정할 수도 있습니다.
 
 ```bash

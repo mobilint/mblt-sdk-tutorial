@@ -54,6 +54,7 @@ from qbcompiler.model_dict.parser.patcher.parts import load_for_part, prepare_pa
 
 model = load_for_part("Qwen/Qwen3-VL-2B-Instruct", "vision", dtype=torch.float32, device="cuda")
 with capture_forward_inputs(prepare_part(model, "vision"), to_cpu=False) as feed_dict:
+    # inputs: 이미지 프롬프트 하나에 대한 AutoProcessor 출력, compilation/vlm/compile_encoder.py 참고
     model.generate(**inputs, max_new_tokens=1)  # 이미지를 포함한 실제 forward 한 번
 
 mblt_compile(

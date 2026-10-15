@@ -79,6 +79,14 @@ docker run -it --ipc=host \
 Next, visit the [Mobilint Download Center](https://dl.mobilint.com/) to download the latest qbcompiler wheel file.
 After logging in, go to `ARIES -> qb Compiler` and download the wheel file that matches your environment.
 
+Copy it to the container and install:
+
+```bash
+docker cp {path_to_local_wheel_file} {your_container_name}:{path_to_container_workspace}
+docker exec -it {your_container_name} /bin/bash
+pip install {path_to_container_workspace}/{wheel_file_name}
+```
+
 ### REGULUS
 
 REGULUS uses a cross-compilation approach where compilation runs on the host (x86_64) and inference runs on the target board.

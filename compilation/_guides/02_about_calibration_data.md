@@ -109,12 +109,12 @@ calibration_data/
 ├── language/
 │   ├── sample_000/
 │   │   └── inputs_embeds.npy
-│   ├── npy_files.txt             # .npy file path list
+│   ├── npy_files.json            # input manifest
 │   └── metadata.json
 └── vision/
     ├── sample_000/
     │   └── images.npy
-    ├── npy_files.txt
+    ├── npy_files.json
     └── metadata.json
 ```
 
@@ -124,12 +124,13 @@ calibration_data/
 
 ## `npy_files.txt` Format
 
-A text file that lists calibration data paths, used in VLM, STT, etc.
+A text file that lists calibration data paths.
+Use it when the sub-model graph has one input, for example STT and the static VLM vision mode.
 
 ```text
-calibration_data/language/sample_000/inputs_embeds.npy
-calibration_data/language/sample_001/inputs_embeds.npy
-calibration_data/language/sample_002/inputs_embeds.npy
+calibration_data_static/vision/sample_000/images.npy
+calibration_data_static/vision/sample_001/images.npy
+calibration_data_static/vision/sample_002/images.npy
 ...
 ```
 
@@ -139,9 +140,35 @@ Pass this file path to `calib_data_path` of `mxq_compile()`:
 mxq_compile(
     ...,
     target_device="aries-rb",
-    calib_data_path="calibration_data/language/npy_files.txt",
+    calib_data_path="calibration_data_static/vision/npy_files.txt",
 )
 ```
+
+---
+
+## `npy_files.json` Format
+
+A JSON manifest that lists the input names, the input shapes, and one path list for each sample.
+Use it when the sub-model graph has several inputs, for example the Qwen3-VL vision and language parts.
+The VLM tutorial writes this manifest in the default dynamic mode.
+
+```json
+{
+    "info": {
+        "input names": ["inputs_embeds/reshape", "deepstack_visual_embeds/reshape/slice"],
+        "input shapes": [[1, 1, -1, 2048], [1, 1, -1, 2048]]
+    },
+    "calib paths": [
+        [
+            "calibration_data/language/sample_000/inputs_embeds.npy",
+            "calibration_data/language/sample_000/deepstack_0.npy"
+        ]
+    ]
+}
+```
+
+The input names must match the graph input names of the MBLT.
+A `-1` axis marks a dynamic axis.
 
 ---
 
