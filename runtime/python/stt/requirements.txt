@@ -1,2 +1,2 @@
-mblt-model-zoo[transformers]
+mblt-model-zoo[transformers]>=2.11
 soundfile

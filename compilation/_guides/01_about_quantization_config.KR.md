@@ -18,7 +18,15 @@
 | `LlmConfig` | sequence length, KV cache, NPU core 할당 | transformer decoder 구조 (autoregressive + KV cache) |
 | `EquivalentTransformationConfig` | SpinQuant 등 quantization 오차를 줄이는 고급 수학적 변환 | 4bit quantization에서 사용 권장 |
 | `SearchWeightScaleConfig` | layer별 weight scale 학습으로 quantization 정확도 보정 | 4bit quantization에서 사용 권장 |
+| `HessianQuantConfig` | Hessian 기반 weight rounding(GPTQ 계열)과 solver 선택 | 선택 사항, LLM / VLM decoder |
+| `BiasCorrectionConfig` | quantized convolution의 채널별 계통 오차 보정 | 모든 모델 (1.4부터 기본 활성화) |
+| `ResourceManagementConfig` | weight dtype, weight 메모리 방식, quantization 중 GPU 메모리 예산 | 대형 모델 |
 | `PreprocessingConfig` | calibration 진행 시 image 전처리를 compiler가 자동 수행 | image 입력 모델 (Image Classification 등) |
+
+> **qbcompiler 1.4에서는 기본 결과가 달라집니다.**
+> bias correction이 기본으로 켜지고, weight quantization이 각 layer를 이전 layer들의 quantized 출력 기준으로 풉니다.
+> 따라서 같은 모델과 config라도 qbcompiler 1.3과 다른 MXQ가 만들어지며, 정확도가 다르고 컴파일 시간이 길어질 수 있습니다.
+> 1.3으로 측정한 정확도 수치는 다시 측정해야 합니다.
 
 ---
 
@@ -320,6 +328,106 @@ sws_config = SearchWeightScaleConfig(
 
 ---
 
+## HessianQuantConfig
+
+calibration activation으로 계산한 Hessian 기반 solver(GPTQ 계열)로 weight를 rounding합니다. weight를 하나씩 독립적으로 rounding하는 대신 오차를 함께 보정합니다.
+컴파일 시간과 메모리가 더 들며, 일부 decoder 컴포넌트에서 사용합니다(예: REGULUS용 `vlm/compile_config.py`, `stt/compile_config.py`).
+
+```python
+from qbcompiler import HessianQuantConfig
+
+hessian_quant_config = HessianQuantConfig(
+    apply=True,
+
+    # layer별 정수 weight를 계산하는 solver (1.4 신규).
+    #   "symmetric"         - 기본값. quantized 입력 기준 오차를 최소화.
+    #   "asymmetric_causal" - 원본 float 출력을 목표로 함. 각 column의 입력 불일치를
+    #                         뒤쪽 column에만 alpha 배율로 전달.
+    #   "asymmetric_refit"  - 원본 float 출력을 목표로 함. 최소제곱으로 weight를 다시 맞춘 뒤
+    #                         그 주변에서 symmetric solve 수행.
+    solver="symmetric",
+
+    # Residual compensation (1.4 신규): block 사이에 전파되며 누적되는
+    # weight drift를 추가로 보정.
+    rescomp=False,
+
+    attributes=HessianQuantConfig.Attributes(
+        act_order=True,     # activation 크기 순으로 column 처리
+        block_size=128,     # block당 solve할 column 수 (기본값 256)
+        perc_damp=0.01,     # Hessian 대각에 더하는 damping
+        alpha=0.25,         # asymmetric_causal / rescomp 보정 강도
+    ),
+)
+```
+
+Group-wise Hessian quantization은 `solver="symmetric"`, `rescomp=False` 조합만 허용하며 다른 조합은 거부됩니다.
+
+**실제 사용 예시**:
+
+- `vlm/compile_config.py` - REGULUS용 VLM decoder
+- `stt/compile_config.py` - Whisper decoder
+
+---
+
+## BiasCorrectionConfig
+
+weight quantization 중에 각 quantized convolution의 채널별 출력 오차를 calibration 샘플에서 원본 float weight와 비교해 측정하고,
+그 보정값을 정수 bias에 반영합니다.
+보정은 한 번의 패스로 layer 순서대로 전파됩니다.
+
+qbcompiler 1.4부터 bias correction은 **기본으로 활성화**되므로 이 저장소의 튜토리얼은 별도로 설정하지 않습니다.
+이전 버전의 `LayerBiasCorrectionConfig` / `layer_bias_correction`을 대체하며, 기존의 `numSamples`, `iterations`, `correctionRate` 속성은 없어졌습니다.
+
+```python
+from qbcompiler import BiasCorrectionConfig, mxq_compile
+
+# 끄기 (예: qbcompiler 1.3 빌드와 비교할 때)
+mxq_compile(..., bias_correction=False)
+
+# 또는 일부 layer로 제한
+mxq_compile(
+    ...,
+    bias_correction_config=BiasCorrectionConfig(
+        apply=True,
+        attributes=BiasCorrectionConfig.Attributes(apply_layers=[], exclude_layers=[]),
+    ),
+)
+```
+
+---
+
+## ResourceManagementConfig
+
+quantization 중 메모리 사용을 제어합니다.
+
+```python
+from qbcompiler import ResourceManagementConfig
+
+resource_management_config = ResourceManagementConfig(
+    # calibration 중 사용하는 weight dtype.
+    weight_dtype="float32",
+
+    # layer를 quantize하는 동안 float weight를 보관하는 방식 (0-4:
+    # DeleteFloat, SaveFloat, MoveFloat, KeepFloat, KeepAll).
+    weight_memory=ResourceManagementConfig.WeightMemory(method=1),
+
+    # weight quantization의 GPU 메모리 예산, MiB 단위 (1.4 신규).
+    #   -1: 자동 (기본값), 0: 제한 없음.
+    # 복구 가능한 CUDA out-of-memory 오류가 나면 더 작은 batch로 재시도함.
+    gpu_memory_budget_mb=-1,
+)
+```
+
+`use_gpu_only_for_calibration`(JSON config의 `useGPUOnlyForCalibration`)은 qbcompiler 1.4에서 제거되었으며, 이 항목이 남아 있는 config는 거부됩니다.
+기존 config에서 삭제하세요. GPU 메모리 사용은 이제 `gpu_memory_budget_mb`가 관리합니다.
+
+**실제 사용 예시**:
+
+- `vlm/compile_config.py`
+- `mask_generation/compile_config.json`
+
+---
+
 ## PreprocessingConfig
 
 calibration 데이터에 대한 이미지 전처리(resize, crop, normalize)를 컴파일러가 자동으로 수행합니다.
@@ -338,12 +446,15 @@ preprocessing_config = PreprocessingConfig(
     # 다양한 소스에서 온 이미지를 별도 변환 없이 처리할 수 있게 함.
     auto_convert_format=True,
 
-    # 전처리 연산 파이프라인. 순서대로 적용됨.
-    # 이 파이프라인이 모델의 첫 번째 레이어에 융합되어
-    # NPU에서 전처리와 추론이 하나의 흐름으로 실행됨.
+    # 전처리 연산 파이프라인. calibration 이미지에 순서대로 적용됨.
+    # "fuseIntoFirstLayer"가 지정된 연산만 컴파일된 모델에 포함되고,
+    # 나머지(resize, centerCrop 등)는 calibration 이미지를 준비하는 방법을 기술하므로
+    # 애플리케이션은 추론 전에 같은 단계를 직접 적용해야 함.
     pipeline=[
         # 1단계: 이미지를 256x256으로 리사이즈
         #   mode: 보간법 ("bilinear", "nearest" 등)
+        #   backend (1.4 신규): "torch" (기본값), "pil", "opencv" — 평가나 애플리케이션에서
+        #   쓰는 라이브러리를 선택하면 calibration이 같은 픽셀을 보게 됨.
         {"op": "resize", "height": 256, "width": 256, "mode": "bilinear"},
 
         # 2단계: 중앙에서 224x224 크롭
@@ -366,6 +477,15 @@ preprocessing_config = PreprocessingConfig(
     ],
 )
 ```
+
+qbcompiler 1.4 참고 사항:
+
+- 각 연산은 자신의 key만 받으며, 알 수 없는 key는 무시되지 않고 오류가 됩니다.
+  예를 들어 `padValue` 대신 `padvalue`처럼 잘못 쓴 key는 해당 연산이 받는 key 목록과 함께 컴파일 오류를 냅니다.
+- `resize`와 `letterbox`는 Pillow나 OpenCV 전처리와 정확히 맞추기 위해 `backend: "pil"` 또는 `"opencv"`를 받습니다. `alignCorners`와 `antialias`는 기본 `torch` backend에만 적용되며 다른 backend와 함께 쓰면 거부됩니다.
+- `letterbox.alignType`은 가운데 정렬 패딩(`0`, 기본값) 또는 왼쪽 위 배치(`1`)를 선택합니다.
+- `letterbox.fuseIntoFirstLayer`는 지원되는 정수 배율 다운샘플링을 첫 convolution에 접어 넣어, 모델이 선언한 `sourceHeight` x `sourceWidth` 해상도를 직접 받게 할 수도 있습니다. `torch` 또는 `opencv` backend가 필요하며 calibration 이미지도 그 해상도여야 합니다.
+- `classification_torchvision` preset은 이제 Pillow로 resize하고 `yolo_640` / `yolo_1280` preset은 OpenCV로 letterbox하므로, calibration 텐서가 이전 버전과 다를 수 있습니다.
 
 **실제 사용 예시**:
 

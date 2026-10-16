@@ -12,10 +12,17 @@ pip install -r requirements.txt
 
 ## 추론 실행
 
-기본 명령은 `compilation/vlm/prepared/aries-rb/Qwen3-VL-2B-Instruct`에 준비된 ARIES 모델을 사용합니다.
+기본 명령은 `compilation/vlm/prepared/aries-rb/Qwen3-VL-2B-Instruct`에 준비된 dynamic ARIES 모델을 사용합니다.
 
 ```bash
 python inference_mblt_model_zoo.py
+```
+
+`prepare_model.py --static`으로 준비한 static 빌드를 실행하려면 해당 폴더를 지정합니다.
+
+```bash
+python inference_mblt_model_zoo.py \
+  --model-folder ../../../compilation/vlm/prepared/aries-rb/Qwen3-VL-2B-Instruct-static
 ```
 
 로컬 이미지나 URL과 프롬프트를 직접 지정할 수도 있습니다.

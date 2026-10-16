@@ -1,6 +1,7 @@
 from argparse import ArgumentParser
 from pathlib import Path
 
+from compile_config import STATIC_IMAGE_SIZE
 from datasets import load_dataset
 from PIL import Image
 from tqdm import tqdm
@@ -12,21 +13,19 @@ DATASET_REVISION = "cf0b22332314a937e9dc8a1957b21725430bb41d"
 if __name__ == "__main__":
     parser = ArgumentParser(description="Download COCO validation images for VLM calibration")
     parser.add_argument("-n", "--num-images", type=int, default=300)
-    parser.add_argument("--output-dir", type=Path)
-    parser.add_argument("--size", type=int, default=224)
+    parser.add_argument("--output-dir", type=Path, help="Default: images (dynamic) or images_static (--static)")
     parser.add_argument(
-        "--dynamic",
-        action="store_true",
-        help="Keep original COCO resolution. Required for dynamic vision calibration so the "
-        "sample set spans a range of patch counts N.",
+        "--static",
+        dest="dynamic",
+        action="store_false",
+        help=f"Resize every image to {STATIC_IMAGE_SIZE}x{STATIC_IMAGE_SIZE} for the static encoder "
+        "instead of keeping the original size",
     )
     args = parser.parse_args()
     if args.output_dir is None:
-        args.output_dir = Path("images") / ("dynamic" if args.dynamic else "static")
+        args.output_dir = Path("images" if args.dynamic else "images_static")
     if args.num_images <= 0:
         raise ValueError("--num-images must be positive")
-    if args.size <= 0:
-        raise ValueError("--size must be positive")
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     dataset = load_dataset(DATASET_ID, revision=DATASET_REVISION, split="val", streaming=True)
@@ -35,9 +34,12 @@ if __name__ == "__main__":
     for example in tqdm(dataset, desc="Downloading images", total=args.num_images):
         if saved == args.num_images:
             break
+        # Dynamic keeps the original COCO resolution so the calibration set spans a range
+        # of image sizes, and therefore of vision patch counts N. The static encoder
+        # accepts the patch grid of a STATIC_IMAGE_SIZE x STATIC_IMAGE_SIZE image only.
         image = example["image"].convert("RGB")
         if not args.dynamic:
-            image = image.resize((args.size, args.size), Image.Resampling.LANCZOS)
+            image = image.resize((STATIC_IMAGE_SIZE, STATIC_IMAGE_SIZE), Image.Resampling.LANCZOS)
         image.save(args.output_dir / f"image_{saved:04d}.jpg", "JPEG", quality=95)
         saved += 1
 

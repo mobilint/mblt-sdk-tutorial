@@ -6,7 +6,6 @@
     }
   },
   "resourceManagement": {
-    "useGPUOnlyForCalibration": true,
     "weightMemory": {
       "method": 3
     }

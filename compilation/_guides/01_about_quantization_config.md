@@ -18,7 +18,15 @@ in the tutorial directories (`image_classification/`, `llm/`, `vlm/`, etc.) as b
 | `LlmConfig` | Sequence length, KV cache, NPU core allocation | Transformer decoder architecture (autoregressive + KV cache) |
 | `EquivalentTransformationConfig` | Advanced mathematical transformations to reduce quantization error (SpinQuant, etc.) | Recommended for 4bit quantization |
 | `SearchWeightScaleConfig` | Per-layer weight scale learning for quantization accuracy correction | Recommended for 4bit quantization |
+| `HessianQuantConfig` | Hessian-based weight rounding (GPTQ-style) and its solver | Optional, LLM / VLM decoders |
+| `BiasCorrectionConfig` | Corrects systematic per-channel error of quantized convolutions | All models (enabled by default since 1.4) |
+| `ResourceManagementConfig` | Weight dtype, weight memory method, GPU memory budget during quantization | Large models |
 | `PreprocessingConfig` | Automatic image preprocessing by compiler during calibration | Image input models (Image Classification, etc.) |
+
+> **qbcompiler 1.4 changes the default result.**
+> Bias correction is enabled by default, and weight quantization now solves each layer against the quantized outputs of the preceding layers.
+> The same model and config can therefore produce a different MXQ, with different accuracy and a longer compile time, than qbcompiler 1.3.
+> Accuracy figures measured with 1.3 should be re-measured.
 
 ---
 
@@ -321,6 +329,106 @@ sws_config = SearchWeightScaleConfig(
 
 ---
 
+## HessianQuantConfig
+
+Rounds weights with a Hessian-based solver (GPTQ-style) computed from calibration activations, instead of rounding each weight independently.
+It costs compile time and memory, and is used for some decoder components (for example `vlm/compile_config.py` on REGULUS and `stt/compile_config.py`).
+
+```python
+from qbcompiler import HessianQuantConfig
+
+hessian_quant_config = HessianQuantConfig(
+    apply=True,
+
+    # Solver that computes the integer weights of each layer (new in 1.4).
+    #   "symmetric"         - Default. Minimizes the error on the quantized input.
+    #   "asymmetric_causal" - Targets the original float output; each column's input
+    #                         mismatch is fed only to the columns after it, scaled by alpha.
+    #   "asymmetric_refit"  - Targets the original float output; refits the weights by
+    #                         least squares, then runs a symmetric solve around them.
+    solver="symmetric",
+
+    # Residual compensation (new in 1.4): additionally corrects weight drift that
+    # accumulates from error propagated between blocks.
+    rescomp=False,
+
+    attributes=HessianQuantConfig.Attributes(
+        act_order=True,     # Process columns in order of activation magnitude
+        block_size=128,     # Columns solved per block (default 256)
+        perc_damp=0.01,     # Damping added to the Hessian diagonal
+        alpha=0.25,         # Strength of the asymmetric_causal and rescomp corrections
+    ),
+)
+```
+
+Group-wise Hessian quantization accepts only `solver="symmetric"` with `rescomp=False`; other combinations are rejected.
+
+**Usage examples**:
+
+- `vlm/compile_config.py` - VLM decoder on REGULUS
+- `stt/compile_config.py` - Whisper decoder
+
+---
+
+## BiasCorrectionConfig
+
+During weight quantization, measures the per-channel output error of each quantized convolution against the original float weights over the calibration samples,
+and folds the correction into the integer bias.
+Corrections propagate layer by layer in one pass.
+
+Since qbcompiler 1.4, bias correction is **enabled by default**, so no tutorial in this repository sets it.
+It replaces `LayerBiasCorrectionConfig` / `layer_bias_correction` of earlier versions; their `numSamples`, `iterations` and `correctionRate` attributes no longer exist.
+
+```python
+from qbcompiler import BiasCorrectionConfig, mxq_compile
+
+# Disable it, for example to compare with a qbcompiler 1.3 build
+mxq_compile(..., bias_correction=False)
+
+# Or restrict it to some layers
+mxq_compile(
+    ...,
+    bias_correction_config=BiasCorrectionConfig(
+        apply=True,
+        attributes=BiasCorrectionConfig.Attributes(apply_layers=[], exclude_layers=[]),
+    ),
+)
+```
+
+---
+
+## ResourceManagementConfig
+
+Controls memory use during quantization.
+
+```python
+from qbcompiler import ResourceManagementConfig
+
+resource_management_config = ResourceManagementConfig(
+    # Weight dtype used during calibration.
+    weight_dtype="float32",
+
+    # How float weights are kept while layers are quantized (0-4:
+    # DeleteFloat, SaveFloat, MoveFloat, KeepFloat, KeepAll).
+    weight_memory=ResourceManagementConfig.WeightMemory(method=1),
+
+    # GPU memory budget for weight quantization, in MiB (new in 1.4).
+    #   -1: automatic (default), 0: unlimited.
+    # Recoverable CUDA out-of-memory errors are retried with smaller batches.
+    gpu_memory_budget_mb=-1,
+)
+```
+
+`use_gpu_only_for_calibration` (`useGPUOnlyForCalibration` in JSON configs) was removed in qbcompiler 1.4, and a config that still sets it is rejected.
+Remove it from existing configs; `gpu_memory_budget_mb` now governs GPU memory use.
+
+**Usage examples**:
+
+- `vlm/compile_config.py`
+- `mask_generation/compile_config.json`
+
+---
+
 ## PreprocessingConfig
 
 The compiler automatically performs image preprocessing (resize, crop, normalize) on calibration data.
@@ -339,12 +447,15 @@ preprocessing_config = PreprocessingConfig(
     # Allows processing images from various sources without separate conversion.
     auto_convert_format=True,
 
-    # Preprocessing operation pipeline. Applied in order.
-    # This pipeline is fused into the model's first layer,
-    # so preprocessing and inference run as a single flow on the NPU.
+    # Preprocessing operation pipeline. Applied in order to the calibration images.
+    # Only operations marked "fuseIntoFirstLayer" become part of the compiled model;
+    # the others (resize, centerCrop, ...) describe how the calibration images are
+    # prepared, and the application must apply the same steps before inference.
     pipeline=[
         # Step 1: Resize image to 256x256
         #   mode: interpolation method ("bilinear", "nearest", etc.)
+        #   backend (new in 1.4): "torch" (default), "pil" or "opencv" — choose the
+        #   library your evaluation or application uses so calibration sees the same pixels.
         {"op": "resize", "height": 256, "width": 256, "mode": "bilinear"},
 
         # Step 2: Center crop to 224x224
@@ -367,6 +478,15 @@ preprocessing_config = PreprocessingConfig(
     ],
 )
 ```
+
+Notes for qbcompiler 1.4:
+
+- Each operation accepts only its own keys, and an unknown key is now an error instead of being ignored.
+  A misspelled key, for example `padvalue` instead of `padValue`, now fails the compile with a message that lists the keys the operation accepts.
+- `resize` and `letterbox` accept `backend: "pil"` or `"opencv"` to match Pillow or OpenCV preprocessing exactly. `alignCorners` and `antialias` apply only to the default `torch` backend and are rejected with the others.
+- `letterbox.alignType` selects centered padding (`0`, default) or top-left placement (`1`).
+- `letterbox.fuseIntoFirstLayer` can also fold a supported integer downsampling into the first convolutions, so the model accepts the declared `sourceHeight` x `sourceWidth` resolution. This requires the `torch` or `opencv` backend, and calibration images must have that source resolution.
+- The `classification_torchvision` preset now resizes with Pillow and the `yolo_640` / `yolo_1280` presets letterbox with OpenCV, so calibration tensors can differ from earlier releases.
 
 **Usage examples**:
 
