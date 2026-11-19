@@ -1,35 +1,31 @@
-# mobilint-cli 설치
+# Install mobilint-cli
 
-Python이나 가상환경은 필요하지 않습니다.
+English | [한국어](install.KR.md)
 
-Windows 사용자는 [공식 Windows 설치 안내](https://docs.mobilint.com/runtime/en/v1.6/installing_utility/#option-4-installation-via-the-installer-windows)를 참고하세요.
+The CLI does not require Python or a virtual environment.
 
-## 실행 환경 준비
+For Windows, follow the [official Windows installation instructions](https://docs.mobilint.com/runtime/en/v1.6/installing_utility/#option-4-installation-via-the-installer-windows).
 
-- REGULUS EVK: 보드에 `mobilint-cli`가 미리 설치되어 있습니다.
-  패키지를 업데이트하려면 개별 패키지만 갱신하기보다 [Mobilint 다운로드 센터](https://dl.mobilint.com/)에서 해당 보드용 최신 `Image Archive`를 내려받아 보드 이미지 전체를 업데이트하는 것을 권장합니다.
-- Ubuntu 호스트: NPU를 연결한 호스트에 해당 장치의 드라이버를 먼저 설치하세요.
-  ARIES는 [공식 드라이버 설치 안내](https://docs.mobilint.com/aries/en/latest/driver-installation/)를 따르세요.
-- Docker: 드라이버는 컨테이너가 아닌 호스트에 설치하세요.
-  ARIES의 첫 장치는 호스트에서 `ls -l /dev/aries0`로 확인합니다.
-  컨테이너를 생성할 때 `docker run`에 `--device=/dev/aries0`를 추가하고, 컨테이너 안에서도 같은 경로가 보이는지 확인하세요.
-- Ubuntu 설치 명령은 CLI를 사용할 환경 안에서 실행하세요.
-  `root`로 실행하는 경우에는 `sudo`를 생략하세요.
+## Prepare the device
 
-## Ubuntu: Mobilint APT 저장소 등록 및 설치
+- REGULUS EVK: The board comes with `mobilint-cli`. To update its packages, use the latest `Image Archive` for your board from the [Mobilint Download Center](https://dl.mobilint.com/). Updating the entire board image is recommended over updating individual packages.
+- Ubuntu host: Install the driver for the connected NPU. For ARIES, follow the [driver installation guide](https://docs.mobilint.com/aries/en/latest/driver-installation/).
+- Docker: Install the driver on the host. For the first ARIES device, check `ls -l /dev/aries0` on the host. Add `--device=/dev/aries0` to `docker run` when creating the container, then check the same device path inside it.
 
-CLI를 설치할 환경에서 실행하세요. 작업 디렉터리는 관계없습니다.
-드라이버나 런타임을 설치하면서 같은 환경에 Mobilint APT 저장소를 이미 등록했다면 세 번째 단계부터 실행하세요.
+## Ubuntu: Install from the Mobilint APT repository
 
-1. HTTPS 다운로드에 필요한 패키지를 설치합니다.
+Run the commands in the environment where you want to use the CLI. You can use any working directory. If you are logged in as `root`, omit `sudo`.
+
+If you already registered the Mobilint APT repository in that environment when installing the driver or runtime, start at step 3.
+
+1. Install the packages needed for HTTPS downloads.
 
    ```bash
    sudo apt-get update
    sudo apt-get install ca-certificates curl
    ```
 
-2. Mobilint 서명 키를 내려받고, 이 키를 사용할 저장소를 등록합니다.
-   `deb`로 시작하는 저장소 항목은 한 줄로 작성하세요.
+2. Download the signing key and register the repository. Keep the entry that starts with `deb` on one line.
 
    ```bash
    sudo install -d -m 0755 /etc/apt/keyrings
@@ -38,20 +34,21 @@ CLI를 설치할 환경에서 실행하세요. 작업 디렉터리는 관계없�
    echo 'deb [signed-by=/etc/apt/keyrings/mblt.asc] https://dl.mobilint.com/apt stable multiverse' | sudo tee /etc/apt/sources.list.d/mobilint.list
    ```
 
-3. 패키지 목록을 갱신하고 CLI를 설치합니다.
+3. Update the package list and install the CLI.
 
    ```bash
    sudo apt-get update
    sudo apt-get install mobilint-cli
    ```
 
-다른 Linux 설치 방식은 [공식 유틸리티 설치 안내](https://docs.mobilint.com/runtime/en/v1.6/installing_utility/#install-mobilint-cli)를 참고하세요.
+For other Linux installation methods, see the [utility installation guide](https://docs.mobilint.com/runtime/en/v1.6/installing_utility/#install-mobilint-cli).
 
-## 설치 확인
+## Verify the installation
 
 ```bash
 mobilint-cli --version
 ```
 
-CLI 버전이 출력되면 설치가 완료된 것입니다.
-NPU 연결은 [사용법](usage.md)의 `devices` 명령으로 확인하세요.
+If the command prints a version number, the CLI is installed.
+
+To check whether it detects the NPU, run `devices` as shown in the [usage guide](usage.md).

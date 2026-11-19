@@ -1,6 +1,8 @@
 # mobilint-cli
 
-`mobilint-cli`는 터미널에서 Mobilint NPU의 상태를 확인하고, 컴파일된 모델 파일(`.mxq`)을 검사하거나 실행하는 도구입니다.
+English | [한국어](README.KR.md)
 
-- [설치](mobilint-cli/install.md): 실행 환경 준비, Ubuntu 패키지 설치, 설치 확인
-- [사용법](mobilint-cli/usage.md): NPU 상태 확인, MXQ 검사, 테스트 추론, 성능 측정
+Use `mobilint-cli` to check a Mobilint NPU, inspect a compiled model (`.mxq`), or run the model from the terminal.
+
+- [Installation](mobilint-cli/install.md): Prepare the device, install the Ubuntu package, and check the CLI version.
+- [Usage](mobilint-cli/usage.md): Monitor the NPU, inspect an MXQ file, profile inference, and measure throughput.

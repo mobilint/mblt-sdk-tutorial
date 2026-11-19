@@ -1,95 +1,97 @@
-# mobilint-cli 사용법
+# Use mobilint-cli
 
-이 가이드는 NPU 상태 확인, MXQ 파일 검사, 추론 프로파일링, 처리량 측정에 유용한 `mobilint-cli`의 대표적인 사용법을 소개합니다.
+English | [한국어](usage.KR.md)
 
-이 예시는 CLI v1.6.0과 ARIES-RB용 [YOLO11m 모델](../sample/yolo11m.mxq)을 사용합니다.
-모델을 다시 컴파일할 필요는 없습니다.
-모델 경로가 들어간 명령은 저장소 루트에서 실행하세요.
+This guide covers common tasks: checking NPU status, inspecting an MXQ file, profiling inference, and measuring throughput.
 
-## NPU 상태 확인
+The examples use CLI v1.6.0 and the [YOLO11m sample for ARIES-RB](../sample/yolo11m.mxq). The model is already compiled.
+
+Run commands that include a model path from the repository root.
+
+## Check NPU status
 
 ```bash
 mobilint-cli devices
 mobilint-cli status
 ```
 
-`devices`에서 장치 번호와 모델명을 확인하세요.
-`status`는 NVIDIA GPU의 `nvidia-smi`처럼 Mobilint NPU의 온도, 메모리 사용량, 사용률을 보여줍니다.
-1초마다 갱신하려면 `mobilint-cli status -l 1`을 실행하세요. 종료하려면 `Ctrl+C`를 누르세요.
+- `devices` lists the device number and model name.
+- `status` reports temperature, memory use, and utilization for a Mobilint NPU, much like `nvidia-smi` does for an NVIDIA GPU.
+- To refresh once per second, run `mobilint-cli status -l 1`. Press `Ctrl+C` to stop.
 
-![장치 0에 연결된 ARIES-RB와 NPU 상태](../assets/devices-status.png)
+![Status of the ARIES-RB at device 0](../assets/devices-status.png)
 
-## mxqtool: MXQ 파일 검사
+## mxqtool: Inspect an MXQ file
 
 ```bash
 mobilint-cli mxqtool show utilities/sample/yolo11m.mxq
 ```
 
-`show`는 추론을 실행하지 않고 파일에 기록된 정보를 읽습니다.
-`Compiler Version`은 이 파일을 만든 컴파일러의 버전이며, 설치한 CLI의 버전이 아닙니다.
-`Target Hardware`는 모델의 실행 대상입니다.
-아래 출력의 `Input Section #0`에서 사용자 입력 자료형(`Uint8`)과 NPU 내부 자료형(`Int8`)을 구분할 수 있습니다.
+`show` reads the file without running inference. In the sample output:
 
-![MXQ 헤더와 첫 번째 입력 정보 발췌](../assets/mxqtool.png)
+- `Compiler Version`: The version of the compiler that built the file, not the installed CLI version.
+- `Target Hardware`: The device the model was compiled for (`aries-rb`).
+- `Input Section #0`: The first input uses `Uint8` for user data and `Int8` on the NPU.
 
-## summary: 실행 조건 확인
+![MXQ header and first input section](../assets/mxqtool.png)
+
+## summary: Check model requirements
 
 ```bash
 mobilint-cli summary utilities/sample/yolo11m.mxq
 ```
 
-`summary`는 실행 전에 확인할 대상 장치, 지원 코어 모드, 모델 입출력을 표로 보여줍니다.
-이 샘플의 대상은 `aries-rb`이며 `Single`, `Multi`, `Global4`, `Global8`을 지원합니다.
-입력은 `(640, 640, 3)`인 `Uint8` 텐서 하나이고, 출력은 `Float32` 텐서 여섯 개입니다.
-다음 두 예시는 같은 실행 조건을 사용하도록 코어 모드를 `global8`로 지정합니다.
+`summary` lists the target device, supported core modes, and model inputs and outputs.
 
-![YOLO11m의 대상 장치, 지원 코어 모드와 입출력 요약](../assets/summary.png)
+- Target: `aries-rb`. The model supports `Single`, `Multi`, `Global4`, and `Global8`. Both examples below use `global8`.
+- Input: One `Uint8` tensor of shape `(640, 640, 3)`.
+- Output: Six `Float32` tensors.
 
-## testinfer: 추론 프로파일링 방법
+![YOLO11m target, supported core modes, and I/O](../assets/summary.png)
 
-`testinfer`로 추론 한 번의 trace를 기록한 뒤 Perfetto에서 단계별 소요 시간을 확인합니다.
+## testinfer: Profile inference
+
+Record one inference with `testinfer`, then open the trace in Perfetto to inspect the time spent in each stage.
 
 ```bash
 mobilint-cli testinfer --core-mode global8 --input-mode seq --repeat-count 1 \
   --trace-path yolo11m-trace.json utilities/sample/yolo11m.mxq
 ```
 
-`--input-mode seq`는 실제 사진 대신 순차 값으로 입력을 만듭니다.
-`--repeat-count 1`은 추론을 한 번 실행합니다.
-`average duration`은 실행 시간을 나노초(ns)로 표시합니다.
-이 값은 모델이 실제 이미지에서 객체를 정확히 찾았다는 뜻이 아닙니다.
+- `--input-mode seq` generates sequential input values instead of loading a photo.
+- `--repeat-count 1` runs one inference.
+- `average duration` reports execution time in nanoseconds (ns). It does not measure detection accuracy.
 
-`--trace-path`는 실행 단계별 이벤트를 JSON 파일에 기록합니다.
-위 명령은 현재 디렉터리에 저장합니다.
-아래 캡처에서는 같은 옵션으로 배포용 샘플 경로인 `utilities/sample/yolo11m-trace.json`에 저장했습니다.
+`--trace-path` writes stage events to a JSON file. The command above saves `yolo11m-trace.json` in the current directory.
 
-![YOLO11m 추론의 입력, 여섯 개의 출력 및 실행 시간](../assets/testinfer.png)
+The screenshot uses `utilities/sample/yolo11m-trace.json` so you can open the same trace as the example.
 
-### Perfetto에서 단계별 시간 읽기
+![Test inference with one input, six outputs, and the elapsed time](../assets/testinfer.png)
 
-1. [Perfetto UI](https://ui.perfetto.dev/)에서 `Open trace file`을 선택하세요.
-2. 방금 생성한 JSON을 여세요. NPU가 없으면 [샘플 trace JSON](../sample/yolo11m-trace.json)을 내려받아 여세요.
-3. 타임라인에서 확인할 구간을 클릭하세요. 아래쪽 `Current Selection`의 `Duration`이 해당 구간의 경과 시간입니다.
+### Read stage durations in Perfetto
 
-샘플에서 `create model`은 15.694 ms, `launch`는 17.841 ms, `infer`는 6.224 ms입니다.
-아래 화면에서 선택한 `run npu`는 3.277 ms입니다.
-이 구간은 다른 스레드에서 `infer`와 시간이 겹치므로 두 값을 더하지 않습니다.
+1. In the [Perfetto UI](https://ui.perfetto.dev/), select `Open trace file`.
+2. Open the JSON file you just created. Without an NPU, you can download and open the [sample trace](../sample/yolo11m-trace.json) instead.
+3. Select an interval on the timeline. Read its `Duration` under `Current Selection`.
 
-![Perfetto 타임라인에서 run npu를 선택한 결과: Duration 3 ms 277 µs](../assets/perfetto.png)
+In the sample, `create model` took 15.694 ms, `launch` took 17.841 ms, and `infer` took 6.224 ms.
 
-## benchmark: 반복 추론의 처리량 측정
+The selected `run npu` interval took 3.277 ms. It overlaps `infer` on another thread. Do not add the two durations.
+
+![Perfetto selection showing a run npu duration of 3 ms 277 µs](../assets/perfetto.png)
+
+## benchmark: Measure inference throughput
 
 ```bash
 mobilint-cli benchmark -p utilities/sample/yolo11m.mxq -i int --core-mode global8 --thread 1 -t 10
 ```
 
-`-i int`는 이 모델이 지원하는 정수 입력으로 추론합니다.
-`--thread 1`은 스레드 하나를 사용하고, `-t 10`은 10초 동안 추론을 반복합니다.
-`Total Inference`는 완료한 추론 횟수입니다.
-`Avg Inference`는 초당 평균 추론 횟수이며, 한 번의 추론에 걸린 시간이 아닙니다.
-아래 실행에서는 2,140회를 완료했고 초당 평균은 213.91회였습니다.
-다른 결과와 비교할 때는 모델, 코어 모드, 스레드 수를 맞추세요.
+- `-i int` uses integer input, which this model supports.
+- `--thread 1` uses one thread. `-t 10` runs inference repeatedly for 10 seconds.
+- `Total Inference` counts completed inferences. `Avg Inference` reports the average number per second, not the time per inference.
 
-![10초 벤치마크의 실행 조건, 총 추론 횟수와 초당 평균 추론 횟수](../assets/benchmark.png)
+The sample run completed 2,140 inferences at an average of 213.91 per second. Use the same model, core mode, and thread count when comparing results.
 
-다른 명령과 옵션은 [공식 CLI 사용 안내](https://docs.mobilint.com/runtime/en/v1.6/utility_usage/#mobilint-cli)를 참고하세요.
+![Benchmark settings and results for a 10-second run](../assets/benchmark.png)
+
+For more commands and options, see the [official CLI usage guide](https://docs.mobilint.com/runtime/en/v1.6/utility_usage/#mobilint-cli).
