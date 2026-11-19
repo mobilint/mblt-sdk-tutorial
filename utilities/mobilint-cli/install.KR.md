@@ -53,7 +53,7 @@ CLI를 설치할 환경에서 실행하세요. 작업 디렉터리는 관계없�
 ## 설치 확인
 
 ```bash
-mobilint-cli --version
+mobilint-cli version
 ```
 
 CLI 버전이 출력되면 설치가 완료된 것입니다.

@@ -56,6 +56,7 @@ Mobilint qb 런타임은 컴파일된 MXQ 모델을 Mobilint NPU에서 실행할
 - `runtime/` - Mobilint qb 런타임을 사용하여 컴파일된 모델을 실행하는 튜토리얼
   - `runtime/python/` - Python 런타임 튜토리얼
   - `runtime/cpp/` - C++ 크로스 컴파일 기반 런타임 튜토리얼
+- [유틸리티](utilities/README.KR.md) - Mobilint 도구 설치, 모델 검사, 추론 프로파일링
 - `assets/` - 문서에 사용되는 이미지 및 다이어그램
 
 ## 지원 및 이슈

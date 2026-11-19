@@ -58,6 +58,7 @@ For more information, please refer to the [compiler](compilation/README.md) and 
 - `runtime/` - Tutorials for running compiled models using the Mobilint qbruntime
   - `runtime/python/` - Python runtime tutorials
   - `runtime/cpp/` - C++ cross-compiled runtime tutorials
+- [Utilities](utilities/README.md) - Install and use Mobilint tools to inspect models and profile inference
 - `assets/` - Images and diagrams used in the documentation
 
 ## Support & Issues

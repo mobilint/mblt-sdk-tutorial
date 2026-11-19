@@ -46,7 +46,7 @@ For other Linux installation methods, see the [utility installation guide](https
 ## Verify the installation
 
 ```bash
-mobilint-cli --version
+mobilint-cli version
 ```
 
 If the command prints a version number, the CLI is installed.
