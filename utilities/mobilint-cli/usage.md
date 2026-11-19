@@ -87,8 +87,13 @@ mobilint-cli benchmark -p utilities/sample/yolo11m.mxq -i int --core-mode global
 ```
 
 - `-i int` uses integer input, which this model supports.
-- `--thread 1` uses one thread. `-t 10` runs inference repeatedly for 10 seconds.
-- `Total Inference` counts completed inferences. `Avg Inference` reports the average number per second, not the time per inference.
+- `--thread 1` uses one thread.
+- `-t 10` runs inference repeatedly for 10 seconds.
+
+Read the two result fields separately:
+
+- `Total Inference` counts completed inferences.
+- `Avg Inference` reports the average number per second, not the time per inference.
 
 The sample run completed 2,140 inferences at an average of 213.91 per second. Use the same model, core mode, and thread count when comparing results.
 

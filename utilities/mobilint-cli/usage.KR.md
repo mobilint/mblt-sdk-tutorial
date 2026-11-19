@@ -90,7 +90,11 @@ mobilint-cli benchmark -p utilities/sample/yolo11m.mxq -i int --core-mode global
 ```
 
 - `-i int`는 이 모델이 지원하는 정수 입력으로 추론합니다.
-- `--thread 1`은 스레드 하나를 사용하고, `-t 10`은 10초 동안 추론을 반복합니다.
+- `--thread 1`은 스레드 하나를 사용합니다.
+- `-t 10`은 10초 동안 추론을 반복합니다.
+
+결과는 다음 두 항목에서 확인하세요.
+
 - `Total Inference`는 완료한 추론 횟수입니다.
 - `Avg Inference`는 초당 평균 추론 횟수이며, 한 번의 추론에 걸린 시간이 아닙니다.
 
