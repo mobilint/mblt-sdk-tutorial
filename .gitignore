@@ -289,3 +289,6 @@ node_modules/
 compilation/mask_generation/data/sav/
 *.tar
 *.mp4
+
+# Utility guide assets
+!/utilities/assets/**

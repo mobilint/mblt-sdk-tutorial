@@ -35,6 +35,7 @@ Start with the smallest set of files that anchor the task:
 
 - `README.md` and `README.KR.md` for the top-level product framing
 - The nearest `compilation/<task>/README.md` or `runtime/<task>/README.md`
+- `utilities/README.md` for SDK utility installation and usage guides
 - `compilation/_guides/*.md` or `runtime/_guides/*.md` when the task affects
   shared compilation or runtime concepts and terminology
 - The adjacent script files used by that tutorial
@@ -65,6 +66,9 @@ structure changes can stay aligned.
 - `runtime/cpp/`: C++ runtime tutorials with per-example `CMakeLists.txt` and
   local helper code
 - `assets/`: Shared images used by the docs
+- `utilities/`: SDK utility tutorials. The `mobilint-cli/` guides use an
+  ARIES-RB MXQ downloaded from Hugging Face. Keep the example trace in
+  `utilities/sample/` and CLI screenshots in `utilities/assets/`, not the model binary.
 - `runtime/python/rc/`, `runtime/cpp/rc/`: Shared sample images used by the
   runtime examples
 - `compilation/oriented_bounding_boxes/`: `YOLO11m-obb` compilation tutorial
@@ -91,7 +95,7 @@ structure changes can stay aligned.
 ## Current Repo State
 
 - The repo contains paired compilation and runtime tutorials under
-  `compilation/` and `runtime/`.
+  `compilation/` and `runtime/`, and standalone tool guides under `utilities/`.
 - Many tutorials have both `README.md` and `README.KR.md`; where both exist,
   update their structure, commands, paths, defaults, and user-visible behavior
   together. Do not create a missing Korean mirror unless the task explicitly
